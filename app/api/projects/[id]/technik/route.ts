@@ -193,7 +193,7 @@ export async function PUT(
     }
     const { date, technikId, updatedTechnik, selectedDays } = parseResult.data;
 
-    console.log('Technik PUT Request Body:', body);
+    console.log('Technik PUT Request Body:', parseResult.data);
     console.log('Technik PUT Request Parsed:', { id, date, technikId, updatedTechnik, selectedDays });
 
     // Verbesserte Validierung
