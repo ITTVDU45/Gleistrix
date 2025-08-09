@@ -700,7 +700,7 @@ export default function Page() {
                       <EmployeeStatusSelect
                         employee={employee}
                         currentStatus={employee.status || 'aktiv'}
-                        onStatusChange={(newStatus) => handleStatusChange(newStatus)}
+                        onStatusChange={(newStatus: EmployeeStatus) => handleStatusChange(newStatus)}
                         isCurrentlyOnVacation={isCurrentlyOnVacation(employee)}
                         disabled={lockInfo.isLocked && !lockInfo.isOwnLock}
                       />
