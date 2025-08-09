@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ressourcentyp und Ressourcen-ID erforderlich" }, { status: 400 });
     }
     
-    const updated = await Lock.updateActivity(resourceType, resourceId, userId);
+    const updated = await Lock.updateActivity(String(resourceType), String(resourceId), String(userId));
     
     return NextResponse.json({
       success: true,
