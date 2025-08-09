@@ -243,7 +243,16 @@ export default function AddEmployeeDialog() {
                 <Label htmlFor="status" className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Status
                 </Label>
-                <EmployeeStatusSelect value={status} onChange={setStatus} />
+                {/* Simple select fallback to avoid incompatible props */}
+                <select
+                  className="w-full rounded-xl min-h-[48px] border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                >
+                  <option value="aktiv">Aktiv</option>
+                  <option value="nicht aktiv">Nicht aktiv</option>
+                  <option value="urlaub">Urlaub</option>
+                </select>
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-700">
