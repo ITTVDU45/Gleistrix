@@ -5,7 +5,7 @@ import User from '../../../../lib/models/User';
 import { getCurrentUser } from '../../../../lib/auth/getCurrentUser';
 import dbConnect from '../../../../lib/dbConnect';
 import NotificationSettings from '../../../../lib/models/NotificationSettings';
-import { DEFAULT_NOTIFICATION_DEFS } from '../../notifications/route';
+import { DEFAULT_NOTIFICATION_DEFS } from '../../../../lib/notificationDefs';
 import { sendEmail } from '../../../../lib/mailer';
 import jsPDF from 'jspdf';
 import NotificationLog from '../../../../lib/models/NotificationLog';
