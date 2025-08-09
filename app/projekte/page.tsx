@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { Button } from '../../components/ui/button';
 import { Plus } from 'lucide-react';
@@ -39,7 +39,9 @@ export default async function ProjektePage() {
 
   return (
     <div className="space-y-6">
-      <ProjectDialogs projects={projects} />
+      <Suspense fallback={<div className="min-h-[80px]" />}> 
+        <ProjectDialogs projects={projects} />
+      </Suspense>
       {/* Header */}
       <div className="flex items-center justify-between projects-cards">
         <div>
