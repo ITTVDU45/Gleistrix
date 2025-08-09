@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     
     let objectId: mongoose.Types.ObjectId;
     try {
-      objectId = new mongoose.Types.ObjectId(userId);
+      objectId = new mongoose.Types.ObjectId(String(userId));
     } catch (error) {
       console.error("Ungültige Benutzer-ID:", userId, error);
       return NextResponse.json({ error: "Ungültige Benutzer-ID" }, { status: 401 });
