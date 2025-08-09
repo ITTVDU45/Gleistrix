@@ -404,7 +404,7 @@ export default function Page() {
     }
   };
 
-  const handleStatusChange = async (newStatus: string) => {
+  const handleStatusChange = async (newStatus: EmployeeStatus) => {
     // Strenge Sperrprüfung vor Status-Änderung
     if (!checkEditPermission()) {
       return;
@@ -420,7 +420,7 @@ export default function Page() {
 
     if (employee) {
       try {
-        await setEmployeeStatus(employee.id, newStatus);
+        await setEmployeeStatus(employee.id, newStatus as EmployeeStatus);
         setSnackbar({
           open: true,
           message: 'Mitarbeiterstatus erfolgreich aktualisiert',
