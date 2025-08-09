@@ -5,7 +5,7 @@ import { Project } from '../../../../../lib/models/Project';
 import { getToken } from 'next-auth/jwt';
 import mongoose from 'mongoose';
 import NotificationSettings from '../../../../../lib/models/NotificationSettings';
-import { DEFAULT_NOTIFICATION_DEFS } from '../../../notifications/route';
+import { DEFAULT_NOTIFICATION_DEFS } from '../../../../../lib/notificationDefs';
 import { sendEmailResult } from '../../../../../lib/mailer';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
