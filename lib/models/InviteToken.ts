@@ -17,7 +17,8 @@ const InviteTokenSchema = new Schema({
   phone: { type: String }
 }, { timestamps: true });
 
-InviteTokenSchema.index({ token: 1 });
+// Entferne doppelten Index, da das Feld bereits unique ist
+// InviteTokenSchema.index({ token: 1 });
 InviteTokenSchema.index({ email: 1 });
 InviteTokenSchema.index({ expiresAt: 1 });
 
