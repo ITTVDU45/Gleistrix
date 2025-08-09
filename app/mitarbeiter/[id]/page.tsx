@@ -697,13 +697,13 @@ export default function Page() {
                   <div>
                     <Label className="text-sm text-gray-600 dark:text-slate-400">Status</Label>
                     <div className="mt-1">
-                      <EmployeeStatusSelect
-                        employee={employee}
-                        currentStatus={employee.status || 'aktiv'}
-                        onStatusChange={(newStatus: EmployeeStatus) => handleStatusChange(newStatus)}
-                        isCurrentlyOnVacation={isCurrentlyOnVacation(employee)}
-                        disabled={lockInfo.isLocked && !lockInfo.isOwnLock}
-                      />
+                        <EmployeeStatusSelect
+                          employee={employee}
+                          currentStatus={employee.status || 'aktiv'}
+                          onStatusChange={async (_employeeId: string, newStatus: EmployeeStatus) => handleStatusChange(newStatus)}
+                          isCurrentlyOnVacation={isCurrentlyOnVacation(employee)}
+                          disabled={lockInfo.isLocked && !lockInfo.isOwnLock}
+                        />
                     </div>
                   </div>
                   <div>
