@@ -307,8 +307,8 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   // Hilfsfunktion: Alle Tage des Projekts als Array
   function getProjectDays(): string[] {
     if (!project) return [];
-    const start = new Date(project.datumBeginn);
-    const end = new Date(project.datumEnde);
+    const start = new Date(project.datumBeginn || new Date().toISOString());
+    const end = new Date(project.datumEnde || project.datumBeginn || new Date().toISOString());
     const days: string[] = [];
     let current = new Date(start);
     while (current <= end) {
