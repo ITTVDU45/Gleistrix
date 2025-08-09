@@ -25,7 +25,7 @@ import { VehicleAssignmentForm } from './VehicleAssignmentForm';
 import TechnikAssignmentForm from './TechnikAssignmentForm';
 import EditTechnikDialog from './EditTechnikDialog';
 import { ResourceLockDialog } from './ui/ResourceLockDialog';
-import type { Project, TechnikEntry } from '../types/main';
+import type { Project, TechnikEntry } from '../types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ChartContainer } from './ui/chart';

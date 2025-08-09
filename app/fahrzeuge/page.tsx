@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { VehiclesApi } from '@/lib/api/vehicles'
 import { ProjectsApi } from '@/lib/api/projects'
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import type { Vehicle, Project } from '../../types/main';
+import type { Vehicle, Project } from '../../types';
 import AddVehicleDialog from '../../components/AddVehicleDialog';
 import VehicleListWithFilter from '../../components/VehicleListWithFilter';
 
