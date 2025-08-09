@@ -11,7 +11,7 @@ export async function logActivity(req: NextRequest, actionType: string, module: 
     const name = (token as any).name || (token as any).email || 'Unbekannt';
     const role = (token as any).role || 'user';
     const performedBy = {
-      userId: new mongoose.Types.ObjectId(userId),
+      userId: new mongoose.Types.ObjectId(String(userId)),
       name,
       role
     } as any;

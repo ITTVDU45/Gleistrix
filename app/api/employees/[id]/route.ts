@@ -128,7 +128,7 @@ export async function PUT(
       if (db) {
         // Direkte Aktualisierung in der Collection
         await db.collection('employees').updateOne(
-          { _id: new mongoose.Types.ObjectId(id) },
+           { _id: new mongoose.Types.ObjectId(String(id)) },
           { 
             $set: {
               ...updateData,

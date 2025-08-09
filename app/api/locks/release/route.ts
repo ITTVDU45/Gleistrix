@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
         }
         const usersCollection = db.collection('users');
-        const objectId = new mongoose.Types.ObjectId(userId);
+        const objectId = new mongoose.Types.ObjectId(String(userId));
         currentUser = await usersCollection.findOne({ _id: objectId });
       } catch (e) {
         console.log("Fehler beim Laden des Benutzers:", e);
