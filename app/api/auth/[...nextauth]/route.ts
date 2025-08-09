@@ -1,11 +1,12 @@
 import NextAuth from "next-auth";
+import type { AuthOptions, SessionStrategy } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import dbConnect from "../../../../lib/dbConnect";
 import User from "../../../../lib/models/User";
 import { compare } from "bcryptjs";
 import mongoose from "mongoose";
 
-const authOptions = {
+const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -104,7 +105,7 @@ const authOptions = {
     error: '/login',
   },
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as SessionStrategy,
     maxAge: 60 * 60 * 24 * 7, // 7 Tage
   },
   debug: process.env.NODE_ENV === 'development',
