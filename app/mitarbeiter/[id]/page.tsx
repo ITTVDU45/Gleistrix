@@ -864,10 +864,15 @@ export default function Page() {
             <div>
               <Label htmlFor="status">Status</Label>
               <div className="mt-1">
-                <EmployeeStatusSelect
-                  value={editedEmployee.status as any || 'aktiv'}
-                  onChange={(newStatus) => handleInputChange('status', newStatus)}
-                />
+                <select
+                  className="w-full rounded-xl min-h-[48px] border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white"
+                  value={editedEmployee.status}
+                  onChange={(e) => handleInputChange('status', e.target.value)}
+                >
+                  <option value="aktiv">Aktiv</option>
+                  <option value="nicht aktiv">Nicht aktiv</option>
+                  <option value="urlaub">Urlaub</option>
+                </select>
               </div>
             </div>
             <div>
