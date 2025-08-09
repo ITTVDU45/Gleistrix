@@ -11,8 +11,14 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  // Nonce aus Middleware beziehen
-  const nonce = typeof headers === 'function' ? (require('next/headers') as any).headers().get('x-nonce') : null;
+  // Nonce aus Middleware beziehen (optional, zur Build-Zeit ohne next/headers nutzbar)
+  let nonce: string | null = null;
+  try {
+    // Dynamischer Import, um Build-Time Fehler zu vermeiden
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { headers } = require('next/headers');
+    nonce = headers().get('x-nonce');
+  } catch {}
   return (
     <html lang="de" className="h-full" suppressHydrationWarning>
       <body className="h-full bg-slate-50 dark:bg-slate-900 antialiased">
