@@ -193,10 +193,10 @@ export async function PATCH(
         if (settings?.enabledByKey) for (const [k, v] of settings.enabledByKey.entries()) enabledByKey.set(k, v);
         if (settings?.configByKey) for (const [k, v] of settings.configByKey.entries()) configByKey.set(k, v);
 
-        const notifKey = 'project_marked_geleistet_email_to_accounting';
+        const notifKey = 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung';
         if (enabledByKey.get(notifKey)) {
           const cfg = configByKey.get(notifKey) || {};
-          const to = cfg.to || DEFAULT_NOTIFICATION_DEFS.project_marked_geleistet_email_to_accounting.defaultConfig.to;
+          const to = cfg.to || DEFAULT_NOTIFICATION_DEFS[notifKey].defaultConfig.to;
 
           const docPdf = new jsPDF();
           let y = 20;
