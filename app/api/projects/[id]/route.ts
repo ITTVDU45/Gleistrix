@@ -277,14 +277,15 @@ export async function DELETE(
     // Activity Log erstellen
     if (auth.ok) {
       try {
+        const currentUser = await getCurrentUser(request);
         const activityLog = new ActivityLog({
           timestamp: new Date(),
           actionType: 'project_deleted',
           module: 'project',
           performedBy: {
-            userId: currentUser._id,
-            name: currentUser.name,
-            role: currentUser.role
+            userId: currentUser?._id || id,
+            name: currentUser?.name || 'Unbekannt',
+            role: currentUser?.role || 'unknown'
           },
           details: {
             entityId: id,
