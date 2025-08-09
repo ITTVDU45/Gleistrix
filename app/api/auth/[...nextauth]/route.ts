@@ -5,7 +5,7 @@ import User from "../../../../lib/models/User";
 import { compare } from "bcryptjs";
 import mongoose from "mongoose";
 
-export const authOptions = {
+const authOptions = {
   providers: [
     CredentialsProvider({
       name: "credentials",
