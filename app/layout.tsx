@@ -6,7 +6,8 @@ export const metadata = {
   title: 'MH-Zeiterfassung',
   description: 'Projektmanagement und Zeiterfassungssystem',
   icons: {
-    icon: ['/fivicon.png', '/favicon.svg']
+    // Stelle sicher, dass nur vorhandene Dateien referenziert werden
+    icon: ['/fivicon.png']
   }
 };
 
@@ -22,13 +23,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="de" className="h-full" suppressHydrationWarning>
       <body className="h-full bg-slate-50 dark:bg-slate-900 antialiased">
-        {/* Beispiel für Inline-Script/Style mit Nonce falls notwendig */}
-        {nonce ? (
-          <script
-            nonce={nonce}
-            dangerouslySetInnerHTML={{ __html: 'window.__APP_NONCE__ = true;' }}
-          />
-        ) : null}
         <ClientLayout>
           {children}
         </ClientLayout>
