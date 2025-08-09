@@ -44,12 +44,12 @@ export default function FahrzeugePage() {
         ]);
 
         if (vehiclesData && projectsData) {
-          const normalizedVehicles = (vehiclesData.vehicles || []).map((v: any) => ({
+          const normalizedVehicles = ((vehiclesData as any).vehicles || []).map((v: any) => ({
             ...v,
             id: v?.id || v?._id?.toString?.() || v?._id || undefined,
           }));
           setVehicles(normalizedVehicles);
-          setProjects(projectsData.projects || []);
+          setProjects(((projectsData as any).projects) || []);
         }
       } catch (err: any) {
         setError(err.message);

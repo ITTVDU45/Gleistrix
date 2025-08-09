@@ -77,15 +77,15 @@ export default function DashboardPage() {
       
       // Projekte laden
       const projectsData = await ProjectsApi.list()
-      setProjects(projectsData.projects || [])
+      setProjects((projectsData as any).projects || [])
 
       // Mitarbeiter laden
       const employeesData = await EmployeesApi.list()
-      setEmployees(employeesData.employees || [])
+      setEmployees((employeesData as any).employees || [])
 
       // Fahrzeuge laden
       const vehiclesData = await VehiclesApi.list()
-      setVehicles(vehiclesData.vehicles || [])
+      setVehicles((vehiclesData as any).vehicles || [])
       
       console.log('Dashboard - Datenladung abgeschlossen');
     } catch (err) {
