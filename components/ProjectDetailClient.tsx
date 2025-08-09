@@ -425,8 +425,8 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       console.log('API Response:', result);
       
       if ((result as any).project) {
-        console.log('Updating project with:', result.project);
-        setProject((result as any).project);
+        console.log('Updating project with:', (result as any).project);
+        setProject((result as any).project as any);
         
         setSnackbar({
           open: true,
