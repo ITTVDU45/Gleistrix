@@ -10,7 +10,7 @@ import { Button } from '../../components/ui/button';
 import { User } from 'lucide-react';
 import DynamicDashboard from '../../components/DynamicDashboard';
 import ProjectStatistics from '../../components/ProjectStatistics';
-import type { Project, Employee, Vehicle } from '../../types';
+import type { Project, Employee, Vehicle } from '../../types/main';
 
 interface User {
   id: string;
