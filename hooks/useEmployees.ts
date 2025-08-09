@@ -15,7 +15,7 @@ export function useEmployees() {
       setLoading(true)
       try {
         const data = await EmployeesApi.list()
-        if (data.success && data.employees) {
+        if ((data as any).success && (data as any).employees) {
           setEmployees(data.employees.map((e: any) => ({
             ...e,
             id: e._id || e.id,
@@ -23,7 +23,7 @@ export function useEmployees() {
             vacationDays: e.vacationDays || []
           })))
         } else {
-          throw new Error(data.message || 'Fehler beim Laden der Mitarbeiter')
+          throw new Error((data as any).message || 'Fehler beim Laden der Mitarbeiter')
         }
         setError(null)
       } catch (err: any) {
@@ -91,12 +91,12 @@ export function useEmployees() {
 
   const updateEmployee = async (id: string, updatedData: Partial<Employee>) => {
     const data = await EmployeesApi.update(id, updatedData)
-    if (data.success && data.employee) {
+    if ((data as any).success && (data as any).employee) {
       // Verwende die aktualisierten Daten von der API
       const updatedEmployee = {
-        ...data.employee,
-        id: data.employee._id || data.employee.id,
-        vacationDays: data.employee.vacationDays || []
+        ...(data as any).employee,
+        id: (data as any).employee._id || (data as any).employee.id,
+        vacationDays: (data as any).employee.vacationDays || []
       };
       setEmployees(prev => prev.map(emp => emp.id === id ? updatedEmployee : emp))
     } else {
@@ -106,16 +106,16 @@ export function useEmployees() {
 
   const deleteEmployee = async (id: string) => {
     const data = await EmployeesApi.remove(id)
-    if (data.success) {
+    if ((data as any).success) {
       setEmployees(prev => prev.filter(emp => emp.id !== id))
     } else {
-      throw new Error(data.message || 'Fehler beim Löschen des Mitarbeiters')
+      throw new Error((data as any).message || 'Fehler beim Löschen des Mitarbeiters')
     }
   }
 
   const setEmployeeStatus = async (id: string, status: EmployeeStatus) => {
     const data = await EmployeesApi.update(id, { status })
-    if (data.success) {
+    if ((data as any).success) {
       const employee = employees.find(emp => emp.id === id);
       const oldStatus = employee?.status || 'unbekannt';
       
@@ -165,12 +165,12 @@ export function useEmployees() {
       console.log(`Neuer Status für ${employee.name}: ${newStatus}`);
       
       const data = await EmployeesApi.update(employeeId, { vacationDays: updatedVacationDays, status: newStatus })
-      if (data.success && data.employee) {
+      if ((data as any).success && (data as any).employee) {
         // Verwende die aktualisierten Daten von der API
         const updatedEmployee = {
-          ...data.employee,
-          id: data.employee._id || data.employee.id,
-          vacationDays: data.employee.vacationDays || []
+          ...(data as any).employee,
+          id: (data as any).employee._id || (data as any).employee.id,
+          vacationDays: (data as any).employee.vacationDays || []
         };
         
         setEmployees(prev => prev.map(emp => 
@@ -215,12 +215,12 @@ export function useEmployees() {
       const newStatus: EmployeeStatus = hasActiveVacations ? 'urlaub' : 'aktiv';
       
       const data = await EmployeesApi.update(employeeId, { vacationDays: updatedVacationDays, status: newStatus })
-      if (data.success && data.employee) {
+      if ((data as any).success && (data as any).employee) {
         // Verwende die aktualisierten Daten von der API
         const updatedEmployee = {
-          ...data.employee,
-          id: data.employee._id || data.employee.id,
-          vacationDays: data.employee.vacationDays || []
+          ...(data as any).employee,
+          id: (data as any).employee._id || (data as any).employee.id,
+          vacationDays: (data as any).employee.vacationDays || []
         };
         
         setEmployees(prev => prev.map(emp => 
@@ -248,7 +248,7 @@ export function useEmployees() {
       // Nur aktualisieren, wenn sich der Status ändert
       if (employee.status !== newStatus) {
         const data = await EmployeesApi.update(employeeId, { status: newStatus })
-        if (data.success) {
+        if ((data as any).success) {
           setEmployees(prev => prev.map(emp => 
             emp.id === employeeId ? { ...emp, status: newStatus } : emp
           ));
