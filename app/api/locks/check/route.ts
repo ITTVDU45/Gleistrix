@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
         isLocked: true,
         isOwnLock,
         lock: {
-          id: lock._id,
+          id: lock._id?.toString?.() || undefined,
           resourceType: lock.resourceType,
           resourceId: lock.resourceId,
           lockedBy: lock.lockedBy,

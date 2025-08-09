@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 interface ILock {
+  _id?: mongoose.Types.ObjectId;
   resourceType: string;
   resourceId: string; // Geändert von mongoose.Types.ObjectId zu string
   lockedBy: {
