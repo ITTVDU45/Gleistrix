@@ -23,7 +23,7 @@ export default function SendEmailPage() {
       const data = await SetupApi.sendWelcomeEmail();
 
       if (!('error' in data) || !data.error) {
-        setSuccess(data.message);
+        setSuccess((data as any).message || '');
         setEmailStatus(data.user);
       } else {
         if ((data as any).status === 409) {

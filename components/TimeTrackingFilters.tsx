@@ -209,8 +209,7 @@ export default function TimeTrackingFilters({ projects, employees, availableLoca
               placeholder="Suchen..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-              className="[&_[data-badge]]:text-[11px] [&_[data-badge]]:leading-[18px] [&_[data-badge]]:px-2 [&_[data-badge]]:py-0"
+              className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white [&_[data-badge]]:text-[11px] [&_[data-badge]]:leading-[18px] [&_[data-badge]]:px-2 [&_[data-badge]]:py-0"
             />
           </div>
 

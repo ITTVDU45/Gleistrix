@@ -1,5 +1,5 @@
 import { getJSON, postJSON, putJSON, delJSON } from '@/lib/http/apiClient'
-import type { Project } from '@/types'
+import type { Project } from '@/types/main'
 
 export const ProjectsApi = {
   list: () => getJSON<{ success: boolean; projects: Project[] }>('/api/projects'),
