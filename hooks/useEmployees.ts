@@ -85,7 +85,7 @@ export function useEmployees() {
       
       return newEmployee;
     } else {
-      throw new Error(data.message || 'Fehler beim Anlegen des Mitarbeiters')
+      throw new Error(((data as any).message) || 'Fehler beim Anlegen des Mitarbeiters')
     }
   }
 
@@ -100,7 +100,7 @@ export function useEmployees() {
       };
       setEmployees(prev => prev.map(emp => emp.id === id ? updatedEmployee : emp))
     } else {
-      throw new Error(data.message || 'Fehler beim Aktualisieren des Mitarbeiters')
+      throw new Error(((data as any).message) || 'Fehler beim Aktualisieren des Mitarbeiters')
     }
   }
 
@@ -134,7 +134,7 @@ export function useEmployees() {
         console.error('Error logging status change:', error);
       }
     } else {
-      throw new Error(data.message || 'Fehler beim Aktualisieren des Status');
+      throw new Error(((data as any).message) || 'Fehler beim Aktualisieren des Status');
     }
   };
 
@@ -192,7 +192,7 @@ export function useEmployees() {
         
         return true;
       } else {
-        throw new Error(data.message || 'Fehler beim Speichern der Urlaubszeiten');
+        throw new Error(((data as any).message) || 'Fehler beim Speichern der Urlaubszeiten');
       }
     } catch (error: any) {
       console.error('Fehler beim Hinzufügen von Urlaub:', error);
@@ -228,7 +228,7 @@ export function useEmployees() {
         ));
         return true;
       } else {
-        throw new Error(data.message || 'Fehler beim Löschen der Urlaubszeiten');
+        throw new Error(((data as any).message) || 'Fehler beim Löschen der Urlaubszeiten');
       }
     } catch (error: any) {
       console.error('Fehler beim Löschen von Urlaub:', error);
