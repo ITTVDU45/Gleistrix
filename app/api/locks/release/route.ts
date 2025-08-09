@@ -20,7 +20,11 @@ export async function POST(req: NextRequest) {
       try {
         userId = token.id;
         // Benutzer direkt aus der Collection abrufen
-        const usersCollection = mongoose.connection.db.collection('users');
+        const db = mongoose.connection.db;
+        if (!db) {
+          return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
+        }
+        const usersCollection = db.collection('users');
         const objectId = new mongoose.Types.ObjectId(userId);
         currentUser = await usersCollection.findOne({ _id: objectId });
       } catch (e) {

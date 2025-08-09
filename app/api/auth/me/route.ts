@@ -18,7 +18,11 @@ export async function GET(req: NextRequest) {
     await dbConnect();
     
     // Benutzer direkt aus der Collection abrufen
-    const usersCollection = mongoose.connection.db.collection('users');
+    const db = mongoose.connection.db;
+    if (!db) {
+      return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
+    }
+    const usersCollection = db.collection('users');
     const userId = token.id;
     
     if (!userId) {

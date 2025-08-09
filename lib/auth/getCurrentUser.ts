@@ -16,7 +16,11 @@ export async function getCurrentUser(req: NextRequest): Promise<CurrentUser | nu
   if (!token?.id) return null;
 
   await dbConnect();
-  const users = mongoose.connection.db.collection('users');
+  const db = mongoose.connection.db;
+  if (!db) {
+    return null;
+  }
+  const users = db.collection('users');
   let objectId: any;
   try {
     objectId = new mongoose.Types.ObjectId(String(token.id));

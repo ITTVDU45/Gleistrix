@@ -26,7 +26,11 @@ const authOptions = {
           console.log("MongoDB-Verbindungsstatus:", mongoose.connection.readyState === 1 ? "Verbunden" : "Nicht verbunden");
           
           // Direkt mit der Collection arbeiten
-          const usersCollection = mongoose.connection.db.collection('users');
+          const db = mongoose.connection.db;
+          if (!db) {
+            throw new Error('Datenbankverbindung nicht verfügbar');
+          }
+          const usersCollection = db.collection('users');
           console.log("Collection 'users' gefunden:", usersCollection ? "Ja" : "Nein");
           
           // Benutzer direkt aus der Collection abfragen
