@@ -4,7 +4,7 @@ import NotificationSettings from '../../../lib/models/NotificationSettings';
 import { getToken } from 'next-auth/jwt';
 
 // Baseline-Definitionen für Notification Keys
-export const DEFAULT_NOTIFICATION_DEFS = {
+const DEFAULT_NOTIFICATION_DEFS = {
   'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung': {
     key: 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung',
     label: 'E-Mail an Buchhaltung bei Status "geleistet"',
