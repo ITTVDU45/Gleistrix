@@ -35,7 +35,7 @@ export default function VehicleActions({ vehicle }: VehicleActionsProps) {
     autoRelease: true,
     lazyLoad: true,
     checkInterval: 15,
-    userId: session?.user?.id,
+    userId: (session as any)?.user?.id as string | undefined,
   });
 
   const handleDeleteClick = () => {
