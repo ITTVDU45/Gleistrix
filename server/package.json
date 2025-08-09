@@ -1,0 +1,16 @@
+{
+  "name": "mh-zeiterfassung-websocket-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for real-time lock updates",
+  "main": "websocket-server.js",
+  "scripts": {
+    "start": "node websocket-server.js",
+    "dev": "nodemon websocket-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
