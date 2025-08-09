@@ -15,8 +15,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 });
     }
     
-    // Benutzer aus der users-Collection laden
-    const usersCollection = mongoose.connection.db.collection('users');
+    // Benutzer aus der users-Collection laden (mit Guard gegen undefined)
+    const db = mongoose.connection.db;
+    if (!db) {
+      return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
+    }
+    const usersCollection = db.collection('users');
     const userId = token.id as string | undefined;
     if (!userId) {
       return NextResponse.json({ error: 'Ungültiges Token' }, { status: 401 });
