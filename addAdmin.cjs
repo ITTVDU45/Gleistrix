@@ -1,9 +1,16 @@
 const { MongoClient } = require('mongodb');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 
-// Optional: .env / .env.local laden, falls vorhanden (keine Pflicht)
+// .env.local bevorzugt laden, sonst .env
 try {
-  require('dotenv').config();
+  const envLocalPath = path.resolve(process.cwd(), '.env.local');
+  if (fs.existsSync(envLocalPath)) {
+    require('dotenv').config({ path: envLocalPath });
+  } else {
+    require('dotenv').config();
+  }
 } catch (_) {}
 
 const mongoUri = process.env.MONGODB_URI;
