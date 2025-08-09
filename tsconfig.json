@@ -38,6 +38,9 @@
       ],
       "@/hooks/*": [
         "hooks/*"
+      ],
+      "@/types/*": [
+        "types/*"
       ]
     },
     "allowJs": true,

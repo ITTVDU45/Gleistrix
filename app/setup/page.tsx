@@ -114,7 +114,7 @@ export default function SetupPage() {
     }
 
     try {
-      const data = await SetupApi.createSuperadmin(formData);
+      const data = await SetupApi.createSuperadmin(formData as unknown as Record<string, unknown>);
 
       if (!data.error) {
         setSuccess('Superadmin erfolgreich erstellt! Sie werden zur Anmeldung weitergeleitet.');

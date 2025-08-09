@@ -1,5 +1,5 @@
 // ===== GRUNDLEGENDE TYPEN =====
-export type ProjectStatus = 'aktiv' | 'abgeschlossen' | 'fertiggestellt' | 'geleistet' | 'kein Status'
+export type ProjectStatus = 'aktiv' | 'pausiert' | 'abgeschlossen' | 'fertiggestellt' | 'geleistet' | 'kein Status'
 export type MitarbeiterFunktion = 'SIPO' | 'HFE' | 'Monteur/bediener' | 'Sakra' | 'BüP' | 'HiBa' | 'SAS' | 'Bahnerder'
 export type SnackbarSeverity = 'success' | 'error' | 'warning' | 'info'
 
@@ -95,10 +95,10 @@ export interface Project {
   auftragsnummer: string;
   sapNummer: string;
   auftraggeber: string;
-  startDatum: string;
-  endDatum: string;
-  status: string;
-  ort?: string;
+  datumBeginn?: string;
+  datumEnde?: string;
+  status: ProjectStatus | string;
+  baustelle?: string;
   mitarbeiterZeiten?: { [date: string]: TimeEntry[] };
   technik?: { [date: string]: any[] };
   fahrzeuge?: { [date: string]: any[] };

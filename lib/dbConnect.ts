@@ -23,7 +23,9 @@ async function dbConnect() {
     cached.promise = mongoose.connect(MONGODB_URI as string, options)
       .then(m => {
         console.log('MongoDB-Verbindung erfolgreich hergestellt');
-        console.log('Verbundene Datenbank:', mongoose.connection.db.databaseName);
+        if (mongoose.connection.db) {
+          console.log('Verbundene Datenbank:', mongoose.connection.db.databaseName);
+        }
         return m;
       })
       .catch(err => {

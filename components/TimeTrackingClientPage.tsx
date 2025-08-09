@@ -45,8 +45,8 @@ export default function TimeTrackingClientPage({ projects, employees }: { projec
         orderNumber: project.auftragsnummer,
         sapNumber: project.sapNummer,
         client: project.auftraggeber,
-        status: project.status,
-        ort: project.ort || '-',
+         status: project.status as any,
+         ort: (project as any).baustelle || '-',
         id: `${project.id}-${date}-${entry.id || Math.random()}`
       }))
     )
