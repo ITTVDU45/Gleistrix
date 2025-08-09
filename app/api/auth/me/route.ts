@@ -23,14 +23,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
     }
     const usersCollection = db.collection('users');
-    const userId = token.id;
+    const userId = token.id as string | undefined;
     
     if (!userId) {
       console.log("Keine Benutzer-ID im Token");
       return NextResponse.json({ error: "Ungültiges Token" }, { status: 401 });
     }
     
-    let objectId;
+    let objectId: mongoose.Types.ObjectId;
     try {
       objectId = new mongoose.Types.ObjectId(userId);
     } catch (error) {
