@@ -102,7 +102,8 @@ const LockSchema = new mongoose.Schema<ILock>({
 // Index für schnelle Abfragen
 LockSchema.index({ resourceType: 1, resourceId: 1 });
 LockSchema.index({ lockedAt: 1 });
-LockSchema.index({ lastActivity: 1 });
+// Hinweis: kein zusätzlicher lastActivity-Index, da TTL-Index unten existiert
+// LockSchema.index({ lastActivity: 1 });
 
 // Automatisches Löschen abgelaufener Sperren (nach 15 Minuten Inaktivität)
 // Nur EIN Index definieren, um Duplicate-Index-Warnungen zu vermeiden
