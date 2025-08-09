@@ -148,12 +148,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         // Exportierte Tage + Zeitpunkt als Block unter den Tabellen
         const ts = new Date().toLocaleString('de-DE');
         docPdf.setFontSize(12);
-        docPdf.setFont(undefined, 'bold'); docPdf.text('Exportierte Tage:', leftX, afterSummaryY);
-        docPdf.setFont(undefined, 'normal');
+        try { (docPdf as any).setFont('helvetica', 'bold'); } catch {}
+        docPdf.text('Exportierte Tage:', leftX, afterSummaryY);
+        try { (docPdf as any).setFont('helvetica', 'normal'); } catch {}
         const daysWrapped = docPdf.splitTextToSize(exportedDays.join(', '), docPdf.internal.pageSize.getWidth() - leftX - 12);
         docPdf.text(daysWrapped, leftX, afterSummaryY + 6);
-        docPdf.setFont(undefined, 'bold'); docPdf.text('Exportzeitpunkt:', rightX, afterSummaryY);
-        docPdf.setFont(undefined, 'normal'); docPdf.text(ts, rightX + 40, afterSummaryY);
+        try { (docPdf as any).setFont('helvetica', 'bold'); } catch {}
+        docPdf.text('Exportzeitpunkt:', rightX, afterSummaryY);
+        try { (docPdf as any).setFont('helvetica', 'normal'); } catch {}
+        docPdf.text(ts, rightX + 40, afterSummaryY);
         y = afterSummaryY + 12 + daysWrapped.length * 6;
 
         // Tabelle: Alle Projekttage aus mitarbeiterZeiten
