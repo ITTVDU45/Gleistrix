@@ -51,7 +51,7 @@ export default function Page() {
     activityInterval: 30,
     checkInterval: 15,
     lazyLoad: false,
-    userId: session?.user?.id,
+    userId: (session as any)?.user?.id as string | undefined,
     onLockAcquired: () => {
       console.log('Lock acquired - showing snackbar');
       setSnackbar({
