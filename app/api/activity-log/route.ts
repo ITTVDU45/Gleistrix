@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     }
     let objectId;
     try {
-      objectId = new mongoose.Types.ObjectId(currentUserId);
+      objectId = new mongoose.Types.ObjectId(String(currentUserId));
     } catch (e) {
       return NextResponse.json({ error: "Ungültige Benutzer-ID" }, { status: 401 });
     }
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 
     if (userId) {
       try {
-        filter['performedBy.userId'] = new mongoose.Types.ObjectId(userId);
+        filter['performedBy.userId'] = new mongoose.Types.ObjectId(String(userId));
       } catch (e) {
         return NextResponse.json({ error: 'Ungültige Benutzer-ID' }, { status: 400 });
       }

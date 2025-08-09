@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
     let objectId;
     try {
-      objectId = new mongoose.Types.ObjectId(userId);
+      objectId = new mongoose.Types.ObjectId(String(userId));
     } catch (e) {
       return NextResponse.json({ error: 'Ungültige Benutzer-ID' }, { status: 401 });
     }
