@@ -60,13 +60,13 @@ export function useEmployees() {
     console.log('Sende Mitarbeiterdaten an API:', employeeData);
     
     const data = await EmployeesApi.create(employeeData)
-    if (data.success && data.data) {
+    if ((data as any).success && (data as any).data) {
       // Stelle sicher, dass der Status im lokalen State korrekt gesetzt ist
       const newEmployee = { 
-        ...data.data, 
-        id: data.data._id || data.data.id,
-        status: data.data.status || employeeData.status || 'aktiv',
-        vacationDays: data.data.vacationDays || []
+        ...(data as any).data, 
+        id: (data as any).data._id || (data as any).data.id,
+        status: (data as any).data.status || employeeData.status || 'aktiv',
+        vacationDays: (data as any).data.vacationDays || []
       };
       setEmployees(prev => [...prev, newEmployee]);
       
