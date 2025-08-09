@@ -27,7 +27,20 @@ import EditTechnikDialog from './EditTechnikDialog';
 import { ResourceLockDialog } from './ui/ResourceLockDialog';
 import type { Project, TechnikEntry } from '../types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+// Replace Radix VisuallyHidden with a simple inline implementation to avoid extra dependency
+const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
+  <span style={{
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+  }}>{children}</span>
+);
 import { ChartContainer } from './ui/chart';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
 import Image from 'next/image';
