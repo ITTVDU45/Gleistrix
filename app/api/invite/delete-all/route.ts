@@ -14,7 +14,11 @@ export async function DELETE(req: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
     }
-    const usersCollection = mongoose.connection.db.collection('users');
+    const db = mongoose.connection.db;
+    if (!db) {
+      return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
+    }
+    const usersCollection = db.collection('users');
     const currentUserId = token.id as string | undefined;
     if (!currentUserId) {
       return NextResponse.json({ error: "Ungültiges Token" }, { status: 401 });
