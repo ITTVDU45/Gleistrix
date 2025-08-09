@@ -1,11 +1,9 @@
 'use client';
 
 import React from 'react';
-import Joyride, { CallBackProps, STATUS, Step } from 'react-joyride';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+// Temporärer No-Op-Provider für React 19-Kompatibilität (react-joyride inkompatibel)
 
-function getStepsForPath(path: string): Step[] {
+function getStepsForPath(path: string): any[] {
   switch (true) {
     case /\/dashboard$/.test(path):
       return [
@@ -113,9 +111,9 @@ function getStepsForPath(path: string): Step[] {
 }
 
 export default function JoyrideProvider() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  // No-Op: Joyride wird vorerst deaktiviert
+  return null;
+}
   const [run, setRun] = React.useState(false);
   const [steps, setSteps] = React.useState<Step[]>([]);
 
