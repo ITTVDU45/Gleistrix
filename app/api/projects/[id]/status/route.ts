@@ -60,7 +60,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const cfg = configByKey.get(notifKey) || {};
 
       if (isEnabled) {
-        const to = cfg.to || DEFAULT_NOTIFICATION_DEFS.project_marked_geleistet_email_to_accounting.defaultConfig.to;
+        const to = cfg.to || DEFAULT_NOTIFICATION_DEFS[notifKey].defaultConfig.to;
 
         // PDF mit Projektdetails inkl. Logo, Zusammenfassung, Technik und allen Projekttagen erzeugen
         const docPdf = new jsPDF();
