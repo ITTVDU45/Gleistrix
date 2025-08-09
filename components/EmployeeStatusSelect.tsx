@@ -10,13 +10,15 @@ interface EmployeeStatusSelectProps {
   currentStatus: EmployeeStatus;
   onStatusChange: (employeeId: string, newStatus: EmployeeStatus) => Promise<void>;
   isCurrentlyOnVacation: boolean;
+  disabled?: boolean;
 }
 
 export default function EmployeeStatusSelect({ 
   employee, 
   currentStatus, 
   onStatusChange,
-  isCurrentlyOnVacation 
+  isCurrentlyOnVacation,
+  disabled = false,
 }: EmployeeStatusSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,8 +53,8 @@ export default function EmployeeStatusSelect({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={isLoading}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={isLoading || disabled}
         className="h-auto p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
       >
         <Badge 
@@ -73,7 +75,7 @@ export default function EmployeeStatusSelect({
               <button
                 key={option.value}
                 onClick={() => handleStatusChange(option.value as EmployeeStatus)}
-                disabled={isLoading}
+                disabled={isLoading || disabled}
                 className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between ${
                   currentStatus === option.value ? 'bg-blue-50 dark:bg-blue-900/30' : ''
                 }`}
