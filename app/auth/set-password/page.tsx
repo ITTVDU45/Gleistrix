@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
@@ -9,7 +10,7 @@ import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import Image from 'next/image';
 
-export default function SetPasswordPage() {
+function SetPasswordInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -256,4 +257,12 @@ export default function SetPasswordPage() {
       </div>
     </div>
   );
-} 
+}
+
+export default function SetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Lade...</div>}>
+      <SetPasswordInner />
+    </Suspense>
+  );
+}
