@@ -27,8 +27,8 @@ export default function DynamicTimeTrackingStats({ timeEntries }: DynamicTimeTra
     // Fahrtstunden
     const totalTravelHours = timeEntries.reduce((sum, entry) => sum + (entry.fahrtstunden || 0), 0);
 
-    // Eindeutige Projekte
-    const uniqueProjects = new Set(timeEntries.map(entry => entry.projectName)).size;
+    // Eindeutige Projekte (fallback, wenn projectName fehlt)
+    const uniqueProjects = new Set((timeEntries as any[]).map((entry) => (entry as any).projectName || '')).size;
 
     return {
       totalEntries,

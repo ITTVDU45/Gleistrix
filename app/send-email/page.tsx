@@ -72,7 +72,7 @@ export default function SendEmailPage() {
               </Alert>
             )}
 
-            {success && (
+            {typeof success === 'string' && success && (
               <Alert className="rounded-lg bg-green-50 border-green-200">
                 <AlertDescription className="text-green-800">{success}</AlertDescription>
               </Alert>

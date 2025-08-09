@@ -55,7 +55,8 @@ export const calculateDashboardStats = (
 
 export const getProjectsByStatus = (projects: Project[]): ChartData[] => {
   const statusCount = projects.reduce((acc, project) => {
-    acc[project.status] = (acc[project.status] || 0) + 1;
+    const key = (project.status as ProjectStatus) || 'kein Status';
+    (acc as any)[key] = ((acc as any)[key] || 0) + 1;
     return acc;
   }, {} as Record<ProjectStatus, number>);
 
@@ -67,8 +68,8 @@ export const getProjectsByStatus = (projects: Project[]): ChartData[] => {
 
 export const getATWSUsage = (projects: Project[]): ATWUsageData[] => {
   return projects
-    .filter(project => project.atwsImEinsatz)
-    .map(project => ({
+    .filter((project: any) => project.atwsImEinsatz)
+    .map((project: any) => ({
       name: project.name,
       anzahl: project.anzahlAtws
     }));
@@ -170,7 +171,7 @@ export const calculateProjectStats = (project: Project): ProjectStats => {
 
 // ===== FILTER UTILITY FUNCTIONS =====
 export const filterProjects = (projects: Project[], filters: ProjectFilters): Project[] => {
-  return projects.filter(project => {
+  return projects.filter((project: any) => {
     if (filters.name && !project.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
     if (filters.auftraggeber && !project.auftraggeber.toLowerCase().includes(filters.auftraggeber.toLowerCase())) return false;
     if (filters.baustelle && !project.baustelle.toLowerCase().includes(filters.baustelle.toLowerCase())) return false;
@@ -194,7 +195,7 @@ export const filterTimeEntries = (
         orderNumber: project.auftragsnummer,
         sapNumber: project.sapNummer,
         client: project.auftraggeber,
-        status: project.status
+        status: project.status as ProjectStatus
       }))
     )
   );
