@@ -31,7 +31,7 @@ export async function GET(
     }
 
     const employee = await db.collection('employees').findOne({
-      _id: new mongoose.Types.ObjectId(id)
+    _id: new mongoose.Types.ObjectId(String(id))
     });
 
     if (!employee) {

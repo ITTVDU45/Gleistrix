@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
      return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
    }
    const usersCollection = db.collection('users');
-    const objectId = new mongoose.Types.ObjectId(userId);
+   const objectId = new mongoose.Types.ObjectId(String(userId));
     const currentUser = await usersCollection.findOne({ _id: objectId });
     
     if (!currentUser) {
