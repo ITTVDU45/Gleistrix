@@ -258,6 +258,8 @@ LockSchema.statics.cleanupExpiredLocks = async function() {
   return result.deletedCount;
 };
 
-const Lock = mongoose.models.Lock || mongoose.model<ILock, ILockModel>('Lock', LockSchema);
+type LockModelType = mongoose.Model<ILock> & ILockModel;
 
-export default Lock; 
+const Lock = (mongoose.models.Lock as LockModelType) || (mongoose.model<ILock>('Lock', LockSchema) as LockModelType);
+
+export default Lock;
