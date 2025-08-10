@@ -305,7 +305,7 @@ export default function EinstellungenPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 md:p-6">
                 <form onSubmit={handleSubmit} className="space-y-4 profile-form">
                   <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
                     <div className="space-y-2">
@@ -411,9 +411,28 @@ export default function EinstellungenPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto -mx-3 md:mx-0">
-                  <table className="w-full text-sm min-w-[720px] md:min-w-0">
+              <CardContent className="p-4 md:p-6">
+                <div className="md:hidden space-y-3">
+                  {notificationLogs.length === 0 && (
+                    <div className="text-sm text-slate-500">Keine Einträge</div>
+                  )}
+                  {notificationLogs.map((log) => (
+                    <div key={log.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                      <div className="text-xs text-slate-500 mb-1">{new Date(log.timestamp).toLocaleString('de-DE')}</div>
+                      <div className="text-sm font-medium dark:text-white break-words">{log.subject}</div>
+                      <div className="text-xs text-slate-500 break-words">{log.projectName || '-'}</div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs text-slate-500 break-words">{log.to}</span>
+                        <span className={`text-xs ${log.success ? 'text-green-600' : 'text-red-600'}`}>{log.success ? 'OK' : 'Fehler'}</span>
+                      </div>
+                      {!!log.errorMessage && (
+                        <div className="mt-1 text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">{log.errorMessage}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden md:block overflow-x-auto -mx-3 md:mx-0">
+                  <table className="w-full text-sm min-w-[720px]">
                     <thead>
                       <tr className="text-left border-b border-slate-200 dark:border-slate-700">
                         <th className="py-2 pr-4">Datum</th>
@@ -466,21 +485,21 @@ export default function EinstellungenPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 md:p-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Status</span>
                     <Badge variant="secondary" className="rounded-xl px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                       Aktiv
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Rolle</span>
                     <Badge variant="secondary" className={`rounded-xl px-3 py-1 ${getRoleBadgeColor(user.role)}`}>
                       {getRoleDisplayName(user.role)}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Mitglied seit</span>
                     <span className="text-sm font-medium dark:text-white">
                       {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) : 'Unbekannt'}
@@ -502,9 +521,9 @@ export default function EinstellungenPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 md:p-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Theme</span>
                     <div className="flex gap-2">
                       <Button
@@ -545,13 +564,13 @@ export default function EinstellungenPage() {
                       </Button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Aktuelles Theme</span>
                     <Badge variant="outline" className="rounded-xl px-3 py-1 dark:border-slate-600 dark:text-slate-300">
                       {getThemeText()}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Sprache</span>
                     <Badge variant="outline" className="rounded-xl px-3 py-1 dark:border-slate-600 dark:text-slate-300">
                       Deutsch
