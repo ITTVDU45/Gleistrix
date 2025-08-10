@@ -135,9 +135,9 @@ export default function Sidebar() {
       <div className={cn('hidden md:flex md:flex-col md:fixed md:inset-y-0 transition-all duration-300', isCollapsed ? 'md:w-20' : 'md:w-64')}>
         <div className="flex flex-col flex-grow bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-sm transition-all duration-300">
           {/* Logo */}
-          <div className={cn('flex items-center border-b border-slate-200 dark:border-slate-700 px-4 transition-all duration-300', isCollapsed ? 'h-16 justify-center' : 'h-24 px-6') }>
+          <div className={cn('flex items-center px-4 transition-all duration-300', isCollapsed ? 'h-16 justify-center' : 'h-28 px-6') }>
             <div className={cn('flex flex-col transition-all duration-300', isCollapsed ? 'items-center' : 'items-start')}>
-              <div className="rounded-lg overflow-hidden">
+              <div className="rounded-lg overflow-hidden mt-1 mb-2">
                 <Image src="/mwd-logo.png" alt="Mülheimer Wachdienst" width={isCollapsed ? 48 : 140} height={isCollapsed ? 48 : 84} className="object-contain" priority />
               </div>
             </div>
@@ -151,6 +151,8 @@ export default function Sidebar() {
               {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </Button>
           </div>
+          {/* Trennlinie unter dem Logo */}
+          <div className="border-b border-slate-200 dark:border-slate-700" />
 
           {/* Navigation */}
           <nav className={cn('flex-1 py-6 space-y-2 transition-all duration-300', isCollapsed ? 'px-2' : 'px-4') }>
