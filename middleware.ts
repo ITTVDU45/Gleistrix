@@ -35,10 +35,12 @@ export function middleware(req: NextRequest) {
   const csp = (process.env.NODE_ENV === 'production'
     ? [
         "default-src 'self'",
-        `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+        // Next.js App Router kann Inline-/Runtime-Skripte ohne Nonce erzeugen → 'unsafe-inline' und https: erlauben
+        `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https: blob:`,
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob:",
-        "connect-src 'self' ws: wss:",
+        // Externe Verbindungen erlauben (z. B. Next intern, Vercel)
+        "connect-src 'self' ws: wss: https:",
         "font-src 'self' data:",
         "object-src 'none'",
         "base-uri 'self'",
