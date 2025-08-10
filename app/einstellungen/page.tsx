@@ -230,7 +230,7 @@ export default function EinstellungenPage() {
   }
 
   return (
-    <div className="space-y-6 px-3 md:px-0">
+    <div className="space-y-6 px-3 md:px-4 lg:px-0 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -292,7 +292,7 @@ export default function EinstellungenPage() {
           {activeTab === 'profile' && (
         <div className="grid gap-6 md:grid-cols-3">
           {/* Profil-Einstellungen */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="md:col-span-2 space-y-6">
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
               <CardHeader>
                 <div className="flex items-center gap-3">
@@ -307,7 +307,7 @@ export default function EinstellungenPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4 profile-form">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                         Name *
@@ -375,11 +375,11 @@ export default function EinstellungenPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex justify-end">
+                  <div className="flex justify-stretch md:justify-end">
                     <Button
                       type="submit"
                       disabled={isSaving}
-                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 py-2 h-12 transition-all duration-200 shadow-lg hover:shadow-xl"
+                      className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 py-2 h-12 transition-all duration-200 shadow-lg hover:shadow-xl"
                     >
                       {isSaving ? (
                         <>
@@ -468,19 +468,19 @@ export default function EinstellungenPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Status</span>
                     <Badge variant="secondary" className="rounded-xl px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                       Aktiv
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Rolle</span>
                     <Badge variant="secondary" className={`rounded-xl px-3 py-1 ${getRoleBadgeColor(user.role)}`}>
                       {getRoleDisplayName(user.role)}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Mitglied seit</span>
                     <span className="text-sm font-medium dark:text-white">
                       {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) : 'Unbekannt'}
