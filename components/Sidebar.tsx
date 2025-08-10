@@ -138,7 +138,7 @@ export default function Sidebar() {
           <div className={cn('flex items-center border-b border-slate-200 dark:border-slate-700 px-4 transition-all duration-300', isCollapsed ? 'h-16 justify-center' : 'h-24 px-6') }>
             <div className={cn('flex flex-col transition-all duration-300', isCollapsed ? 'items-center' : 'items-start')}>
               <div className="rounded-lg overflow-hidden">
-                <Image src="/Gleistrix Logo (500 x 300 px).png" alt="Gleistrix Logo" width={isCollapsed ? 48 : 140} height={isCollapsed ? 48 : 84} className="object-contain" priority />
+                <Image src="/mwd-logo.png" alt="Mülheimer Wachdienst" width={isCollapsed ? 48 : 140} height={isCollapsed ? 48 : 84} className="object-contain" priority />
               </div>
             </div>
             <Button
@@ -246,7 +246,7 @@ export default function Sidebar() {
               <div className="flex items-center h-24 px-6 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex flex-col items-start">
                   <div className="rounded-lg overflow-hidden">
-                    <Image src="/Gleistrix Logo (500 x 300 px).png" alt="Gleistrix Logo" width={140} height={84} className="object-contain" priority />
+                    <Image src="/mwd-logo.png" alt="Mülheimer Wachdienst" width={140} height={84} className="object-contain" priority />
                   </div>
                 </div>
               </div>
