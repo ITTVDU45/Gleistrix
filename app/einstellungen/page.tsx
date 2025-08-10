@@ -230,7 +230,7 @@ export default function EinstellungenPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-3 md:px-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -254,41 +254,43 @@ export default function EinstellungenPage() {
         </Alert>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
-        <Button
-          variant={activeTab === 'profile' ? 'default' : 'ghost'}
-          onClick={() => setActiveTab('profile')}
-          className={`flex-1 ${activeTab === 'profile' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''}`}
-        >
-          <User className="h-4 w-4 mr-2" />
-          Profil
-        </Button>
-        {(user.role === 'superadmin' || user.role === 'admin') && (
+      {/* Tab Navigation (mobil scrollbar) */}
+      <div className="overflow-x-auto -mx-3 md:mx-0">
+        <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl min-w-max px-2">
           <Button
-            variant={activeTab === 'users' ? 'default' : 'ghost'}
-            onClick={() => setActiveTab('users')}
-            className={`flex-1 ${activeTab === 'users' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''}`}
+            variant={activeTab === 'profile' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('profile')}
+            className={`${activeTab === 'profile' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''} h-10 px-3 text-sm whitespace-nowrap md:flex-1`}
           >
-            <Users className="h-4 w-4 mr-2" />
-            Benutzerverwaltung
+            <User className="h-4 w-4 mr-2" />
+            Profil
           </Button>
-        )}
-        {(user.role === 'superadmin' || user.role === 'admin') && (
-          <Button
-            variant={activeTab === 'activity' ? 'default' : 'ghost'}
-            onClick={() => setActiveTab('activity')}
-            className={`flex-1 ${activeTab === 'activity' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''}`}
-          >
-            <Activity className="h-4 w-4 mr-2" />
-            Aktivitäts-Log
-          </Button>
-        )}
+          {(user.role === 'superadmin' || user.role === 'admin') && (
+            <Button
+              variant={activeTab === 'users' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('users')}
+              className={`${activeTab === 'users' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''} h-10 px-3 text-sm whitespace-nowrap md:flex-1`}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Benutzerverwaltung
+            </Button>
+          )}
+          {(user.role === 'superadmin' || user.role === 'admin') && (
+            <Button
+              variant={activeTab === 'activity' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('activity')}
+              className={`${activeTab === 'activity' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''} h-10 px-3 text-sm whitespace-nowrap md:flex-1`}
+            >
+              <Activity className="h-4 w-4 mr-2" />
+              Aktivitäts-Log
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'profile' && (
-        <div className="grid gap-6 lg:grid-cols-3">
+          {activeTab === 'profile' && (
+        <div className="grid gap-6 md:grid-cols-3">
           {/* Profil-Einstellungen */}
           <div className="lg:col-span-2 space-y-6">
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
@@ -410,8 +412,8 @@ export default function EinstellungenPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto -mx-3 md:mx-0">
+                  <table className="w-full text-sm min-w-[720px] md:min-w-0">
                     <thead>
                       <tr className="text-left border-b border-slate-200 dark:border-slate-700">
                         <th className="py-2 pr-4">Datum</th>
@@ -466,19 +468,19 @@ export default function EinstellungenPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Status</span>
                     <Badge variant="secondary" className="rounded-xl px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                       Aktiv
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Rolle</span>
                     <Badge variant="secondary" className={`rounded-xl px-3 py-1 ${getRoleBadgeColor(user.role)}`}>
                       {getRoleDisplayName(user.role)}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-slate-600 dark:text-slate-400">Mitglied seit</span>
                     <span className="text-sm font-medium dark:text-white">
                       {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) : 'Unbekannt'}
