@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -17,6 +18,7 @@ interface ProjectEditFormProps {
 
 export default function ProjectEditForm({ project, onSuccess, onCancel }: ProjectEditFormProps) {
   const { updateProject } = useProjects();
+  const router = useRouter();
   const [form, setForm] = React.useState<Omit<Project, 'id' | 'mitarbeiterZeiten'>>({
     name: project.name,
     auftraggeber: project.auftraggeber,
@@ -52,6 +54,8 @@ export default function ProjectEditForm({ project, onSuccess, onCancel }: Projec
     setError(null);
     try {
       await updateProject(project.id, form);
+      // Server-Komponenten neu laden, damit die Projektliste aktualisiert wird
+      router.refresh();
       onSuccess();
     } catch (err) {
       setError('Fehler beim Aktualisieren des Projekts. Bitte versuchen Sie es erneut.');
