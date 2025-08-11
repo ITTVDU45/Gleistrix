@@ -191,13 +191,8 @@ export default function Page() {
     console.log('Mitarbeiterdetailseite - employee.vacationDays:', employee?.vacationDays);
   }, [employee]);
 
-  // Automatische Status-Aktualisierung basierend auf Urlaubszeiten
-  useEffect(() => {
-    if (employee) {
-      // Aktualisiere den Status basierend auf Urlaubszeiten
-      updateEmployeeStatusBasedOnVacation(employee.id);
-    }
-  }, [employee, updateEmployeeStatusBasedOnVacation]);
+  // Hinweis: Keine automatische Status-Überschreibung beim Seitenaufruf.
+  // VacationCard ruft bei Änderungen selbst updateEmployeeStatusBasedOnVacation auf.
 
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
