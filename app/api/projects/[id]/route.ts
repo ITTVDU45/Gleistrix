@@ -83,6 +83,71 @@ export async function PUT(
       );
     }
 
+    // Spezialbehandlung: Zeiten-Aktionen (add/edit/delete) über PUT-Body
+    if (body && body.times && typeof body.times === 'object' && typeof (body.times as any).action === 'string') {
+      const action = (body.times as any).action as 'add' | 'edit' | 'delete';
+      try {
+        const project = await Project.findById(id);
+        if (!project) {
+          return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
+        }
+
+        // Stelle sicher, dass das Zeiten-Objekt existiert
+        if (!project.mitarbeiterZeiten || typeof project.mitarbeiterZeiten !== 'object') {
+          (project as any).mitarbeiterZeiten = {};
+        }
+
+        if (action === 'add') {
+          const dates = Array.isArray((body.times as any).dates) ? (body.times as any).dates as string[] : [];
+          const entry = (body.times as any).entry as any;
+          if (!entry || !Array.isArray(dates) || dates.length === 0) {
+            return NextResponse.json({ message: 'Ungültige Zeit-Daten (add)' }, { status: 400 });
+          }
+          for (const d of dates) {
+            if (!(project as any).mitarbeiterZeiten[d]) {
+              (project as any).mitarbeiterZeiten[d] = [];
+            }
+            (project as any).mitarbeiterZeiten[d].push(entry);
+          }
+        }
+
+        if (action === 'edit') {
+          const date = (body.times as any).date as string;
+          const updatedEntry = (body.times as any).updatedEntry as any;
+          if (!date || !updatedEntry || !updatedEntry.id) {
+            return NextResponse.json({ message: 'Ungültige Zeit-Daten (edit)' }, { status: 400 });
+          }
+          const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
+          const idx = arr.findIndex(e => e && e.id === updatedEntry.id);
+          if (idx !== -1) {
+            arr[idx] = { ...arr[idx], ...updatedEntry };
+            (project as any).mitarbeiterZeiten[date] = arr;
+          }
+        }
+
+        if (action === 'delete') {
+          const date = (body.times as any).date as string;
+          const entryId = (body.times as any).entryId as string;
+          if (!date || !entryId) {
+            return NextResponse.json({ message: 'Ungültige Zeit-Daten (delete)' }, { status: 400 });
+          }
+          const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
+          (project as any).mitarbeiterZeiten[date] = arr.filter(e => e && e.id !== entryId);
+          if ((project as any).mitarbeiterZeiten[date].length === 0) {
+            delete (project as any).mitarbeiterZeiten[date];
+          }
+        }
+
+        (project as any).markModified('mitarbeiterZeiten');
+        await (project as any).save();
+
+        return NextResponse.json(project);
+      } catch (e) {
+        console.error('Fehler bei Zeiten-Aktion über PUT:', e);
+        return NextResponse.json({ message: 'Fehler bei Zeiten-Aktion' }, { status: 500 });
+      }
+    }
+
     // Spezialbehandlung: Technik-Aktionen (add/edit/remove) über PUT-Body
     if (body && body.technik && typeof body.technik === 'object' && typeof (body.technik as any).action === 'string') {
       const action = (body.technik as any).action as 'add' | 'edit' | 'remove';
