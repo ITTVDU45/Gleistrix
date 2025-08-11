@@ -781,15 +781,19 @@ export default function Page() {
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         onEmployeeUpdated={async () => {
-          // Sperre prüfen und ggf. erwerben
-          if (!checkEditPermission()) return
-          if (!lockInfo.isOwnLock) {
-            const ok = await acquireLockOnDemand();
-            if (!ok) return;
+          // Nach erfolgreichem Update im Dialog: Frische Daten vom Server holen und lokalen Zustand setzen
+          try {
+            const res = await fetch(`/api/employees/${employee.id}`, { credentials: 'include' });
+            if (res.ok) {
+              const json = await res.json();
+              if (json && json.employee) {
+                await updateEmployee(employee.id, json.employee);
+              }
+            }
+            setSnackbar({ open: true, message: 'Mitarbeiter erfolgreich aktualisiert', severity: 'success' })
+          } catch (e) {
+            setSnackbar({ open: true, message: 'Aktualisierte Daten konnten nicht geladen werden', severity: 'error' })
           }
-          // Nach erfolgreichem Update im Dialog: lokales State aktualisieren
-          await updateEmployee(employee.id, employee as any)
-          setSnackbar({ open: true, message: 'Mitarbeiter erfolgreich aktualisiert', severity: 'success' })
         }}
       />
 
