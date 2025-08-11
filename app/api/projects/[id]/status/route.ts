@@ -45,9 +45,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Projekt nicht gefunden' }, { status: 404 });
     }
 
-    // Benachrichtigung: Projekt auf "geleistet" gesetzt
-    if (status === 'geleistet') {
-      console.log('[STATUS] Projekt auf "geleistet" gesetzt → Benachrichtigung prüfen');
+    // Benachrichtigung: Projekt auf "fertiggestellt" gesetzt
+    if (status === 'fertiggestellt') {
+      console.log('[STATUS] Projekt auf "fertiggestellt" gesetzt → Benachrichtigung prüfen');
       // Einstellungen laden und mit Defaults mergen
       const doc = await NotificationSettings.findOne({ scope: 'global' });
       const enabledByKey = new Map<string, boolean>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultEnabled]));
@@ -55,12 +55,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       if (doc?.enabledByKey) for (const [k, v] of doc.enabledByKey.entries()) enabledByKey.set(k, v);
       if (doc?.configByKey) for (const [k, v] of doc.configByKey.entries()) configByKey.set(k, v);
 
-      const notifKey = 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung';
-      const isEnabled = enabledByKey.get(notifKey);
-      const cfg = configByKey.get(notifKey) || {};
+      const notifKeyNew = 'Projekt auf „fertiggestellt“ gesetzt – E-Mail an Buchhaltung';
+      const notifKeyOld = 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung';
+      const isEnabledNew = enabledByKey.get(notifKeyNew);
+      const isEnabledOld = enabledByKey.get(notifKeyOld);
+      const activeKey = isEnabledNew ? notifKeyNew : (isEnabledOld ? notifKeyOld : notifKeyNew);
+      const isEnabled = isEnabledNew || isEnabledOld;
+      const cfg = configByKey.get(activeKey) || {};
 
       if (isEnabled) {
-        const to = cfg.to || DEFAULT_NOTIFICATION_DEFS[notifKey].defaultConfig.to;
+        const to = cfg.to || (DEFAULT_NOTIFICATION_DEFS as any)[activeKey].defaultConfig.to;
 
         // PDF mit Projektdetails inkl. Logo, Zusammenfassung, Technik und allen Projekttagen erzeugen
         const docPdf = new jsPDF();
@@ -221,9 +225,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const pdfBuffer = Buffer.from(docPdf.output('arraybuffer'));
 
-        const subject = `Projekt als \"geleistet\" markiert: ${project.name}`;
+        const subject = `Projekt als \"fertiggestellt\" markiert: ${project.name}`;
         const html = `
-          <p>Das Projekt <strong>${project.name}</strong> wurde soeben auf <strong>geleistet</strong> gesetzt.</p>
+          <p>Das Projekt <strong>${project.name}</strong> wurde soeben auf <strong>fertiggestellt</strong> gesetzt.</p>
           <p>Auftraggeber: ${project.auftraggeber}<br/>
           Baustelle: ${project.baustelle}<br/>
           Auftragsnummer: ${project.auftragsnummer}</p>
@@ -247,7 +251,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         try {
           const performerName = (auth as any)?.token?.name || (auth as any)?.token?.email || 'Unbekannt';
           await NotificationLog.create({
-            key: notifKey,
+            key: activeKey,
             to,
             subject,
             success: result.ok,
