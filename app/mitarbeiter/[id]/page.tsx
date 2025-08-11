@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/
 import EmployeeStatusSelect from '../../../components/EmployeeStatusSelect';
 import VacationCard from '../../../components/VacationCard';
 import EmployeeAssignmentFilter from '../../../components/EmployeeAssignmentFilter';
+import EmployeeFilter from '../../../components/EmployeeFilter';
 import { ResourceLockDialog } from '../../../components/ui/ResourceLockDialog';
 import EditEmployeeDialog from '../../../components/EditEmployeeDialog';
 
@@ -211,6 +212,8 @@ export default function Page() {
   const [success, setSuccess] = React.useState(false);
   const [selectedPositions, setSelectedPositions] = React.useState<string[]>([]);
   const [filteredAssignments, setFilteredAssignments] = React.useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = React.useState<string>('');
+  const [filterResetKey, setFilterResetKey] = React.useState<number>(0);
 
   const positionOptions = [
     'Bahnerder',
@@ -240,6 +243,29 @@ export default function Page() {
   // Callback für Filter-Änderungen
   const handleFilterChange = React.useCallback((newFilteredAssignments: any[]) => {
     setFilteredAssignments(newFilteredAssignments);
+  }, []);
+
+  // Freitextsuche auf Einsätzen anwenden
+  const applySearch = React.useCallback((assignments: any[], term: string) => {
+    const t = term.trim().toLowerCase();
+    if (!t) return assignments;
+    return assignments.filter((a) => {
+      const fields = [
+        a.projektName,
+        a.funktion,
+        Array.isArray(a.fahrzeuge) ? a.fahrzeuge.join(', ') : '',
+        a.stunden?.toString?.() ?? '',
+        a.fahrtstunden?.toString?.() ?? '',
+        // Datum als dd.MM.yyyy und ISO vergleichen
+        (() => {
+          try { return format(new Date(a.datum), 'dd.MM.yyyy', { locale: de }); } catch { return ''; }
+        })(),
+        a.datum ?? ''
+      ]
+        .filter(Boolean)
+        .map((v: string) => v.toString().toLowerCase());
+      return fields.some((v: string) => v.includes(t));
+    });
   }, []);
 
   // Sammle alle Einsätze des Mitarbeiters aus allen Projekten
@@ -272,8 +298,9 @@ export default function Page() {
 
   // Berechne die Gesamtstunden basierend auf gefilterten Einsätzen
   const assignmentsToUse = React.useMemo(() => {
-    return filteredAssignments.length > 0 ? filteredAssignments : employeeAssignments;
-  }, [filteredAssignments, employeeAssignments]);
+    const base = filteredAssignments.length > 0 ? filteredAssignments : employeeAssignments;
+    return applySearch(base, searchTerm);
+  }, [filteredAssignments, employeeAssignments, applySearch, searchTerm]);
 
   const totalHours = React.useMemo(() => {
     return assignmentsToUse.reduce((sum, einsatz) => sum + einsatz.stunden, 0);
@@ -725,8 +752,19 @@ export default function Page() {
                 <h2 className="text-xl font-semibold text-[#114F6B] dark:text-white">Einsätze</h2>
               </CardHeader>
               <CardContent>
+                {/* Einfache Freitextsuche */}
+                <EmployeeFilter
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  onClearFilters={() => {
+                    setSearchTerm('');
+                    setFilteredAssignments([]);
+                    setFilterResetKey((k) => k + 1);
+                  }}
+                />
                 {/* Filter-Komponente */}
                 <EmployeeAssignmentFilter
+                  key={filterResetKey}
                   assignments={employeeAssignments}
                   onFilterChange={handleFilterChange}
                 />
