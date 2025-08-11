@@ -184,19 +184,23 @@ export async function PATCH(
       );
     }
 
-    // Falls Status via PATCH auf "geleistet" gesetzt wurde
+    // Falls Status via PATCH auf "fertiggestellt" gesetzt wurde
     try {
-      if (body && body.status === 'geleistet') {
+      if (body && body.status === 'fertiggestellt') {
         const settings = await NotificationSettings.findOne({ scope: 'global' });
         const enabledByKey = new Map<string, boolean>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultEnabled]));
         const configByKey = new Map<string, any>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultConfig]));
         if (settings?.enabledByKey) for (const [k, v] of settings.enabledByKey.entries()) enabledByKey.set(k, v);
         if (settings?.configByKey) for (const [k, v] of settings.configByKey.entries()) configByKey.set(k, v);
 
-        const notifKey = 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung';
-        if (enabledByKey.get(notifKey)) {
-          const cfg = configByKey.get(notifKey) || {};
-          const to = cfg.to || DEFAULT_NOTIFICATION_DEFS[notifKey].defaultConfig.to;
+        const notifKeyNew = 'Projekt auf „fertiggestellt“ gesetzt – E-Mail an Buchhaltung';
+        const notifKeyOld = 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung';
+        const isEnabledNew = enabledByKey.get(notifKeyNew);
+        const isEnabledOld = enabledByKey.get(notifKeyOld);
+        const activeKey = isEnabledNew ? notifKeyNew : (isEnabledOld ? notifKeyOld : notifKeyNew);
+        if (isEnabledNew || isEnabledOld) {
+          const cfg = configByKey.get(activeKey) || {};
+          const to = cfg.to || (DEFAULT_NOTIFICATION_DEFS as any)[activeKey].defaultConfig.to;
 
           const docPdf = new jsPDF();
           let y = 20;
@@ -212,9 +216,9 @@ export async function PATCH(
           if (project.datumEnde) { docPdf.text(`Ende: ${project.datumEnde}`, 14, y); y += 8; }
           const pdfBuffer = Buffer.from(docPdf.output('arraybuffer'));
 
-          const subject = `Projekt als \"geleistet\" markiert: ${project.name}`;
+          const subject = `Projekt als \"fertiggestellt\" markiert: ${project.name}`;
           const html = `
-            <p>Das Projekt <strong>${project.name}</strong> wurde soeben auf <strong>geleistet</strong> gesetzt.</p>
+            <p>Das Projekt <strong>${project.name}</strong> wurde soeben auf <strong>fertiggestellt</strong> gesetzt.</p>
             <p>Auftraggeber: ${project.auftraggeber || '-'}<br/>
             Baustelle: ${project.baustelle || '-'}<br/>
             Auftragsnummer: ${project.auftragsnummer || '-'}</p>
