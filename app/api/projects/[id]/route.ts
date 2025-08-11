@@ -83,6 +83,105 @@ export async function PUT(
       );
     }
 
+    // Spezialbehandlung: Technik-Aktionen (add/edit/remove) über PUT-Body
+    if (body && body.technik && typeof body.technik === 'object' && typeof (body.technik as any).action === 'string') {
+      const action = (body.technik as any).action as 'add' | 'edit' | 'remove';
+      try {
+        const project = await Project.findById(id);
+        if (!project) {
+          return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
+        }
+
+        // Stelle sicher, dass das Technik-Objekt existiert
+        if (!project.technik || typeof project.technik !== 'object') {
+          (project as any).technik = {};
+        }
+
+        if (action === 'add') {
+          const date = (body.technik as any).date as string;
+          const technik = (body.technik as any).technik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
+          if (!date || !technik || !technik.name) {
+            return NextResponse.json({ message: 'Ungültige Technik-Daten (add)' }, { status: 400 });
+          }
+          const newTechnik = {
+            id: Date.now().toString(),
+            name: technik.name,
+            anzahl: Number(technik.anzahl) || 0,
+            meterlaenge: Number(technik.meterlaenge) || 0,
+            bemerkung: technik.bemerkung || '',
+          };
+          if (!(project as any).technik[date]) {
+            (project as any).technik[date] = [];
+          }
+          (project as any).technik[date].push(newTechnik);
+        }
+
+        if (action === 'edit') {
+          const date = (body.technik as any).date as string | undefined;
+          const technikId = (body.technik as any).technikId as string;
+          const updatedTechnik = (body.technik as any).updatedTechnik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
+          const selectedDays = (body.technik as any).selectedDays as string[] | undefined;
+          if (!technikId || !updatedTechnik) {
+            return NextResponse.json({ message: 'Ungültige Technik-Daten (edit)' }, { status: 400 });
+          }
+          const applyUpdate = (d: string) => {
+            if (!(project as any).technik[d]) {
+              (project as any).technik[d] = [];
+            }
+            const arr = (project as any).technik[d] as any[];
+            const idx = arr.findIndex(t => t && t.id === technikId);
+            if (idx !== -1) {
+              arr[idx] = { ...arr[idx], ...updatedTechnik };
+            } else {
+              // Falls am Tag kein Eintrag existiert, neuen Eintrag mit gegebener ID anlegen
+              arr.push({ id: technikId, ...updatedTechnik });
+            }
+            (project as any).technik[d] = arr;
+          };
+          if (Array.isArray(selectedDays) && selectedDays.length > 0) {
+            selectedDays.forEach(d => applyUpdate(d));
+          } else if (date) {
+            applyUpdate(date);
+          } else {
+            return NextResponse.json({ message: 'Fehlendes Datum für Technik-Edit' }, { status: 400 });
+          }
+        }
+
+        if (action === 'remove') {
+          const date = (body.technik as any).date as string;
+          const technikId = (body.technik as any).technikId as string;
+          if (!date || !technikId) {
+            return NextResponse.json({ message: 'Ungültige Technik-Daten (remove)' }, { status: 400 });
+          }
+          const currentArr = ((project as any).technik[date] || []) as any[];
+          (project as any).technik[date] = currentArr.filter(t => t && t.id !== technikId);
+          if ((project as any).technik[date].length === 0) {
+            delete (project as any).technik[date];
+          }
+        }
+
+        // ATW-Status und Meterlänge aktualisieren (global)
+        const allTechnik: any[] = [];
+        Object.values((project as any).technik).forEach((technikArray: any) => {
+          if (Array.isArray(technikArray)) {
+            allTechnik.push(...technikArray.filter(item => item && typeof item === 'object'));
+          }
+        });
+        (project as any).atwsImEinsatz = allTechnik.length > 0;
+        (project as any).anzahlAtws = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.anzahl) || 0), 0);
+        (project as any).gesamtMeterlaenge = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.meterlaenge) || 0), 0);
+
+        (project as any).markModified('technik');
+        await (project as any).save();
+
+        // Optional: Activity Log könnte hier ergänzt werden
+        return NextResponse.json(project);
+      } catch (e) {
+        console.error('Fehler bei Technik-Aktion über PUT:', e);
+        return NextResponse.json({ message: 'Fehler bei Technik-Aktion' }, { status: 500 });
+      }
+    }
+
     const project = await Project.findByIdAndUpdate(
       id,
       body,
