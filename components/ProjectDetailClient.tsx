@@ -42,7 +42,7 @@ const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
   }}>{children}</span>
 );
 import { ChartContainer } from './ui/chart';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, ResponsiveContainer, Legend, AreaChart, Area, PieChart, Pie, Cell, LabelList } from 'recharts';
 import Image from 'next/image';
 import { ActivityLogApi } from '@/lib/api/activityLog'
 import { useSession } from 'next-auth/react';
@@ -1036,76 +1036,110 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               <CardTitle>Projektstatistiken</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Arbeitsstunden pro Tag (Chart) */}
+              {/* Arbeitsstunden pro Tag (modernes Area-Chart mit Verlauf) */}
               <div>
                 <h4 className="font-semibold mb-2">Arbeitsstunden pro Tag</h4>
                 <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
-                    <LineChart data={getProjectDays().map(day => ({
+                    <AreaChart data={getProjectDays().map(day => ({
                       date: format(parseISO(day), 'dd.MM.yyyy', { locale: de }),
                       stunden: (project.mitarbeiterZeiten?.[day] || []).reduce((sum, e) => sum + (e.stunden || 0), 0)
                     }))}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="stunden" stroke="#2563eb" name="Stunden" />
-                    </LineChart>
+                      <defs>
+                        <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="date" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                      <YAxis tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                      <Tooltip contentStyle={{ borderRadius: 12 }} />
+                      <Area type="monotone" dataKey="stunden" stroke="#2563eb" strokeWidth={2} fill="url(#colorHours)" name="Stunden" />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </div>
-              {/* Verteilung nach Funktionen (Chart) */}
+              {/* Verteilung nach Funktionen (Donut-Chart) */}
               <div>
                 <h4 className="font-semibold mb-2">Verteilung nach Funktionen</h4>
                 <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
-                    <BarChart data={(() => {
-                      const funktionMap: Record<string, number> = {};
-                      Object.values(project.mitarbeiterZeiten || {}).flat().forEach((e: any) => {
-                        funktionMap[e.funktion] = (funktionMap[e.funktion] || 0) + 1;
-                      });
-                      return Object.entries(funktionMap).map(([funktion, count]) => ({ funktion, count }));
-                    })()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="funktion" />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip />
+                    <PieChart>
+                      {(() => {
+                        const funktionMap: Record<string, number> = {};
+                        Object.values(project.mitarbeiterZeiten || {}).flat().forEach((e: any) => {
+                          funktionMap[e.funktion] = (funktionMap[e.funktion] || 0) + 1;
+                        });
+                        const data = Object.entries(funktionMap).map(([name, value]) => ({ name, value }));
+                        const palette = ['#114F6B', '#2563eb', '#22c55e', '#a21caf', '#f59e0b', '#06b6d4', '#8b5cf6', '#ef4444'];
+                        return (
+                          <Pie data={data} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={2} cornerRadius={6}>
+                            {data.map((_, idx) => (
+                              <Cell key={`cell-${idx}`} fill={palette[idx % palette.length]} />
+                            ))}
+                          </Pie>
+                        );
+                      })()}
+                      <Tooltip contentStyle={{ borderRadius: 12 }} formatter={(val: any) => [`${val}`, 'Anzahl']} />
                       <Legend />
-                      <Bar dataKey="count" fill="#22c55e" name="Anzahl" />
-                    </BarChart>
+                    </PieChart>
                   </ResponsiveContainer>
                 </div>
               </div>
-              {/* Mitarbeiterauslastung (Chart) */}
+              {/* Mitarbeiterauslastung (modernes Säulendiagramm) */}
               <div>
                 <h4 className="font-semibold mb-2">Mitarbeiterauslastung</h4>
                 <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
                     <BarChart data={(() => {
                       const mitarbeiterMap: Record<string, { stunden: number, tage: number }> = {};
-                      Object.entries(project.mitarbeiterZeiten || {}).forEach(([day, entries]: any) => {
+                      Object.entries(project.mitarbeiterZeiten || {}).forEach(([_day, entries]: any) => {
                         entries.forEach((e: any) => {
                           if (!mitarbeiterMap[e.name]) mitarbeiterMap[e.name] = { stunden: 0, tage: 0 };
                           mitarbeiterMap[e.name].stunden += e.stunden || 0;
                           mitarbeiterMap[e.name].tage += 1;
                         });
                       });
-                      return Object.entries(mitarbeiterMap).map(([name, data]) => ({ name, stunden: data.stunden, tage: data.tage }));
+                      return Object.entries(mitarbeiterMap)
+                        .map(([name, data]) => ({ name, stunden: data.stunden, tage: data.tage }))
+                        .sort((a, b) => b.stunden - a.stunden);
                     })()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis yAxisId="left" orientation="left" stroke="#2563eb" />
-                      <YAxis yAxisId="right" orientation="right" stroke="#22c55e" />
-                      <Tooltip />
+                      <defs>
+                        <linearGradient id="barBlue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2563eb" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#2563eb" stopOpacity={0.55} />
+                        </linearGradient>
+                        <linearGradient id="barGreen" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#22c55e" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#22c55e" stopOpacity={0.55} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="name" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} interval={0} angle={-15} textAnchor="end" height={60} />
+                      <YAxis yAxisId="left" orientation="left" stroke="#2563eb" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                      <YAxis yAxisId="right" orientation="right" stroke="#22c55e" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: 12 }}
+                        formatter={(value: any, _name: any, props: any) => {
+                          const key = props?.dataKey as string | undefined;
+                          if (key === 'stunden') return [typeof value === 'number' ? value.toFixed(2) : value, 'Stunden'];
+                          if (key === 'tage') return [value, 'Einsatztage'];
+                          return [value, _name];
+                        }}
+                      />
                       <Legend />
-                      <Bar yAxisId="left" dataKey="stunden" fill="#2563eb" name="Stunden" />
-                      <Bar yAxisId="right" dataKey="tage" fill="#22c55e" name="Einsatztage" />
+                      <Bar yAxisId="left" dataKey="stunden" fill="url(#barBlue)" name="Stunden" radius={[8,8,0,0]}>
+                        <LabelList dataKey="stunden" position="top" formatter={(v: any) => (typeof v === 'number' ? v.toFixed(1) : v)} fill="#334155" />
+                      </Bar>
+                      <Bar yAxisId="right" dataKey="tage" fill="url(#barGreen)" name="Einsatztage" radius={[8,8,0,0]}>
+                        <LabelList dataKey="tage" position="top" fill="#334155" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
-              {/* ATW im Einsatz (Chart) */}
+              {/* ATW im Einsatz (modernes Säulendiagramm) */}
               <div>
                 <h4 className="font-semibold mb-2">ATW im Einsatz</h4>
                 <div style={{ width: '100%', height: 300 }}>
@@ -1124,16 +1158,40 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                           }
                         });
                       }
-                      return Object.entries(technikMap).map(([name, data]) => ({ name, ...data }));
+                      return Object.entries(technikMap)
+                        .map(([name, data]) => ({ name, ...data }))
+                        .sort((a, b) => b.anzahl - a.anzahl);
                     })()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis yAxisId="left" orientation="left" stroke="#2563eb" />
-                      <YAxis yAxisId="right" orientation="right" stroke="#a21caf" />
-                      <Tooltip />
+                      <defs>
+                        <linearGradient id="barBlueAtw" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2563eb" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#2563eb" stopOpacity={0.55} />
+                        </linearGradient>
+                        <linearGradient id="barPurpleAtw" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#a21caf" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#a21caf" stopOpacity={0.55} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="name" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} interval={0} angle={-15} textAnchor="end" height={60} />
+                      <YAxis yAxisId="left" orientation="left" stroke="#2563eb" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                      <YAxis yAxisId="right" orientation="right" stroke="#a21caf" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: 12 }}
+                        formatter={(value: any, _name: any, props: any) => {
+                          const key = props?.dataKey as string | undefined;
+                          if (key === 'anzahl') return [value, 'Anzahl'];
+                          if (key === 'meterlaenge') return [`${value} m`, 'Meterlänge'];
+                          return [value, _name];
+                        }}
+                      />
                       <Legend />
-                      <Bar yAxisId="left" dataKey="anzahl" fill="#2563eb" name="Anzahl" />
-                      <Bar yAxisId="right" dataKey="meterlaenge" fill="#a21caf" name="Meterlänge" />
+                      <Bar yAxisId="left" dataKey="anzahl" fill="url(#barBlueAtw)" name="Anzahl" radius={[8,8,0,0]}>
+                        <LabelList dataKey="anzahl" position="top" fill="#334155" />
+                      </Bar>
+                      <Bar yAxisId="right" dataKey="meterlaenge" fill="url(#barPurpleAtw)" name="Meterlänge" radius={[8,8,0,0]}>
+                        <LabelList dataKey="meterlaenge" position="top" formatter={(v: any) => `${v} m`} fill="#334155" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1142,7 +1200,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                   <span>Gesamt Meterlänge: <span className="text-purple-700">{technikStats.gesamtMeterlaenge} m</span></span>
                 </div>
               </div>
-              {/* KFZ im Einsatz (Chart) */}
+              {/* KFZ im Einsatz (modernes Säulendiagramm) */}
               <div>
                 <h4 className="font-semibold mb-2">KFZ im Einsatz</h4>
                 <div style={{ width: '100%', height: 300 }}>
@@ -1158,18 +1216,35 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                           if (v.mitarbeiterName) kfzMap[key].mitarbeiter.add(v.mitarbeiterName);
                         });
                       });
-                      return Object.values(kfzMap).map(kfz => ({
-                        name: kfz.type + ' ' + kfz.licensePlate,
-                        count: kfz.count,
-                        mitarbeiter: Array.from(kfz.mitarbeiter).join(', ')
-                      }));
+                      return Object.values(kfzMap)
+                        .map(kfz => ({
+                          name: kfz.type + ' ' + kfz.licensePlate,
+                          count: kfz.count,
+                          mitarbeiter: Array.from(kfz.mitarbeiter).join(', ')
+                        }))
+                        .sort((a, b) => b.count - a.count);
                     })()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip />
+                      <defs>
+                        <linearGradient id="barTealKfz" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.55} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="name" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} interval={0} angle={-15} textAnchor="end" height={60} />
+                      <YAxis allowDecimals={false} tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: 12 }}
+                        labelFormatter={(label: any, payload: any) => {
+                          const employees = payload && payload[0] && payload[0].payload ? payload[0].payload.mitarbeiter : '';
+                          return employees ? `${label} — ${employees}` : label;
+                        }}
+                        formatter={(value: any) => [value, 'Einsatztage']}
+                      />
                       <Legend />
-                      <Bar dataKey="count" fill="#a21caf" name="Einsatztage" />
+                      <Bar dataKey="count" fill="url(#barTealKfz)" name="Einsatztage" radius={[8,8,0,0]}>
+                        <LabelList dataKey="count" position="top" fill="#334155" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1287,14 +1362,13 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               Zeiteintrag bearbeiten
             </DialogTitle>
             <div className="py-4">
-              <TimeEntryForm
+              <EditTimeEntryForm
                 project={project!}
                 selectedDate={editTimeEntry.date}
-                onAdd={(date, updatedEntry) => handleSaveEditTimeEntry(date, updatedEntry)}
+                entry={editTimeEntry.entry}
+                onEdit={(date, updatedEntry) => handleSaveEditTimeEntry(date, updatedEntry)}
                 onClose={() => setEditTimeEntry(null)}
                 employees={employees}
-                initialEntry={editTimeEntry.entry}
-                hasExistingTimeEntries={hasExistingTimeEntries()}
               />
             </div>
           </DialogContent>

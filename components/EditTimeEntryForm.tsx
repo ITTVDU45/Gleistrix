@@ -22,11 +22,29 @@ interface EditTimeEntryFormProps {
 }
 
 export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClose, employees = [] }: EditTimeEntryFormProps) {
+  // Extrahiere 'HH:mm' aus möglichen ISO- oder Zeitstrings
+  function extractTime(value: any): string {
+    if (!value) return '';
+    const str = String(value);
+    if (/^\d{2}:\d{2}$/.test(str)) return str;
+    if (str.includes('T')) {
+      const t = str.split('T')[1] || '';
+      return t.slice(0, 5);
+    }
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    return '';
+  }
+
   const [formData, setFormData] = React.useState({
     name: entry.name,
     funktion: entry.funktion,
-    start: entry.start,
-    ende: entry.ende,
+    start: extractTime((entry as any).start),
+    ende: extractTime((entry as any).ende),
     pause: entry.pause,
     extra: entry.extra.toString(),
     fahrtstunden: entry.fahrtstunden.toString(),

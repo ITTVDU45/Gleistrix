@@ -6,7 +6,7 @@ import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import type { Project, Employee, Vehicle } from '../types';
 import { ChartContainer } from './ui/chart';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell, AreaChart, Area, LabelList } from 'recharts';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from './ui/select';
@@ -314,6 +314,70 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
     return { anzahl, meter };
   }, [filteredProjects, filter.dateFrom, filter.dateTo, filter.mitarbeiter, filter.fahrzeug]);
 
+  // ATWS Einsatz: Stacked Bar Chart with Groups (kompakt mit Top-N Technik + Sonstige)
+  const atwStackedByMonth = React.useMemo(() => {
+    const monthMap: Record<string, { counts: Record<string, number>; meters: Record<string, number> }> = {};
+    const technikTotals: Record<string, { count: number; meter: number }> = {};
+    filteredProjects.forEach(p => {
+      const tage = getRelevanteTageFuerProjekt(p);
+      Object.entries(p.technik || {}).forEach(([day, arr]: any) => {
+        if (!tage.has(day)) return;
+        const month = String(day).slice(0, 7);
+        if (!monthMap[month]) monthMap[month] = { counts: {}, meters: {} };
+        (arr || []).forEach((t: any) => {
+          const name = t.name || 'Unbekannt';
+          const anzahl = Number(t.anzahl) || 0;
+          const meter = Number(t.meterlaenge) || 0;
+          monthMap[month].counts[name] = (monthMap[month].counts[name] || 0) + anzahl;
+          monthMap[month].meters[name] = (monthMap[month].meters[name] || 0) + meter;
+          technikTotals[name] = technikTotals[name] || { count: 0, meter: 0 };
+          technikTotals[name].count += anzahl;
+          technikTotals[name].meter += meter;
+        });
+      });
+    });
+    const months = Object.keys(monthMap).sort();
+    // Top-N Technik nach Gesamt-Anzahl (kompakter)
+    const TOP_N = 5;
+    const sortedNames = Object.entries(technikTotals)
+      .sort((a, b) => (b[1].count - a[1].count) || (b[1].meter - a[1].meter))
+      .map(([name]) => name);
+    const topNames = sortedNames.slice(0, TOP_N);
+    const hasOthers = sortedNames.length > TOP_N;
+    const seriesNames = hasOthers ? [...topNames, 'Sonstige'] : topNames;
+    const data = months.map(month => {
+      const row: Record<string, any> = { month };
+      const monthCounts = monthMap[month]?.counts || {};
+      const monthMeters = monthMap[month]?.meters || {};
+      let othersCount = 0;
+      let othersMeter = 0;
+      Object.keys(monthCounts).forEach(name => {
+        if (topNames.includes(name)) {
+          row[`${name}__count`] = monthCounts[name] || 0;
+          row[`${name}__meter`] = monthMeters[name] || 0;
+        } else {
+          othersCount += monthCounts[name] || 0;
+          othersMeter += monthMeters[name] || 0;
+        }
+      });
+      if (hasOthers) {
+        row['Sonstige__count'] = othersCount;
+        row['Sonstige__meter'] = othersMeter;
+      }
+      // Sicherstellen, dass fehlende Top-Namen als 0 gesetzt sind, damit Stacks konsistent bleiben
+      seriesNames.forEach(name => {
+        row[`${name}__count`] = row[`${name}__count`] || 0;
+        row[`${name}__meter`] = row[`${name}__meter`] || 0;
+      });
+      return row;
+    });
+    // Farbpaletten (Counts kräftig, Meterlänge gleiche Farbtöne leichter)
+    const basePalette = ['#114F6B', '#2563eb', '#22c55e', '#f59e0b', '#a21caf', '#ef4444', '#06b6d4'];
+    const countColors = seriesNames.map((_, idx) => basePalette[idx % basePalette.length]);
+    const meterColors = seriesNames.map((_, idx) => `rgba(${parseInt(basePalette[idx % basePalette.length].slice(1,3),16)}, ${parseInt(basePalette[idx % basePalette.length].slice(3,5),16)}, ${parseInt(basePalette[idx % basePalette.length].slice(5,7),16)}, 0.6)`);
+    return { data, seriesNames, countColors, meterColors };
+  }, [filteredProjects, filter.dateFrom, filter.dateTo, filter.mitarbeiter, filter.fahrzeug]);
+
   // 3. Arbeitsstunden pro Monat (dynamisch: alle Einträge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
   const monthlyHours = React.useMemo(() => {
     const map: Record<string, number> = {};
@@ -531,62 +595,120 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Projektstatus */}
+          {/* Projektstatus (Donut-Chart) */}
           <div className="chart-container">
             <h3 className="font-semibold mb-2">Projektstatus</h3>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={statusCounts}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="status" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#2563eb" name="Projekte" />
-              </BarChart>
+              <PieChart>
+                {(() => {
+                  const data = statusCounts.map(s => ({ name: s.status, value: s.count }));
+                  const palette = ['#114F6B', '#2563eb', '#22c55e', '#a21caf', '#f59e0b', '#06b6d4', '#8b5cf6', '#ef4444'];
+                  return (
+                    <Pie data={data} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2} cornerRadius={6}>
+                      {data.map((_, idx) => (
+                        <Cell key={`status-${idx}`} fill={palette[idx % palette.length]} />
+                      ))}
+                    </Pie>
+                  );
+                })()}
+                <Tooltip contentStyle={{ borderRadius: 12 }} formatter={(val: any) => [val, 'Projekte']} />
+                <Legend />
+              </PieChart>
             </ResponsiveContainer>
           </div>
-          {/* ATWS Einsatz */}
-          <div className="flex flex-col items-center justify-center chart-container">
-            <h3 className="font-semibold mb-2">ATWS Einsatz</h3>
-            <div className="text-lg mb-2">Anzahl: <span className="font-bold text-blue-700">{atwStats.anzahl}</span></div>
-            <div className="text-lg mb-2">Gesamt-Meterlänge: <span className="font-bold text-purple-700">{atwStats.meter} m</span></div>
+          {/* ATWS Einsatz (Stacked Bar Chart mit Gruppen je Monat) */}
+          <div className="chart-container">
+            <h3 className="font-semibold mb-2">ATWS Einsatz (Anzahl & Meter je Monat)</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={atwStackedByMonth.data} barCategoryGap={16} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fill: '#64748b' }}
+                  tickFormatter={(val: any) => `${String(val).slice(5,7)}/${String(val).slice(2,4)}`}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e5e7eb' }}
+                />
+                <YAxis tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 12 }}
+                  formatter={(value: any, _name: any, props: any) => {
+                    const key = props?.dataKey as string | undefined;
+                    const isCount = !!key && key.endsWith('__count');
+                    const base = key ? key.replace(/__count$|__meter$/,'') : _name;
+                    return [isCount ? value : `${value} m`, isCount ? `${base} (Anzahl)` : `${base} (Meterlänge)`];
+                  }}
+                  labelFormatter={(label: any) => `Monat: ${String(label).slice(5,7)}/${String(label).slice(0,4)}`}
+                />
+                <Legend />
+                {atwStackedByMonth.seriesNames.map((name, idx) => (
+                  <Bar key={`${name}-count`} dataKey={`${name}__count`} stackId="count" fill={atwStackedByMonth.countColors[idx]} name={`${name} (Anzahl)`} radius={[8,8,0,0]} />
+                ))}
+                {atwStackedByMonth.seriesNames.map((name, idx) => (
+                  <Bar key={`${name}-meter`} dataKey={`${name}__meter`} stackId="meter" fill={atwStackedByMonth.meterColors[idx]} name={`${name} (Meter)`} radius={[8,8,0,0]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="text-xs mt-2 text-slate-500">Gesamt: {atwStats.anzahl} ATWs, {atwStats.meter} m</div>
           </div>
-          {/* Arbeitsstunden pro Monat */}
+          {/* Arbeitsstunden pro Monat (Area-Chart mit Gradient) */}
           <div className="chart-container">
             <h3 className="font-semibold mb-2">Arbeitsstunden pro Monat</h3>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={monthlyHours}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="stunden" stroke="#22c55e" name="Stunden" />
-              </LineChart>
+              <AreaChart data={monthlyHours}>
+                <defs>
+                  <linearGradient id="colorMonthly" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                <YAxis tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                <Tooltip contentStyle={{ borderRadius: 12 }} formatter={(val: any) => [typeof val === 'number' ? val.toFixed(2) : val, 'Stunden']} />
+                <Area type="monotone" dataKey="stunden" stroke="#22c55e" strokeWidth={2} fill="url(#colorMonthly)" name="Stunden" />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
-          {/* Top 10 Mitarbeiter */}
+          {/* Top 10 Mitarbeiter (modernes vertikales Balkendiagramm) */}
           <div className="chart-container">
             <h3 className="font-semibold mb-2">Top 10 Mitarbeiter (Stunden)</h3>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={topMitarbeiter} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={120} />
-                <Tooltip />
-                <Bar dataKey="stunden" fill="#a21caf" name="Stunden" />
+                <defs>
+                  <linearGradient id="barPurpleTop" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a21caf" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#a21caf" stopOpacity={0.55} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis type="number" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                <YAxis dataKey="name" type="category" width={140} tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                <Tooltip contentStyle={{ borderRadius: 12 }} formatter={(v: any) => [typeof v === 'number' ? v.toFixed(2) : v, 'Stunden']} />
+                <Bar dataKey="stunden" fill="url(#barPurpleTop)" name="Stunden" radius={[8,8,8,8]}>
+                  <LabelList dataKey="stunden" position="right" formatter={(v: any) => (typeof v === 'number' ? v.toFixed(1) : v)} fill="#334155" />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
-          {/* KFZ Einsatz */}
+          {/* KFZ Einsatz (Top 10, moderner Stil) */}
           <div className="chart-container">
             <h3 className="font-semibold mb-2">KFZ Einsatz (Top 10)</h3>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={kfzStats.slice(0, 10)} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="fahrzeug" type="category" width={120} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#2563eb" name="Einsätze" />
+                <defs>
+                  <linearGradient id="barTealKfzDash" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.55} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis type="number" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                <YAxis dataKey="fahrzeug" type="category" width={180} tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                <Tooltip contentStyle={{ borderRadius: 12 }} formatter={(v: any) => [v, 'Einsätze']} />
+                <Bar dataKey="count" fill="url(#barTealKfzDash)" name="Einsätze" radius={[8,8,8,8]}>
+                  <LabelList dataKey="count" position="right" fill="#334155" />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
             <div className="text-xs mt-2 text-slate-500">Projekte: {kfzStats.slice(0, 1).map(kfz => kfz.projekte).join(', ')}</div>
