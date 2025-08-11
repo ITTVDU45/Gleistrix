@@ -19,6 +19,7 @@ import EmployeeStatusSelect from '../../components/EmployeeStatusSelect';
 import { useEmployees } from '../../hooks/useEmployees';
 import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
 import EmployeeStats from '../../components/EmployeeStats';
+import EmployeeFilter from '../../components/EmployeeFilter';
  
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -90,6 +91,7 @@ const getVacationPeriods = (vacationDays: VacationDay[] | undefined): string[] =
 export default function MitarbeiterPage() {
   const { employees, loading, error, setEmployeeStatus, isEmployeeOnVacation, updateAllEmployeeStatusesBasedOnVacation } = useEmployees();
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [isUpdatingStatuses, setIsUpdatingStatuses] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean, message: string, severity: 'success'|'error' }>({ open: false, message: '', severity: 'success' });
@@ -113,8 +115,28 @@ export default function MitarbeiterPage() {
 
   // Gefilterte Mitarbeiter an Parent-Komponente übergeben
   useEffect(() => {
-    setFilteredEmployees(employees);
-  }, [employees]);
+    // Freitextsuche anwenden
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) {
+      setFilteredEmployees(employees);
+      return;
+    }
+    const next = employees.filter((e) => {
+      const fields: string[] = [
+        e.name,
+        e.elbaId || '',
+        e.position || '',
+        e.status || '',
+        e.email || '',
+        e.phone || '',
+        e.address || '',
+        e.postalCode || '',
+        e.city || '',
+      ].map((v) => v.toString().toLowerCase());
+      return fields.some((v) => v.includes(term));
+    });
+    setFilteredEmployees(next);
+  }, [employees, searchTerm]);
 
   // Automatische Status-Anpassung beim Laden der Seite (nur einmal pro Session, ohne Snackbar)
   useEffect(() => {
@@ -284,8 +306,8 @@ export default function MitarbeiterPage() {
         </Alert>
       )}
 
-      {/* Statistik-Karten */}
-      <EmployeeStats employees={employees} />
+      {/* Statistik-Karten (reagieren auf Filter) */}
+      <EmployeeStats employees={filteredEmployees} />
 
       {/* Mitarbeiter Tabelle */}
       <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl employees-table">
@@ -300,6 +322,13 @@ export default function MitarbeiterPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Filter-Zeile */}
+          <EmployeeFilter
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onClearFilters={() => setSearchTerm('')}
+          />
+
           {filteredEmployees.length > 0 ? (
             <div className="rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden">
               <Table>
