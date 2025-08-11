@@ -148,6 +148,78 @@ export async function PUT(
       }
     }
 
+    // Spezialbehandlung: Fahrzeuge-Aktionen (assign/update/unassign) über PUT-Body
+    if (body && body.vehicles && typeof body.vehicles === 'object' && typeof (body.vehicles as any).action === 'string') {
+      const action = (body.vehicles as any).action as 'assign' | 'update' | 'unassign';
+      try {
+        const project = await Project.findById(id);
+        if (!project) {
+          return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
+        }
+
+        if (!project.fahrzeuge || typeof project.fahrzeuge !== 'object') {
+          (project as any).fahrzeuge = {};
+        }
+
+        if (action === 'assign') {
+          const dates = Array.isArray((body.vehicles as any).dates) ? (body.vehicles as any).dates as string[] : [];
+          const vehicle = (body.vehicles as any).vehicle as any;
+          if (!vehicle || !vehicle.id || dates.length === 0) {
+            return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (assign)' }, { status: 400 });
+          }
+          for (const d of dates) {
+            if (!(project as any).fahrzeuge[d]) (project as any).fahrzeuge[d] = [];
+            const arr = (project as any).fahrzeuge[d] as any[];
+            if (!arr.some(v => v && v.id === vehicle.id)) {
+              arr.push({
+                id: vehicle.id,
+                type: vehicle.type,
+                licensePlate: vehicle.licensePlate,
+                kilometers: vehicle.kilometers || '',
+                mitarbeiterName: vehicle.mitarbeiterName || ''
+              });
+            }
+            (project as any).fahrzeuge[d] = arr;
+          }
+        }
+
+        if (action === 'update') {
+          const date = (body.vehicles as any).date as string;
+          const vehicleId = (body.vehicles as any).vehicleId as string;
+          const updatedFields = (body.vehicles as any).updatedFields as Record<string, any>;
+          if (!date || !vehicleId || !updatedFields) {
+            return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (update)' }, { status: 400 });
+          }
+          const arr = ((project as any).fahrzeuge[date] || []) as any[];
+          const idx = arr.findIndex(v => v && v.id === vehicleId);
+          if (idx !== -1) {
+            arr[idx] = { ...arr[idx], ...updatedFields };
+            (project as any).fahrzeuge[date] = arr;
+          }
+        }
+
+        if (action === 'unassign') {
+          const date = (body.vehicles as any).date as string;
+          const vehicleId = (body.vehicles as any).vehicleId as string;
+          if (!date || !vehicleId) {
+            return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (unassign)' }, { status: 400 });
+          }
+          const arr = ((project as any).fahrzeuge[date] || []) as any[];
+          (project as any).fahrzeuge[date] = arr.filter(v => v && v.id !== vehicleId);
+          if ((project as any).fahrzeuge[date].length === 0) {
+            delete (project as any).fahrzeuge[date];
+          }
+        }
+
+        (project as any).markModified('fahrzeuge');
+        await (project as any).save();
+        return NextResponse.json(project);
+      } catch (e) {
+        console.error('Fehler bei Fahrzeuge-Aktion über PUT:', e);
+        return NextResponse.json({ message: 'Fehler bei Fahrzeuge-Aktion' }, { status: 500 });
+      }
+    }
+
     // Spezialbehandlung: Technik-Aktionen (add/edit/remove) über PUT-Body
     if (body && body.technik && typeof body.technik === 'object' && typeof (body.technik as any).action === 'string') {
       const action = (body.technik as any).action as 'add' | 'edit' | 'remove';
