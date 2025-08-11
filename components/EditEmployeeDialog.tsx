@@ -15,7 +15,7 @@ interface EditEmployeeDialogProps {
   employee: Employee;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onEmployeeUpdated: () => void;
+  onEmployeeUpdated?: () => Promise<void> | void;
 }
 
 export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmployeeUpdated }: EditEmployeeDialogProps) {
@@ -94,17 +94,17 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
         city: editedEmployee.city,
       } as any
 
-      const data: any = await EmployeesApi.update((employee as any).id || (employee as any)._id, payload)
-      if (data?.success !== false) {
-        setShowSuccess(true)
-        setTimeout(() => {
-          setShowSuccess(false)
-          onOpenChange(false)
-          onEmployeeUpdated()
-        }, 1200)
-      } else {
-        setError(data?.message || data?.error || 'Fehler beim Bearbeiten des Mitarbeiters')
+      const id = (employee as any).id || (employee as any)._id
+      const data: any = await EmployeesApi.update(id, payload)
+      if (data?.success === false) {
+        throw new Error(data?.message || data?.error || 'Fehler beim Bearbeiten des Mitarbeiters')
       }
+      if (onEmployeeUpdated) await onEmployeeUpdated()
+      setShowSuccess(true)
+      setTimeout(() => {
+        setShowSuccess(false)
+        onOpenChange(false)
+      }, 1200)
     } catch (err: any) {
       setError(err?.message || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.')
     } finally {
