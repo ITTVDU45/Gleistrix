@@ -780,14 +780,15 @@ export default function Page() {
         employee={employee}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
-        onEmployeeUpdated={async (payload) => {
+        onEmployeeUpdated={async () => {
           // Sperre prüfen und ggf. erwerben
           if (!checkEditPermission()) return
           if (!lockInfo.isOwnLock) {
             const ok = await acquireLockOnDemand();
             if (!ok) return;
           }
-          await updateEmployee(employee.id, { ...employee, ...payload } as any)
+          // Nach erfolgreichem Update im Dialog: lokales State aktualisieren
+          await updateEmployee(employee.id, employee as any)
           setSnackbar({ open: true, message: 'Mitarbeiter erfolgreich aktualisiert', severity: 'success' })
         }}
       />

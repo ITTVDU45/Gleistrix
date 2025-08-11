@@ -69,7 +69,7 @@ export async function PUT(
     const schema = z.object({
       name: z.string().min(1).optional(),
       position: z.string().optional().or(z.literal('')),
-      email: z.string().email().optional(),
+      email: z.string().email().optional().or(z.literal('')),
       phone: z.string().optional().or(z.literal('')),
       status: z.enum(['aktiv','nicht aktiv','urlaub']).optional(),
       elbaId: z.string().optional().or(z.literal('')),
