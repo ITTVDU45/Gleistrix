@@ -51,13 +51,17 @@ export async function PUT(
     if (process.env.NODE_ENV === 'production' && csrf !== 'vehicles:update') {
       return NextResponse.json({ error: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request, ['admin','superadmin']);
+    const auth = await requireAuth(request, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const schema = z.object({
-      name: z.string().min(1).optional(),
       type: z.string().min(1).optional(),
-      kennzeichen: z.string().min(1).optional(),
+      licensePlate: z.string().min(1).optional(),
+      fuelAmount: z.string().optional().or(z.literal('')),
+      damages: z.string().optional().or(z.literal('')),
+      kilometers: z.string().optional().or(z.literal('')),
+      manualStatus: z.enum(['verfügbar','wartung','nicht_verfügbar']).optional(),
+      statusNote: z.string().optional().or(z.literal('')),
     }).passthrough();
     const parseResult = schema.safeParse(await request.json());
     if (!parseResult.success) {
@@ -107,20 +111,22 @@ export async function PUT(
             name: currentUser.name,
             role: currentUser.role
           },
-          details: {
-            entityId: id,
-            description: `Fahrzeug "${originalVehicle.name}" bearbeitet`,
-            before: {
-              name: originalVehicle.name,
-              type: originalVehicle.type,
-              kennzeichen: originalVehicle.kennzeichen
-            },
-            after: {
-              name: vehicle.name,
-              type: vehicle.type,
-              kennzeichen: vehicle.kennzeichen
+            details: {
+              entityId: id,
+              description: `Fahrzeug bearbeitet: ${originalVehicle.type} (${originalVehicle.licensePlate}) → ${vehicle.type} (${vehicle.licensePlate})`,
+              before: {
+                type: originalVehicle.type,
+                licensePlate: originalVehicle.licensePlate,
+                kilometers: originalVehicle.kilometers,
+                manualStatus: originalVehicle.manualStatus
+              },
+              after: {
+                type: vehicle.type,
+                licensePlate: vehicle.licensePlate,
+                kilometers: vehicle.kilometers,
+                manualStatus: vehicle.manualStatus
+              }
             }
-          }
         });
         
         await activityLog.save();
