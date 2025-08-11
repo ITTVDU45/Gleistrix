@@ -37,9 +37,13 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
 
     const schema = z.object({
-      name: z.string().min(1),
       type: z.string().min(1),
-      kennzeichen: z.string().min(1),
+      licensePlate: z.string().min(1),
+      fuelAmount: z.string().optional().or(z.literal('')),
+      damages: z.string().optional().or(z.literal('')),
+      kilometers: z.string().optional().or(z.literal('')),
+      manualStatus: z.enum(['verfügbar','wartung','nicht_verfügbar']).optional(),
+      statusNote: z.string().optional().or(z.literal('')),
     }).passthrough();
     const parseResult = schema.safeParse(await request.json());
     if (!parseResult.success) {
@@ -63,15 +67,16 @@ export async function POST(request: NextRequest) {
             name: currentUser.name,
             role: currentUser.role
           },
-          details: {
-            entityId: vehicle._id,
-            description: `Fahrzeug "${body.name}" hinzugefügt`,
-            after: {
-              name: body.name,
-              type: body.type,
-              kennzeichen: body.kennzeichen
+            details: {
+              entityId: vehicle._id,
+              description: `Fahrzeug hinzugefügt: ${body.type} (${body.licensePlate})`,
+              after: {
+                type: body.type,
+                licensePlate: body.licensePlate,
+                kilometers: body.kilometers || '',
+                manualStatus: body.manualStatus || 'verfügbar'
+              }
             }
-          }
         });
         
         await activityLog.save();
