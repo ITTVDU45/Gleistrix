@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (process.env.NODE_ENV === 'production' && csrf !== 'vehicles:create') {
       return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request, ['admin','superadmin']);
+    const auth = await requireAuth(request, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
 
     const schema = z.object({

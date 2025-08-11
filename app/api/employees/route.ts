@@ -3,6 +3,7 @@ import dbConnect from '../../../lib/dbConnect';
 import { Employee } from '../../../lib/models/Employee';
 import ActivityLog from '../../../lib/models/ActivityLog';
 import { getCurrentUser } from '../../../lib/auth/getCurrentUser';
+import { requireAuth } from '../../../lib/security/requireAuth';
 import { z } from 'zod';
 
 export async function GET() {
@@ -38,6 +39,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
+    const auth = await requireAuth(request, ['user','admin','superadmin']);
+    if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
     const body = await request.json();
     // CSRF/Intent Header prüfen (einfacher Schutz)
     const intent = request.headers.get('x-csrf-intent');
