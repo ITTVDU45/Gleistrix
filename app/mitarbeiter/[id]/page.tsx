@@ -25,6 +25,7 @@ import EmployeeStatusSelect from '../../../components/EmployeeStatusSelect';
 import VacationCard from '../../../components/VacationCard';
 import EmployeeAssignmentFilter from '../../../components/EmployeeAssignmentFilter';
 import { ResourceLockDialog } from '../../../components/ui/ResourceLockDialog';
+import EditEmployeeDialog from '../../../components/EditEmployeeDialog';
 
 export default function Page() {
   const params = useParams();
@@ -344,40 +345,7 @@ export default function Page() {
     setEditedEmployee(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
-    // Strenge Sperrprüfung vor Bearbeitung
-    if (!checkEditPermission()) {
-      return;
-    }
-
-    // Sperre bei Bedarf erwerben
-    if (!lockInfo.isOwnLock) {
-      const lockAcquired = await acquireLockOnDemand();
-      if (!lockAcquired) {
-        return;
-      }
-    }
-
-    if (employee) {
-      const updatedEmployee = {
-        ...employee,
-        ...editedEmployee,
-        position: selectedPositions.join(', ')
-      };
-      
-      updateEmployee(employee.id, updatedEmployee);
-      setSuccess(true);
-      setIsEditDialogOpen(false);
-      
-      setSnackbar({
-        open: true,
-        message: 'Mitarbeiter erfolgreich aktualisiert',
-        severity: 'success'
-      });
-      
-      setTimeout(() => setSuccess(false), 3000);
-    }
-  };
+  const handleSave = async () => {};
 
   const handleDelete = async () => {
     // Strenge Sperrprüfung vor Löschung
@@ -808,134 +776,21 @@ export default function Page() {
       )}
 
       {/* Bearbeiten-Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogTitle>Mitarbeiter bearbeiten</DialogTitle>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={editedEmployee.name}
-                onChange={e => handleInputChange('name', e.target.value)}
-                placeholder="Vor- und Nachname"
-              />
-            </div>
-            <div>
-              <Label htmlFor="position">Position(en)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-between rounded-xl min-h-[48px] border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white whitespace-normal break-words text-left"
-                  >
-                    <span className="block whitespace-normal break-words">
-                      {selectedPositions.length > 0
-                        ? selectedPositions.join(', ')
-                        : 'Position(en) auswählen'}
-                    </span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="min-w-[320px] max-w-[400px] p-2 rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600"
-                  style={{ maxHeight: 500 }}
-                >
-                  <div className="flex flex-col gap-2">
-                    {positionOptions.map((option) => (
-                      <label key={option} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={selectedPositions.includes(option)}
-                          onCheckedChange={() => handlePositionToggle(option)}
-                          className="rounded"
-                        />
-                        <span className="text-sm text-slate-700 dark:text-slate-200">{option}</span>
-                      </label>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <div className="mt-1">
-                <select
-                  className="w-full rounded-xl min-h-[48px] border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white"
-                  value={editedEmployee.status}
-                  onChange={(e) => handleInputChange('status', e.target.value)}
-                >
-                  <option value="aktiv">Aktiv</option>
-                  <option value="nicht aktiv">Nicht aktiv</option>
-                  <option value="urlaub">Urlaub</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="email">E-Mail</Label>
-              <Input
-                id="email"
-                type="email"
-                value={editedEmployee.email}
-                onChange={e => handleInputChange('email', e.target.value)}
-                placeholder="email@beispiel.de"
-              />
-            </div>
-            <div>
-              <Label htmlFor="phone">Telefon</Label>
-              <Input
-                id="phone"
-                value={editedEmployee.phone}
-                onChange={e => handleInputChange('phone', e.target.value)}
-                placeholder="+49 123 456789"
-              />
-            </div>
-            <div>
-              <Label htmlFor="elbaId">ElBa ID-Nr.</Label>
-              <Input
-                id="elbaId"
-                value={editedEmployee.elbaId}
-                onChange={e => handleInputChange('elbaId', e.target.value)}
-                placeholder="ElBa ID-Nummer"
-              />
-            </div>
-            <div>
-              <Label htmlFor="address">Anschrift</Label>
-              <Input
-                id="address"
-                value={editedEmployee.address}
-                onChange={e => handleInputChange('address', e.target.value)}
-                placeholder="Straße und Hausnummer"
-              />
-            </div>
-            <div>
-              <Label htmlFor="postalCode">PLZ</Label>
-              <Input
-                id="postalCode"
-                value={editedEmployee.postalCode}
-                onChange={e => handleInputChange('postalCode', e.target.value)}
-                placeholder="12345"
-              />
-            </div>
-            <div>
-              <Label htmlFor="city">Stadt</Label>
-              <Input
-                id="city"
-                value={editedEmployee.city}
-                onChange={e => handleInputChange('city', e.target.value)}
-                placeholder="Beispielstadt"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleSave}>
-              Speichern
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditEmployeeDialog
+        employee={employee}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onEmployeeUpdated={async (payload) => {
+          // Sperre prüfen und ggf. erwerben
+          if (!checkEditPermission()) return
+          if (!lockInfo.isOwnLock) {
+            const ok = await acquireLockOnDemand();
+            if (!ok) return;
+          }
+          await updateEmployee(employee.id, { ...employee, ...payload } as any)
+          setSnackbar({ open: true, message: 'Mitarbeiter erfolgreich aktualisiert', severity: 'success' })
+        }}
+      />
 
       {/* Löschen-Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
