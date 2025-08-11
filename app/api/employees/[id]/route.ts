@@ -63,7 +63,7 @@ export async function PUT(
     if (process.env.NODE_ENV === 'production' && csrf !== 'employees:update') {
       return NextResponse.json({ error: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request, ['admin','superadmin']);
+    const auth = await requireAuth(request, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const schema = z.object({
