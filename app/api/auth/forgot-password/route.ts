@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
     // In einer echten App würden wir hier eine E-Mail senden
     // Für Demo-Zwecke geben wir eine Erfolgsmeldung zurück
     console.log(`Reset-Token für ${email}: ${resetToken}`);
-    console.log(`Reset-Link: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    console.log(`Reset-Link: ${baseUrl}/reset-password?token=${resetToken}`);
 
     return NextResponse.json({ 
       message: "Falls ein Konto mit dieser E-Mail-Adresse existiert, wurde eine E-Mail mit Anweisungen zum Zurücksetzen des Passworts gesendet." 
