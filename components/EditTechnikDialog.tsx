@@ -17,7 +17,8 @@ interface EditTechnikDialogProps {
 export default function EditTechnikDialog({ open, onClose, project, technik, date, onSave }: EditTechnikDialogProps) {
   if (!technik) return null;
   
-  const handleSave = async (date: string, technikData: any) => {
+  const handleSave = async (dateOrDates: string | string[], technikData: any) => {
+    const date = Array.isArray(dateOrDates) ? (dateOrDates[0] ?? dateOrDates[0]) : dateOrDates;
     if (technikData.selectedDays) {
       // Wenn selectedDays vorhanden sind, sende alle Daten in einem Request
       const updatedTechnik = {
