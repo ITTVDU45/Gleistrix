@@ -103,6 +103,7 @@ export default function VehicleActions({ vehicle }: VehicleActionsProps) {
           size="sm" 
           className="rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400"
           onClick={handleEditClick}
+          title="Fahrzeug bearbeiten"
         >
           <Edit className="h-4 w-4" />
         </Button>

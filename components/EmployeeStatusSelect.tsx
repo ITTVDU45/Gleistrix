@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ChevronDown, Check } from 'lucide-react';
 import type { EmployeeStatus } from '../types/main';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 interface EmployeeStatusSelectProps {
   employee: any;
@@ -49,46 +50,44 @@ export default function EmployeeStatusSelect({
   };
 
   return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={isLoading || disabled}
-        className="h-auto p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
-      >
-        <Badge 
-          className={`text-xs ${currentStatusOption.color} ${isCurrentlyOnVacation ? 'ring-2 ring-orange-300 dark:ring-orange-600' : ''}`}
+    <Popover open={isOpen} onOpenChange={(open) => !disabled && setIsOpen(open)}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isLoading || disabled}
+          className="h-auto p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
         >
-          {currentStatusOption.label}
-          {isCurrentlyOnVacation && currentStatus !== 'urlaub' && (
-            <span className="ml-1 text-orange-600 dark:text-orange-400">⚠️</span>
-          )}
-        </Badge>
-        <ChevronDown className="h-3 w-3 ml-1" />
-      </Button>
-
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-32 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg">
-          <div className="py-1">
-            {statusOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleStatusChange(option.value as EmployeeStatus)}
-                disabled={isLoading || disabled}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between ${
-                  currentStatus === option.value ? 'bg-blue-50 dark:bg-blue-900/30' : ''
-                }`}
-              >
-                <span>{option.label}</span>
-                {currentStatus === option.value && (
-                  <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                )}
-              </button>
-            ))}
-          </div>
+          <Badge 
+            className={`text-xs ${currentStatusOption.color} ${isCurrentlyOnVacation ? 'ring-2 ring-orange-300 dark:ring-orange-600' : ''}`}
+          >
+            {currentStatusOption.label}
+            {isCurrentlyOnVacation && currentStatus !== 'urlaub' && (
+              <span className="ml-1 text-orange-600 dark:text-orange-400">⚠️</span>
+            )}
+          </Badge>
+          <ChevronDown className="h-3 w-3 ml-1" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-0">
+        <div className="py-1">
+          {statusOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => handleStatusChange(option.value as EmployeeStatus)}
+              disabled={isLoading || disabled}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between ${
+                currentStatus === option.value ? 'bg-blue-50 dark:bg-blue-900/30' : ''
+              }`}
+            >
+              <span>{option.label}</span>
+              {currentStatus === option.value && (
+                <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              )}
+            </button>
+          ))}
         </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 } 
