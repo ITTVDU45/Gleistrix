@@ -79,7 +79,7 @@ export default function EditVehicleDialog({ vehicle, open, onOpenChange, onVehic
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg rounded-2xl border-0 shadow-2xl bg-white dark:bg-slate-800">
+      <DialogContent className="sm:max-w-lg rounded-2xl border-0 shadow-2xl bg-white dark:bg-slate-800 max-h-[85vh] overflow-y-auto">
         <DialogHeader className="pb-4 border-b border-slate-100 dark:border-slate-700">
           <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-slate-900 dark:text-white">
             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
