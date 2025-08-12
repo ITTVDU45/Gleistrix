@@ -21,9 +21,9 @@ export default function InlineStatusSelect({ project, onStatusChange, showInline
 
   const statusOptions = [
     { value: 'aktiv' as ProjectStatus, label: 'Aktiv', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
-    { value: 'abgeschlossen' as ProjectStatus, label: 'Abgeschlossen', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
+    { value: 'abgeschlossen' as ProjectStatus, label: 'Abgeschlossen', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' },
     { value: 'fertiggestellt' as ProjectStatus, label: 'Fertiggestellt', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' },
-    { value: 'geleistet' as ProjectStatus, label: 'Geleistet', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400' },
+    { value: 'geleistet' as ProjectStatus, label: 'Geleistet', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
     { value: 'kein Status' as ProjectStatus, label: 'Kein Status', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400' }
   ];
 
