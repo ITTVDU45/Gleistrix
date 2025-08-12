@@ -149,7 +149,7 @@ export default function TechnikList({
       {/* Lösch-Dialog */}
       {technikToDelete && (
         <Dialog open={!!technikToDelete} onOpenChange={() => setTechnikToDelete(null)}>
-          <DialogContent className="sm:max-w-md rounded-2xl border-0 shadow-2xl bg-white">
+          <DialogContent className="sm:max-w-md rounded-2xl border-0 shadow-2xl bg-white max-h-[85vh] overflow-y-auto">
             <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-slate-900 pb-4 border-b border-slate-100">
               <div className="p-2 bg-red-100 rounded-xl">
                 <Trash2 className="h-6 w-6 text-red-600" />

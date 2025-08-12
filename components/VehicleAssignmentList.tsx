@@ -217,7 +217,7 @@ export default function VehicleAssignmentList({ project, vehicles, onEdit, selec
       </div>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-lg rounded-2xl border-0 shadow-2xl bg-white">
+        <DialogContent className="sm:max-w-lg rounded-2xl border-0 shadow-2xl bg-white max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Fahrzeugzuweisung bearbeiten</DialogTitle>
           </DialogHeader>

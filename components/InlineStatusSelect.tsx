@@ -10,9 +10,10 @@ import type { Project, ProjectStatus } from '../types';
 interface InlineStatusSelectProps {
   project: Project;
   onStatusChange: (projectId: string, newStatus: ProjectStatus) => Promise<void>;
+  showInlineFeedback?: boolean;
 }
 
-export default function InlineStatusSelect({ project, onStatusChange }: InlineStatusSelectProps) {
+export default function InlineStatusSelect({ project, onStatusChange, showInlineFeedback = true }: InlineStatusSelectProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
@@ -76,7 +77,7 @@ export default function InlineStatusSelect({ project, onStatusChange }: InlineSt
       </Select>
 
       {/* Erfolgs-Meldung */}
-      {showSuccess && (
+      {showInlineFeedback && showSuccess && (
         <Alert className="absolute top-10 left-0 z-50 w-64 border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800 rounded-xl">
           <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
           <AlertDescription className="text-green-800 dark:text-green-200 text-xs">
@@ -86,7 +87,7 @@ export default function InlineStatusSelect({ project, onStatusChange }: InlineSt
       )}
 
       {/* Fehler-Meldung */}
-      {showError && (
+      {showInlineFeedback && showError && (
         <Alert className="absolute top-10 left-0 z-50 w-64 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 rounded-xl">
           <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
           <AlertDescription className="text-red-800 dark:text-red-200 text-xs">

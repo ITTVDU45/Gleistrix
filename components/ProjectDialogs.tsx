@@ -27,7 +27,7 @@ export default function ProjectDialogs({ projects }: ProjectDialogsProps) {
   return (
     <>
       <Dialog open={createOpen} onOpenChange={open => !open && handleClose()}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogTitle>Neues Projekt erstellen</DialogTitle>
           <ProjectCreateForm onSuccess={handleClose} onCancel={handleClose} />
         </DialogContent>

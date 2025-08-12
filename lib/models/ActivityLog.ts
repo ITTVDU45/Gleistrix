@@ -30,7 +30,9 @@ const ActivityLogSchema = new Schema<IActivityLog>({
     enum: [
       // Projekt Aktionen
       'project_created', 'project_updated', 'project_deleted', 'project_status_changed',
-      'project_technology_added', 'project_time_entry_added', 'project_vehicle_assigned',
+      'project_technology_added', 'project_technology_updated', 'project_technology_removed',
+      'project_time_entry_added', 'project_time_entry_updated', 'project_time_entry_deleted',
+      'project_vehicle_assigned', 'project_vehicle_updated', 'project_vehicle_unassigned',
       'project_export_pdf', 'project_export_csv',
       
       // Mitarbeiter Aktionen
