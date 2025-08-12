@@ -11,7 +11,7 @@ import type { Project } from '../types'
 
 interface TechnikAssignmentFormProps {
   project: Project
-  onAssign: (date: string, technik: { name: string; anzahl: number; meterlaenge: number }) => void
+  onAssign: (dateOrDates: string | string[], technik: { name: string; anzahl: number; meterlaenge: number; selectedDays?: string[] }) => void
   onClose: () => void
   editMode?: boolean
   initialValues?: {
@@ -89,13 +89,13 @@ export default function TechnikAssignmentForm({
       }
       await onAssign(selectedDays[0], technikData)
     } else {
-      await Promise.all(selectedDays.map(day =>
-        onAssign(day, {
-          name: technikName,
-          anzahl: anzahl,
-          meterlaenge: meterlaenge
-        })
-      ))
+      // Auswahlgesteuert: nur die gewählten Tage übergeben (oder leer, wenn keine gewählt)
+      await onAssign(selectedDays, {
+        name: technikName,
+        anzahl: anzahl,
+        meterlaenge: meterlaenge,
+        selectedDays: selectedDays,
+      })
     }
     onClose()
   }
@@ -176,16 +176,13 @@ export default function TechnikAssignmentForm({
                     : 'border-slate-200 hover:bg-slate-100'
                 }`}
                 onClick={() => {
-                  setSelectedDays(prev =>
-                    prev.includes(day)
+                  setSelectedDays(prev => {
+                    const next = prev.includes(day)
                       ? prev.filter(d => d !== day)
                       : [...prev, day]
-                  )
-                  if (selectedDays.length + 1 === projectDays.length) {
-                    setSelectAllDays(true)
-                  } else {
-                    setSelectAllDays(false)
-                  }
+                    setSelectAllDays(next.length === projectDays.length)
+                    return next
+                  })
                 }}
               >
                 {format(parseISO(day), 'dd.MM.yyyy', { locale: de })}

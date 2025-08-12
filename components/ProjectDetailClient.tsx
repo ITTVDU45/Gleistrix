@@ -42,6 +42,7 @@ const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
   }}>{children}</span>
 );
 import { ChartContainer } from './ui/chart';
+import { ScrollArea } from './ui/scroll-area';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, ResponsiveContainer, Legend, AreaChart, Area, PieChart, Pie, Cell, LabelList } from 'recharts';
 import Image from 'next/image';
 import { ActivityLogApi } from '@/lib/api/activityLog'
@@ -357,7 +358,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   }, [project]);
 
   // Handler für Technik - Hinzufügen
-  const handleAddTechnik = async (date: string, technik: { name: string; anzahl: number; meterlaenge: number }) => {
+  const handleAddTechnik = async (date: string | string[], technik: { name: string; anzahl: number; meterlaenge: number }) => {
     if (!project) return;
 
     // Sperre bei Bedarf erwerben
@@ -375,7 +376,11 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
     try {
       if (!project) throw new Error('Projekt nicht geladen');
-      const response = await ProjectsApi.update(project.id, { technik: { action: 'add', date, technik } } as any)
+      const isBatch = Array.isArray(date);
+      const payload = isBatch
+        ? { technik: { action: 'add', dates: date, technik } }
+        : { technik: { action: 'add', date, technik } };
+      const response = await ProjectsApi.update(project.id, payload as any)
       if ((response as any).success !== false) {
         await fetchProjects();
         setSnackbar({
@@ -383,7 +388,6 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
           message: 'Technik erfolgreich hinzugefügt',
           severity: 'success'
         });
-        setTechnikDialogOpen(false);
       } else {
         throw new Error('Fehler beim Hinzufügen der Technik');
       }
@@ -506,11 +510,17 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   };
 
   // Wrapper für TechnikAssignmentForm - für mehrere Tage
-  const handleAssignTechnikMultiple = async (date: string, technik: { name: string; anzahl: number; meterlaenge: number }) => {
+  const handleAssignTechnikMultiple = async (dateOrDates: string | string[], technik: { name: string; anzahl: number; meterlaenge: number; selectedDays?: string[] }) => {
     try {
-      await handleAddTechnik(date, technik);
-      // TechnikAssignmentForm ruft für alle Tage handleAddTechnik auf
-      // Nach Abschluss aller Calls Projekte neu laden
+      // Nur die im Formular gewählten Tage verwenden; wenn leer, dann nichts tun
+      const selected = Array.isArray(dateOrDates) ? dateOrDates : (technik.selectedDays || []);
+      if (!Array.isArray(selected) || selected.length === 0) {
+        setSnackbar({ open: true, message: 'Bitte wählen Sie mindestens einen Tag aus.', severity: 'error' });
+        return;
+      }
+
+      await handleAddTechnik(selected, technik);
+      // Nach Abschluss neu laden
       await fetchProjects();
       
       // Kurze Verzögerung um sicherzustellen, dass die Daten aktualisiert sind
@@ -1398,29 +1408,33 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       {/* Dialog für Tagesauswahl vor Export */}
       <Dialog open={exportDayDialogOpen} onOpenChange={setExportDayDialogOpen}>
         <DialogContent className="max-w-lg w-full bg-white dark:bg-slate-800 rounded-2xl border-0 shadow-2xl">
-          <DialogTitle className="text-xl font-semibold mb-4">Tage für den Export auswählen</DialogTitle>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {projectDays.map(day => {
-              return (
-                <Button
-                  key={day}
-                  variant={exportSelectedDays.includes(day) ? 'default' : 'outline'}
-                  size="sm"
-                  className={`rounded-xl min-w-[110px] ${exportSelectedDays.includes(day) ? 'bg-blue-600 text-white' : ''}`}
-                  onClick={() => {
-                    setExportSelectedDays(prev =>
-                      prev.includes(day)
-                        ? prev.filter(d => d !== day)
-                        : [...prev, day]
-                    );
-                  }}
-                >
-                  {format(parseISO(day), 'dd.MM.yyyy', { locale: de })}
-                </Button>
-              );
-            })}
+          <DialogTitle className="text-xl font-semibold">Tage für den Export auswählen</DialogTitle>
+          <div className="mt-4">
+            <ScrollArea className="h-[360px] pr-2">
+              <div className="flex flex-wrap gap-2">
+                {projectDays.map(day => {
+                  return (
+                    <Button
+                      key={day}
+                      variant={exportSelectedDays.includes(day) ? 'default' : 'outline'}
+                      size="sm"
+                      className={`rounded-xl min-w-[110px] ${exportSelectedDays.includes(day) ? 'bg-blue-600 text-white' : ''}`}
+                      onClick={() => {
+                        setExportSelectedDays(prev =>
+                          prev.includes(day)
+                            ? prev.filter(d => d !== day)
+                            : [...prev, day]
+                        );
+                      }}
+                    >
+                      {format(parseISO(day), 'dd.MM.yyyy', { locale: de })}
+                    </Button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
           </div>
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mt-4">
             <Button
               variant={exportSelectedDays.length === projectDays.length ? 'default' : 'outline'}
               size="sm"
@@ -1436,7 +1450,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               Keine Tage
             </Button>
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 mt-6">
             <Button variant="outline" onClick={() => setExportDayDialogOpen(false)}>Abbrechen</Button>
             <Button
               className="bg-blue-700 hover:bg-blue-800 text-white rounded-xl px-6 h-12"
@@ -1455,7 +1469,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       {/* Dialog für Export */}
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
         <DialogContent className="max-w-4xl w-full bg-white dark:bg-slate-800 rounded-2xl border-0 shadow-2xl print:shadow-none print:border-none print:rounded-none print:max-w-full print:w-full my-12">
-          <DialogTitle asChild>
+          <DialogTitle>
             <VisuallyHidden>Projekt-Export</VisuallyHidden>
           </DialogTitle>
           <div
@@ -1467,19 +1481,11 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               <h2 className="text-2xl font-bold text-[#114F6B] mb-2">Projektübersicht</h2>
             </div>
             {/* Projektübersicht als Info-Grid */}
-            <div className="grid grid-cols-2 gap-4 text-base mb-8">
+              <div className="grid grid-cols-2 gap-4 text-base mb-8">
               <div><span className="font-semibold">Projektname:</span> {project?.name}</div>
               <div><span className="font-semibold">Auftraggeber:</span> {project?.auftraggeber}</div>
               <div><span className="font-semibold">Status:</span> {project?.status}</div>
               <div><span className="font-semibold">Zeitraum:</span> {project?.datumBeginn} - {project?.datumEnde}</div>
-              <div><span className="font-semibold">Gesamtarbeitsstunden:</span> {Object.entries(project?.mitarbeiterZeiten || {}).filter(([day]) => exportSelectedDays.includes(day)).flatMap(([, entries]: any) => entries).reduce((sum, e: any) => sum + (e.stunden || 0), 0).toFixed(2)}</div>
-              <div><span className="font-semibold">Gesamtfahrstunden:</span> {Object.entries(project?.mitarbeiterZeiten || {}).filter(([day]) => exportSelectedDays.includes(day)).flatMap(([, entries]: any) => entries).reduce((sum, e: any) => sum + (e.fahrtstunden || 0), 0).toFixed(2)}</div>
-              <div><span className="font-semibold">Technik Gesamtlänge:</span> {(() => {
-                // Technik-Einträge der exportierten Tage aggregieren
-                const technikArr = Object.entries(project?.technik || {}).filter(([day]) => exportSelectedDays.includes(day)).flatMap(([, arr]: any) => arr || []);
-                const sum = technikArr.reduce((acc: number, t: any) => acc + (t.meterlaenge || 0), 0);
-                return sum + ' m';
-              })()}</div>
               <div><span className="font-semibold">Eingesetzte Mitarbeiter:</span> {(() => {
                 const mitarbeiterSet = Object.entries(project?.mitarbeiterZeiten || {}).filter(([day]) => exportSelectedDays.includes(day)).flatMap(([, entries]: any) => entries).reduce((acc: Set<string>, e: any) => acc.add(e.name), new Set());
                 return mitarbeiterSet.size;

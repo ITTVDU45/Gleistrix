@@ -108,6 +108,26 @@ export async function PUT(
               (project as any).mitarbeiterZeiten[d] = [];
             }
             (project as any).mitarbeiterZeiten[d].push(entry);
+            try {
+              const currentUser = await getCurrentUser(request);
+              if (currentUser) {
+                await ActivityLog.create({
+                  timestamp: new Date(),
+                  actionType: 'project_time_entry_added',
+                  module: 'project',
+                  performedBy: {
+                    userId: (currentUser as any)._id,
+                    name: (currentUser as any).name,
+                    role: (currentUser as any).role
+                  },
+                  details: {
+                    entityId: (project as any)._id,
+                    description: `Zeiteintrag hinzugefügt: ${entry.name} am ${d} (${entry.start ?? ''}-${entry.ende ?? ''}, ${entry.stunden ?? ''}h)`,
+                    after: { date: d, entry }
+                  }
+                } as any)
+              }
+            } catch (_) {}
           }
         }
 
@@ -120,8 +140,30 @@ export async function PUT(
           const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
           const idx = arr.findIndex(e => e && e.id === updatedEntry.id);
           if (idx !== -1) {
+            const before = { ...arr[idx] };
             arr[idx] = { ...arr[idx], ...updatedEntry };
             (project as any).mitarbeiterZeiten[date] = arr;
+            try {
+              const currentUser = await getCurrentUser(request);
+              if (currentUser) {
+                await ActivityLog.create({
+                  timestamp: new Date(),
+                  actionType: 'project_time_entry_updated',
+                  module: 'project',
+                  performedBy: {
+                    userId: (currentUser as any)._id,
+                    name: (currentUser as any).name,
+                    role: (currentUser as any).role
+                  },
+                  details: {
+                    entityId: (project as any)._id,
+                    description: `Zeiteintrag geändert am ${date}: ${before.name} (${before.start ?? ''}-${before.ende ?? ''}) → (${arr[idx].start ?? ''}-${arr[idx].ende ?? ''})`,
+                    before,
+                    after: arr[idx]
+                  }
+                } as any)
+              }
+            } catch (_) {}
           }
         }
 
@@ -132,10 +174,33 @@ export async function PUT(
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (delete)' }, { status: 400 });
           }
           const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
+          const removed = arr.find(e => e && e.id === entryId);
           (project as any).mitarbeiterZeiten[date] = arr.filter(e => e && e.id !== entryId);
           if ((project as any).mitarbeiterZeiten[date].length === 0) {
             delete (project as any).mitarbeiterZeiten[date];
           }
+          try {
+            if (removed) {
+              const currentUser = await getCurrentUser(request);
+              if (currentUser) {
+                await ActivityLog.create({
+                  timestamp: new Date(),
+                  actionType: 'project_time_entry_deleted',
+                  module: 'project',
+                  performedBy: {
+                    userId: (currentUser as any)._id,
+                    name: (currentUser as any).name,
+                    role: (currentUser as any).role
+                  },
+                  details: {
+                    entityId: (project as any)._id,
+                    description: `Zeiteintrag gelöscht am ${date}: ${removed.name} (${removed.start ?? ''}-${removed.ende ?? ''})`,
+                    before: removed
+                  }
+                } as any)
+              }
+            }
+          } catch (_) {}
         }
 
         (project as any).markModified('mitarbeiterZeiten');
@@ -180,6 +245,26 @@ export async function PUT(
               });
             }
             (project as any).fahrzeuge[d] = arr;
+            try {
+              const currentUser = await getCurrentUser(request);
+              if (currentUser) {
+                await ActivityLog.create({
+                  timestamp: new Date(),
+                  actionType: 'project_vehicle_assigned',
+                  module: 'project',
+                  performedBy: {
+                    userId: (currentUser as any)._id,
+                    name: (currentUser as any).name,
+                    role: (currentUser as any).role
+                  },
+                  details: {
+                    entityId: (project as any)._id,
+                    description: `Fahrzeug zugewiesen am ${d}: ${vehicle.type} ${vehicle.licensePlate}`,
+                    after: { date: d, vehicle }
+                  }
+                } as any)
+              }
+            } catch (_) {}
           }
         }
 
@@ -193,8 +278,30 @@ export async function PUT(
           const arr = ((project as any).fahrzeuge[date] || []) as any[];
           const idx = arr.findIndex(v => v && v.id === vehicleId);
           if (idx !== -1) {
+            const before = { ...arr[idx] };
             arr[idx] = { ...arr[idx], ...updatedFields };
             (project as any).fahrzeuge[date] = arr;
+            try {
+              const currentUser = await getCurrentUser(request);
+              if (currentUser) {
+                await ActivityLog.create({
+                  timestamp: new Date(),
+                  actionType: 'project_vehicle_updated',
+                  module: 'project',
+                  performedBy: {
+                    userId: (currentUser as any)._id,
+                    name: (currentUser as any).name,
+                    role: (currentUser as any).role
+                  },
+                  details: {
+                    entityId: (project as any)._id,
+                    description: `Fahrzeug aktualisiert am ${date}: ${before.type} ${before.licensePlate}`,
+                    before,
+                    after: arr[idx]
+                  }
+                } as any)
+              }
+            } catch (_) {}
           }
         }
 
@@ -205,10 +312,33 @@ export async function PUT(
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (unassign)' }, { status: 400 });
           }
           const arr = ((project as any).fahrzeuge[date] || []) as any[];
+          const removed = arr.find(v => v && v.id === vehicleId);
           (project as any).fahrzeuge[date] = arr.filter(v => v && v.id !== vehicleId);
           if ((project as any).fahrzeuge[date].length === 0) {
             delete (project as any).fahrzeuge[date];
           }
+          try {
+            if (removed) {
+              const currentUser = await getCurrentUser(request);
+              if (currentUser) {
+                await ActivityLog.create({
+                  timestamp: new Date(),
+                  actionType: 'project_vehicle_unassigned',
+                  module: 'project',
+                  performedBy: {
+                    userId: (currentUser as any)._id,
+                    name: (currentUser as any).name,
+                    role: (currentUser as any).role
+                  },
+                  details: {
+                    entityId: (project as any)._id,
+                    description: `Fahrzeug entfernt am ${date}: ${removed.type} ${removed.licensePlate}`,
+                    before: removed
+                  }
+                } as any)
+              }
+            }
+          } catch (_) {}
         }
 
         (project as any).markModified('fahrzeuge');
@@ -235,22 +365,51 @@ export async function PUT(
         }
 
         if (action === 'add') {
-          const date = (body.technik as any).date as string;
+          const date = (body.technik as any).date as string | undefined;
+          const dates = (body.technik as any).dates as string[] | undefined;
           const technik = (body.technik as any).technik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
-          if (!date || !technik || !technik.name) {
+          if ((!date && (!Array.isArray(dates) || dates.length === 0)) || !technik || !technik.name) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (add)' }, { status: 400 });
           }
-          const newTechnik = {
-            id: Date.now().toString(),
+
+          const targetDays = Array.isArray(dates) && dates.length > 0 ? dates : (date ? [date] : []);
+          const newEntryBase = {
             name: technik.name,
             anzahl: Number(technik.anzahl) || 0,
             meterlaenge: Number(technik.meterlaenge) || 0,
             bemerkung: technik.bemerkung || '',
           };
-          if (!(project as any).technik[date]) {
-            (project as any).technik[date] = [];
+
+          for (const d of targetDays) {
+            if (!(project as any).technik[d]) {
+              (project as any).technik[d] = [];
+            }
+            const newTechnik = {
+              id: Date.now().toString() + Math.random().toString(36).slice(2),
+              ...newEntryBase,
+            };
+            (project as any).technik[d].push(newTechnik);
+            try {
+              const currentUser = await getCurrentUser(request);
+              if (currentUser) {
+                await ActivityLog.create({
+                  timestamp: new Date(),
+                  actionType: 'project_technology_added',
+                  module: 'project',
+                  performedBy: {
+                    userId: (currentUser as any)._id,
+                    name: (currentUser as any).name,
+                    role: (currentUser as any).role
+                  },
+                  details: {
+                    entityId: (project as any)._id,
+                    description: `Technikeintrag hinzugefügt am ${d}: ${newEntryBase.name} (Anzahl ${newEntryBase.anzahl}, ${newEntryBase.meterlaenge} m)`,
+                    after: { date: d, technik: newTechnik }
+                  }
+                } as any)
+              }
+            } catch (_) {}
           }
-          (project as any).technik[date].push(newTechnik);
         }
 
         if (action === 'edit') {
@@ -261,24 +420,68 @@ export async function PUT(
           if (!technikId || !updatedTechnik) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (edit)' }, { status: 400 });
           }
-          const applyUpdate = (d: string) => {
+          const applyUpdate = async (d: string) => {
             if (!(project as any).technik[d]) {
               (project as any).technik[d] = [];
             }
             const arr = (project as any).technik[d] as any[];
             const idx = arr.findIndex(t => t && t.id === technikId);
             if (idx !== -1) {
+              const before = { ...arr[idx] };
               arr[idx] = { ...arr[idx], ...updatedTechnik };
+              try {
+                const currentUser = await getCurrentUser(request);
+                if (currentUser) {
+                  await ActivityLog.create({
+                    timestamp: new Date(),
+                    actionType: 'project_technology_updated',
+                    module: 'project',
+                    performedBy: {
+                      userId: (currentUser as any)._id,
+                      name: (currentUser as any).name,
+                      role: (currentUser as any).role
+                    },
+                    details: {
+                      entityId: (project as any)._id,
+                      description: `Technikeintrag geändert am ${d}: ${before.name}`,
+                      before,
+                      after: arr[idx]
+                    }
+                  } as any)
+                }
+              } catch (_) {}
             } else {
               // Falls am Tag kein Eintrag existiert, neuen Eintrag mit gegebener ID anlegen
               arr.push({ id: technikId, ...updatedTechnik });
+              try {
+                const currentUser = await getCurrentUser(request);
+                if (currentUser) {
+                  await ActivityLog.create({
+                    timestamp: new Date(),
+                    actionType: 'project_technology_added',
+                    module: 'project',
+                    performedBy: {
+                      userId: (currentUser as any)._id,
+                      name: (currentUser as any).name,
+                      role: (currentUser as any).role
+                    },
+                    details: {
+                      entityId: (project as any)._id,
+                      description: `Technikeintrag hinzugefügt am ${d}: ${updatedTechnik.name}`,
+                      after: { date: d, technik: { id: technikId, ...updatedTechnik } }
+                    }
+                  } as any)
+                }
+              } catch (_) {}
             }
             (project as any).technik[d] = arr;
           };
           if (Array.isArray(selectedDays) && selectedDays.length > 0) {
-            selectedDays.forEach(d => applyUpdate(d));
+            for (const d of selectedDays) {
+              await applyUpdate(d);
+            }
           } else if (date) {
-            applyUpdate(date);
+            await applyUpdate(date);
           } else {
             return NextResponse.json({ message: 'Fehlendes Datum für Technik-Edit' }, { status: 400 });
           }
@@ -291,10 +494,33 @@ export async function PUT(
             return NextResponse.json({ message: 'Ungültige Technik-Daten (remove)' }, { status: 400 });
           }
           const currentArr = ((project as any).technik[date] || []) as any[];
+          const removed = currentArr.find(t => t && t.id === technikId);
           (project as any).technik[date] = currentArr.filter(t => t && t.id !== technikId);
           if ((project as any).technik[date].length === 0) {
             delete (project as any).technik[date];
           }
+          try {
+            if (removed) {
+              const currentUser = await getCurrentUser(request);
+              if (currentUser) {
+                await ActivityLog.create({
+                  timestamp: new Date(),
+                  actionType: 'project_technology_removed',
+                  module: 'project',
+                  performedBy: {
+                    userId: (currentUser as any)._id,
+                    name: (currentUser as any).name,
+                    role: (currentUser as any).role
+                  },
+                  details: {
+                    entityId: (project as any)._id,
+                    description: `Technikeintrag entfernt am ${date}: ${removed.name}`,
+                    before: removed
+                  }
+                } as any)
+              }
+            }
+          } catch (_) {}
         }
 
         // ATW-Status und Meterlänge aktualisieren (global)

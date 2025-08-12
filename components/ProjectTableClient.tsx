@@ -33,11 +33,26 @@ function getTotalHours(project: Project) {
 export default function ProjectTableClient({ projects }: { projects: Project[] }) {
   const router = useRouter();
   const [localProjects, setLocalProjects] = useState<Project[]>(projects);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
+
+  const closeSnackbar = () => setSnackbar({ open: false, message: '', severity: 'success' });
 
   // Aktualisiere localProjects wenn sich projects ändert
   React.useEffect(() => {
     setLocalProjects(projects);
   }, [projects]);
+
+  // Snackbar automatisch schließen
+  React.useEffect(() => {
+    if (snackbar.open) {
+      const timer = setTimeout(() => closeSnackbar(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [snackbar.open]);
   
   const handleEdit = (projectId: string) => {
     router.push(`/projekte?edit=${projectId}`);
@@ -73,16 +88,35 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
         console.warn('Aktivitätslog fehlgeschlagen:', e)
       }
 
+      // Erfolg Snackbar anzeigen
+      setSnackbar({ open: true, message: 'Status erfolgreich aktualisiert', severity: 'success' });
+
       // Optional: Seite neu laden um alle Änderungen zu reflektieren
       // window.location.reload();
     } catch (error) {
       console.error('Fehler beim Aktualisieren des Status:', error);
+      // Fehler Snackbar anzeigen
+      setSnackbar({ open: true, message: 'Fehler beim Aktualisieren des Status', severity: 'error' });
       throw error;
     }
   };
 
   return (
-    <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
+    <>
+      {snackbar.open && (
+        <div
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+            snackbar.severity === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}
+        >
+          {snackbar.message}
+          <button onClick={closeSnackbar} className="ml-2 text-white hover:text-gray-200">
+            ×
+          </button>
+        </div>
+      )}
+
+      <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -133,6 +167,7 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
                       <InlineStatusSelect 
                         project={project} 
                         onStatusChange={handleStatusChange}
+                        showInlineFeedback={false}
                       />
                     </TableCell>
                     <TableCell>
@@ -168,5 +203,6 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
         )}
       </CardContent>
     </Card>
+    </>
   );
 } 
