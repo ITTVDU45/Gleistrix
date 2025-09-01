@@ -60,8 +60,17 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     }
   }, [initialEntry]);
 
-  // Pausenoptionen 0, 0.5, 1, ... 12
-  const pauseOptions = useMemo(() => Array.from({length: 25}, (_, i) => (i * 0.5).toString()), []);
+  // Pausenoptionen 0, 0.25, 0.5, 0.75, ... 12 (0.25 Schritte)
+  const pauseOptions = useMemo(() => {
+    const options: string[] = [];
+    // 12 / 0.25 = 48 steps
+    for (let i = 0; i <= 48; i++) {
+      const val = +(i * 0.25).toFixed(2);
+      // Keep compact string (e.g. '1' instead of '1.00')
+      options.push(Number.isInteger(val) ? val.toString() : val.toString());
+    }
+    return options;
+  }, []);
 
   // Funktionen des gewählten Mitarbeiters
   const selectedEmployee = employees.find(e => e.name === formData.name);
@@ -723,7 +732,7 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
 
   // Die Zeiten-kopieren-Checkbox wird nur angezeigt, wenn keine Mitarbeiter ausgewählt sind
   return (
-    <div className="max-h-[80vh] overflow-y-auto py-4">
+    <div className="overflow-y-auto py-4">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
           <div className="space-y-2">
