@@ -319,7 +319,7 @@ export async function PUT(request: Request) {
           }
           try {
             if (removed) {
-              const currentUser = await getCurrentUser(request);
+              const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
@@ -501,7 +501,7 @@ export async function PUT(request: Request) {
           }
           try {
             if (removed) {
-              const currentUser = await getCurrentUser(request);
+              const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
