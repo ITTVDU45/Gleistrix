@@ -62,10 +62,11 @@ export async function POST(req: NextRequest){
     // Attach project documents from MinIO if present
     const emailAttachments: any[] = []
     for (const p of pdfBuffers) emailAttachments.push({ filename: p.filename, content: p.buffer, contentType: 'application/pdf' })
-    if (project.dokumente?.all && project.dokumente.all.length > 0) {
+    const projDocsAll = ((project as any)?.dokumente?.all ?? []) as any[]
+    if (Array.isArray(projDocsAll) && projDocsAll.length > 0) {
       const bucket = process.env.MINIO_BUCKET || 'project-documents'
       const { getObjectBufferAsync } = await import('@/lib/storage/minioClient')
-      for (const pd of project.dokumente.all) {
+      for (const pd of projDocsAll) {
         try {
           // doc.url may contain minio://{bucket}/{key} or a direct url — try to parse key
           let key = pd.key || ''
