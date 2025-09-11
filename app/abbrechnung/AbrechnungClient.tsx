@@ -37,19 +37,19 @@ export default function AbrechnungClient({ projects = [] }: Props){
       const billed = new Set<string>(Array.isArray(p?.abgerechneteTage) ? (p.abgerechneteTage as any[]).map((d: any) => String(d)) : [])
       // Zähle nur Tage mit tatsächlichen Einträgen; Tage mit [] oder undefined ignorieren.
       // Ergänze Folgetage für tagübergreifende Einträge (Ende-Tag).
-      const daysWithEntriesSet: Set<string> = new Set<string>()
+      const daysWithEntries: Record<string, true> = {}
       Object.entries(p?.mitarbeiterZeiten || {}).forEach(([day, arr]: any) => {
-        if (Array.isArray(arr) && arr.length > 0) daysWithEntriesSet.add(day)
+        if (Array.isArray(arr) && arr.length > 0) { daysWithEntries[day] = true }
         (Array.isArray(arr) ? arr : []).forEach((e: any) => {
           const endStr: string | undefined = e?.ende || e?.end
           if (typeof endStr === 'string' && endStr.includes('T')) {
             const endDay = endStr.slice(0,10)
-            if (endDay && endDay !== day) daysWithEntriesSet.add(endDay)
+            if (endDay && endDay !== day) daysWithEntries[endDay] = true
           }
         })
       })
-      const daysWithEntries = Array.from(daysWithEntriesSet)
-      if (daysWithEntries.length > 0 && daysWithEntries.every(d => billed.has(String(d)))) {
+      const daysWithEntriesArr = Object.keys(daysWithEntries)
+      if (daysWithEntriesArr.length > 0 && daysWithEntriesArr.every(d => billed.has(String(d)))) {
         return 'geleistet'
       }
       // Teilweise, wenn es mindestens einen abgerechneten Tag gibt
