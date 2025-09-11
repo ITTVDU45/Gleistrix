@@ -258,7 +258,7 @@ export async function POST(req: NextRequest){
               role: token?.role || 'user'
             },
             details: {
-              entityId: project._id,
+              entityId: (project as any)._id,
               description: `Abrechnung durchgeführt für Projekt "${(project as any).name}" (${days.length} Tag(e))`,
               before: { abgerechneteTage: existing },
               after: { abgerechneteTage: merged },
@@ -281,7 +281,7 @@ export async function POST(req: NextRequest){
                 role: token?.role || 'user'
               },
               details: {
-                entityId: project._id,
+                entityId: (project as any)._id,
                 description: `Projektstatus geändert: ${(project as any).name} (${(project as any).status} → geleistet)`,
                 before: { status: (project as any).status },
                 after: { status: 'geleistet' }
