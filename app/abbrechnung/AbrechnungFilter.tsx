@@ -78,8 +78,9 @@ export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
     if (hoursFrom || hoursTo) {
       const hoursNames = new Set<string>()
       projects.forEach(project => {
-        const totalHours = Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-          return sum + entries.reduce((entrySum: number, entry: any) => entrySum + (entry.stunden || 0), 0)
+        const totalHours = (Object.values(project.mitarbeiterZeiten || {}) as any[]).reduce((sum: number, entries: any) => {
+          const arr = Array.isArray(entries) ? entries : []
+          return sum + arr.reduce((entrySum: number, entry: any) => entrySum + (entry.stunden || 0), 0)
         }, 0)
         let includeProject = true
         if (hoursFrom && totalHours < parseFloat(hoursFrom)) includeProject = false
@@ -122,8 +123,9 @@ export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
     if (hoursFrom || hoursTo) {
       const hoursAuftraggeber = new Set<string>()
       projects.forEach(project => {
-        const totalHours = Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-          return sum + entries.reduce((entrySum: number, entry: any) => entrySum + (entry.stunden || 0), 0)
+        const totalHours = (Object.values(project.mitarbeiterZeiten || {}) as any[]).reduce((sum: number, entries: any) => {
+          const arr = Array.isArray(entries) ? entries : []
+          return sum + arr.reduce((entrySum: number, entry: any) => entrySum + (entry.stunden || 0), 0)
         }, 0)
         let includeProject = true
         if (hoursFrom && totalHours < parseFloat(hoursFrom)) includeProject = false
@@ -245,8 +247,9 @@ export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
 
     if (hoursFrom || hoursTo) {
       filtered = filtered.filter(project => {
-        const totalHours = Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-          return sum + entries.reduce((entrySum: number, entry: any) => entrySum + (entry.stunden || 0), 0)
+        const totalHours = (Object.values(project.mitarbeiterZeiten || {}) as any[]).reduce((sum: number, entries: any) => {
+          const arr = Array.isArray(entries) ? entries : []
+          return sum + arr.reduce((entrySum: number, entry: any) => entrySum + (entry.stunden || 0), 0)
         }, 0)
         if (hoursFrom && totalHours < parseFloat(hoursFrom)) return false
         if (hoursTo && totalHours > parseFloat(hoursTo)) return false
