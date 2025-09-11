@@ -34,10 +34,10 @@ export default function AbrechnungClient({ projects = [] }: Props){
   // Vollständig abgerechnet => alle Tage mit Zeiteinträgen (Keys in mitarbeiterZeiten) sind in abgerechneteTage enthalten.
   const getEffectiveStatus = React.useCallback((p: any): string => {
     try {
-      const billed = new Set<string>((p?.abgerechneteTage || []).map((d: any) => String(d)))
+      const billed = new Set<string>(Array.isArray(p?.abgerechneteTage) ? (p.abgerechneteTage as any[]).map((d: any) => String(d)) : [])
       // Zähle nur Tage mit tatsächlichen Einträgen; Tage mit [] oder undefined ignorieren.
       // Ergänze Folgetage für tagübergreifende Einträge (Ende-Tag).
-      const daysWithEntriesSet = new Set<string>()
+      const daysWithEntriesSet: Set<string> = new Set<string>()
       Object.entries(p?.mitarbeiterZeiten || {}).forEach(([day, arr]: any) => {
         if (Array.isArray(arr) && arr.length > 0) daysWithEntriesSet.add(day)
         (Array.isArray(arr) ? arr : []).forEach((e: any) => {
