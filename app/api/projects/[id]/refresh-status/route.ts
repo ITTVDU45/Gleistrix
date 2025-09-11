@@ -40,7 +40,7 @@ export async function POST(req: Request, context: any){
     const abgerechneteTage: string[] = Array.isArray((project as any).abgerechneteTage) ? (project as any).abgerechneteTage : []
     
     console.log('Projektstatus-Berechnung:', {
-      projektId: project._id,
+      projektId: (project as any)._id,
       allDays,
       abgerechneteTage,
       allDaysLength: allDays.length,
