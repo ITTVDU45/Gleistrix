@@ -62,7 +62,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
         client: project.auftraggeber,
         status: project.status as any,
         ort: (project as any).baustelle || '-',
-        name: entry.name || entry.mitarbeiter || '-',
+        name: entry.name || (entry as any).mitarbeiter || '-',
         funktion: entry.funktion || entry.role || '-',
         start: entry.start || entry.beginn || '-',
         ende: entry.ende || entry.end || '-',
