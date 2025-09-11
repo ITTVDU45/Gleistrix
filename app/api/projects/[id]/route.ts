@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { Project } from '../../../../lib/models/Project';
 import ActivityLog from '../../../../lib/models/ActivityLog';
 import User from '../../../../lib/models/User';
@@ -12,13 +12,13 @@ import NotificationLog from '../../../../lib/models/NotificationLog';
 import { z } from 'zod';
 import { requireAuth } from '../../../../lib/security/requireAuth';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request) {
   try {
     await dbConnect();
-    const { id } = await params;
+    const url = new URL((request as any).url);
+    const parts = url.pathname.split('/').filter(Boolean);
+    const projectsIdx = parts.indexOf('projects');
+    const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
 
     if (!id) {
       return NextResponse.json(
@@ -44,18 +44,18 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: Request) {
   try {
     await dbConnect();
-    const { id } = await params;
+    const url = new URL((request as any).url);
+    const parts = url.pathname.split('/').filter(Boolean);
+    const projectsIdx = parts.indexOf('projects');
+    const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
     const csrf = request.headers.get('x-csrf-intent');
     if (process.env.NODE_ENV === 'production' && csrf !== 'projects:update') {
       return NextResponse.json({ message: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request, ['user','admin','superadmin']);
+    const auth = await requireAuth(request as any, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
     const schema = z.object({}).passthrough();
     const parseResult = schema.safeParse(await request.json());
@@ -65,7 +65,7 @@ export async function PUT(
     const body = parseResult.data;
 
     // Einheitlich NextAuth verwenden
-    const currentUser = await getCurrentUser(request);
+    const currentUser = await getCurrentUser(request as any);
 
     if (!id) {
       return NextResponse.json(
@@ -109,7 +109,7 @@ export async function PUT(
             }
             (project as any).mitarbeiterZeiten[d].push(entry);
             try {
-              const currentUser = await getCurrentUser(request);
+              const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
@@ -144,7 +144,7 @@ export async function PUT(
             arr[idx] = { ...arr[idx], ...updatedEntry };
             (project as any).mitarbeiterZeiten[date] = arr;
             try {
-              const currentUser = await getCurrentUser(request);
+              const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
@@ -181,7 +181,7 @@ export async function PUT(
           }
           try {
             if (removed) {
-              const currentUser = await getCurrentUser(request);
+              const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
@@ -246,7 +246,7 @@ export async function PUT(
             }
             (project as any).fahrzeuge[d] = arr;
             try {
-              const currentUser = await getCurrentUser(request);
+              const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
@@ -282,7 +282,7 @@ export async function PUT(
             arr[idx] = { ...arr[idx], ...updatedFields };
             (project as any).fahrzeuge[date] = arr;
             try {
-              const currentUser = await getCurrentUser(request);
+              const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
@@ -390,7 +390,7 @@ export async function PUT(
             };
             (project as any).technik[d].push(newTechnik);
             try {
-              const currentUser = await getCurrentUser(request);
+              const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
@@ -430,7 +430,7 @@ export async function PUT(
               const before = { ...arr[idx] };
               arr[idx] = { ...arr[idx], ...updatedTechnik };
               try {
-                const currentUser = await getCurrentUser(request);
+                const currentUser = await getCurrentUser(request as any);
                 if (currentUser) {
                   await ActivityLog.create({
                     timestamp: new Date(),
@@ -454,7 +454,7 @@ export async function PUT(
               // Falls am Tag kein Eintrag existiert, neuen Eintrag mit gegebener ID anlegen
               arr.push({ id: technikId, ...updatedTechnik });
               try {
-                const currentUser = await getCurrentUser(request);
+                const currentUser = await getCurrentUser(request as any);
                 if (currentUser) {
                   await ActivityLog.create({
                     timestamp: new Date(),
@@ -606,18 +606,18 @@ export async function PUT(
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request) {
   try {
     await dbConnect();
-    const { id } = await params;
+    const url = new URL((request as any).url);
+    const parts = url.pathname.split('/').filter(Boolean);
+    const projectsIdx = parts.indexOf('projects');
+    const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
     const csrf = request.headers.get('x-csrf-intent');
     if (process.env.NODE_ENV === 'production' && csrf !== 'projects:patch') {
       return NextResponse.json({ message: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request, ['user','admin','superadmin']);
+    const auth = await requireAuth(request as any, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
     const schema = z.object({}).passthrough();
     const parseResult = schema.safeParse(await request.json());
@@ -710,18 +710,18 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request) {
   try {
     await dbConnect();
-    const { id } = await params;
+    const url = new URL((request as any).url);
+    const parts = url.pathname.split('/').filter(Boolean);
+    const projectsIdx = parts.indexOf('projects');
+    const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
     const csrf = request.headers.get('x-csrf-intent');
     if (process.env.NODE_ENV === 'production' && csrf !== 'projects:delete') {
       return NextResponse.json({ message: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request, ['admin','superadmin']);
+    const auth = await requireAuth(request as any, ['admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
 
     if (!id) {
@@ -743,7 +743,7 @@ export async function DELETE(
     // Activity Log erstellen
     if (auth.ok) {
       try {
-        const currentUser = await getCurrentUser(request);
+        const currentUser = await getCurrentUser(request as any);
         const activityLog = new ActivityLog({
           timestamp: new Date(),
           actionType: 'project_deleted',
