@@ -224,7 +224,7 @@ export async function POST(req: NextRequest){
         
         const allDays = Array.from(allDaysSet)
         console.log('Projektstatus-Berechnung:', {
-          projektId: project._id,
+          projektId: (project as any)._id,
           allDays,
           merged,
           allDaysLength: allDays.length,
