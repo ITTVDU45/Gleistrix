@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
 import { requireAuth } from '@/lib/security/requireAuth'
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }){
+export async function POST(req: Request, context: any){
   try{
     await dbConnect()
     const auth = await requireAuth(req as any, ['user','admin','superadmin'])
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status })
 
-    const { id } = params
+    const { id } = (context?.params || {}) as { id?: string }
     if (!id) return NextResponse.json({ message: 'Projekt-ID fehlt' }, { status: 400 })
 
     const project = await Project.findById(id).lean()
