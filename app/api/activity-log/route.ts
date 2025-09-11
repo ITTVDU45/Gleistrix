@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
     const total = await ActivityLog.countDocuments(filter);
 
     // Daten formatieren
-    const formattedLogs = logs.map(log => {
+    const formattedLogs = logs.map((log: any) => {
       let userIdStr: string | null = null;
       const raw = (log as any).performedBy?.userId;
       if (typeof raw === 'string') userIdStr = raw;
