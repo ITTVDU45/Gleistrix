@@ -1,0 +1,21 @@
+# Exclude heavy/local-only artifacts from Vercel upload
+.git
+.vercel
+.next
+node_modules
+server/node_modules
+
+# Archives and binaries
+MH-ZEITERFASSUNG.zip
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Logs and caches
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.cache
+
