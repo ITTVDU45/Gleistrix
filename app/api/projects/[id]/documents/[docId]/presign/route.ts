@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
 import { requireAuth } from '@/lib/security/requireAuth';
 import minioClient from '@/lib/storage/minioClient';
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string, docId: string }> }) {
+export async function GET(request: Request, { params }: { params: { id: string, docId: string } }) {
   try {
     await dbConnect();
-    const { id, docId } = await params;
-    const auth = await requireAuth(request, ['user','admin','superadmin']);
+    const { id, docId } = params;
+    const auth = await requireAuth(request as any, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
 
     const project = await Project.findById(id);
@@ -31,10 +31,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const expires = 60 * 5; // 5 Minuten
-    // prefer promise helper if available
     const presigned = typeof (minioClient as any).presignedGetObjectAsync === 'function'
       ? await (minioClient as any).presignedGetObjectAsync(bucketName, key, expires)
-      : await new Promise<string>((resolve, reject) => minioClient.presignedGetObject(bucketName, key, expires, (err: any, url: string) => err ? reject(err) : resolve(url)));
+      : await new Promise<string>((resolve, reject) => (minioClient as any).presignedGetObject(bucketName, key, expires, (err: any, url: string) => err ? reject(err) : resolve(url)));
     return NextResponse.json({ url: presigned });
   } catch (e) {
     console.error('Presign failed', e);
