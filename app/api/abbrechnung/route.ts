@@ -133,17 +133,17 @@ export async function POST(req: NextRequest){
       // ignore
     }
 
-    const subjectText = `Abrechnung für Projekt „${project.name}“ – Mülheimer Wachdienst GmbH Zeiterfassung${copySet.size>0 ? ' (enthält Kopien bereits abgerechneter Tage)' : ''}`
+    const subjectText = `Abrechnung für Projekt „${(project as any).name}“ – Mülheimer Wachdienst GmbH Zeiterfassung${copySet.size>0 ? ' (enthält Kopien bereits abgerechneter Tage)' : ''}`
 
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; color: #111;">
         ${logoHtml}
-        <h2 style="font-size:18px;margin-bottom:6px">Abrechnung für Projekt „${project.name}“ – Mülheimer Wachdienst GmbH Zeiterfassung</h2>
+        <h2 style="font-size:18px;margin-bottom:6px">Abrechnung für Projekt „${(project as any).name}“ – Mülheimer Wachdienst GmbH Zeiterfassung</h2>
         <p>Sehr geehrte Damen und Herren,</p>
-        <p>für das Projekt „<strong>${project.name}</strong>“ wurde auf Basis der durch das System Gleistrix - Mülheimerwachdienst GmbH erfassten Einsatzzeiten eine Abrechnung generiert. Nachfolgend finden Sie eine detaillierte Übersicht der geleisteten Stunden und eingesetzten Mitarbeitenden:</p>
+        <p>für das Projekt „<strong>${(project as any).name}</strong>“ wurde auf Basis der durch das System Gleistrix - Mülheimerwachdienst GmbH erfassten Einsatzzeiten eine Abrechnung generiert. Nachfolgend finden Sie eine detaillierte Übersicht der geleisteten Stunden und eingesetzten Mitarbeitenden:</p>
         <h4 style="margin-bottom:6px">🔎 Projektübersicht:</h4>
         <ul style="margin-top:0;margin-bottom:8px;font-size:13px">
-          <li><strong>Projektname:</strong> ${project.name}</li>
+          <li><strong>Projektname:</strong> ${(project as any).name}</li>
           <li><strong>Erfasste Tage:</strong> ${(days || []).length}</li>
           <li><strong>Beteiligte Mitarbeitende:</strong> ${uniqueEmployees.size}</li>
           <li><strong>Gesamteinsatzzeit:</strong> ${totalHours.toFixed(2)} Stunden</li>
@@ -183,11 +183,11 @@ export async function POST(req: NextRequest){
       await NotificationLog.create({
         key: notifKey,
         to,
-        subject: `Abrechnung ${project.name}`,
+        subject: `Abrechnung ${(project as any).name}`,
         success: emailResult.ok,
         errorMessage: emailResult.error,
         projectId: project._id,
-        projectName: project.name,
+        projectName: (project as any).name,
         attachmentsCount: emailAttachments.length,
         meta: { days: days || [], copyDays: Array.from(copySet), performedBy: (auth as any).token?.email || 'system' }
       })
@@ -259,7 +259,7 @@ export async function POST(req: NextRequest){
             },
             details: {
               entityId: project._id,
-              description: `Abrechnung durchgeführt für Projekt "${project.name}" (${days.length} Tag(e))`,
+              description: `Abrechnung durchgeführt für Projekt "${(project as any).name}" (${days.length} Tag(e))`,
               before: { abgerechneteTage: existing },
               after: { abgerechneteTage: merged },
               context: {
@@ -282,7 +282,7 @@ export async function POST(req: NextRequest){
               },
               details: {
                 entityId: project._id,
-                description: `Projektstatus geändert: ${project.name} (${(project as any).status} → geleistet)`,
+                description: `Projektstatus geändert: ${(project as any).name} (${(project as any).status} → geleistet)`,
                 before: { status: (project as any).status },
                 after: { status: 'geleistet' }
               }
