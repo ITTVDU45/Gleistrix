@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
 import { requireAuth } from '@/lib/security/requireAuth'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }){
+export async function GET(req: Request, { params }: { params: { id: string } }){
   try{
     await dbConnect()
     const auth = await requireAuth(req as any, ['user','admin','superadmin'])
