@@ -38,8 +38,9 @@ export async function POST(req: NextRequest){
     try {
       console.debug('Abrechnung request', { projectId, days: Array.isArray(days) ? days.length : 0, copyDays: Array.isArray(copyDays) ? copyDays.length : 0 })
       if (typeof createPDFForProjectDays === 'function'){
-        const buf = await createPDFForProjectDays(project, days)
-        pdfBuffers.push({ filename: `${project.name}-abrechnung.pdf`, buffer: buf })
+        const buf = await createPDFForProjectDays(project as any, days)
+        const projectName = ((project as any)?.name ?? 'projekt') as string
+        pdfBuffers.push({ filename: `${projectName}-abrechnung.pdf`, buffer: buf })
       }
     } catch (pdfErr) {
       console.error('Failed to generate PDF for abrechnung', pdfErr)
