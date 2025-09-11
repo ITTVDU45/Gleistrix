@@ -63,7 +63,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
         status: project.status as any,
         ort: (project as any).baustelle || '-',
         name: entry.name || (entry as any).mitarbeiter || '-',
-        funktion: entry.funktion || entry.role || '-',
+        funktion: entry.funktion || (entry as any).role || '-',
         start: entry.start || entry.beginn || '-',
         ende: entry.ende || entry.end || '-',
         stunden: typeof entry.stunden === 'number' ? entry.stunden : (parseFloat(String(entry.stunden || 0)) || 0),
