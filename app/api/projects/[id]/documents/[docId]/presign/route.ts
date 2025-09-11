@@ -4,12 +4,20 @@ import { Project } from '@/lib/models/Project';
 import { requireAuth } from '@/lib/security/requireAuth';
 import minioClient from '@/lib/storage/minioClient';
 
-export async function GET(request: Request, { params }: any) {
+export async function GET(request: Request) {
   try {
     await dbConnect();
-    const { id, docId } = params as { id: string; docId: string };
     const auth = await requireAuth(request as any, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
+
+    const url = new URL(request.url)
+    const parts = url.pathname.split('/').filter(Boolean)
+    // .../projects/[id]/documents/[docId]/presign
+    const projectsIdx = parts.indexOf('projects')
+    const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined
+    const documentsIdx = parts.indexOf('documents')
+    const docId = documentsIdx >= 0 && parts.length > documentsIdx + 1 ? parts[documentsIdx + 1] : undefined
+    if (!id || !docId) return NextResponse.json({ message: 'Pfad-Parameter fehlen' }, { status: 400 });
 
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });

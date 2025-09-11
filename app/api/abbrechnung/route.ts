@@ -186,7 +186,7 @@ export async function POST(req: NextRequest){
         subject: `Abrechnung ${(project as any).name}`,
         success: emailResult.ok,
         errorMessage: emailResult.error,
-        projectId: project._id,
+        projectId: (project as any)._id,
         projectName: (project as any).name,
         attachmentsCount: emailAttachments.length,
         meta: { days: days || [], copyDays: Array.from(copySet), performedBy: (auth as any).token?.email || 'system' }
