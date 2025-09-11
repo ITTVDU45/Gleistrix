@@ -3,13 +3,17 @@ import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
 import { requireAuth } from '@/lib/security/requireAuth'
 
-export async function GET(req: Request, context: any){
+export async function GET(req: Request){
   try{
     await dbConnect()
     const auth = await requireAuth(req as any, ['user','admin','superadmin'])
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status })
 
-    const { id } = (context?.params || {}) as { id?: string }
+    // Hole die ID robust aus der URL, um Typisierungsprobleme des Kontext-Params zu vermeiden
+    const url = new URL(req.url)
+    const parts = url.pathname.split('/').filter(Boolean)
+    const projectsIdx = parts.indexOf('projects')
+    const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined
     if (!id) return NextResponse.json({ message: 'Projekt-ID fehlt' }, { status: 400 })
 
     const project = await Project.findById(id).lean()
