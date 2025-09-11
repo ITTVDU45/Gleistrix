@@ -68,7 +68,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
         ende: entry.ende || (entry as any).end || '-',
         stunden: typeof entry.stunden === 'number' ? entry.stunden : (parseFloat(String(entry.stunden || 0)) || 0),
         pause: entry.pause || '-',
-        nachtzulage: entry.nachtzulage !== undefined ? entry.nachtzulage : (entry.nachtstunden !== undefined ? entry.nachtstunden : 0),
+        nachtzulage: (entry as any).nachtzulage !== undefined ? (entry as any).nachtzulage : ((entry as any).nachtstunden !== undefined ? (entry as any).nachtstunden : 0),
         // Bevorzuge explizite Sonntagsstunden; fallback auf evtl. numerisches sonntag-Feld
         sonntagsstunden: (entry as any).sonntagsstunden !== undefined
           ? (entry as any).sonntagsstunden
