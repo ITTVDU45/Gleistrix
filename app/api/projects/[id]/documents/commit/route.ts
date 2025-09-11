@@ -4,10 +4,14 @@ import { Project } from '@/lib/models/Project';
 import { requireAuth } from '@/lib/security/requireAuth';
 import minioClient from '@/lib/storage/minioClient';
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest) {
   try {
     await dbConnect();
-    const { id } = await params;
+    const url = new URL(request.url);
+    const parts = url.pathname.split('/').filter(Boolean);
+    // .../projects/[id]/documents/commit
+    const projectsIdx = parts.indexOf('projects');
+    const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
     const auth = await requireAuth(request, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
 
@@ -39,7 +43,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
         if (key) {
           try {
-            const stat = typeof (minioClient as any).statObjectAsync === 'function' ? await (minioClient as any).statObjectAsync(bucketName, key) : await new Promise<any>((resolve, reject) => minioClient.statObject(bucketName, key, (err: any, stat: any) => err ? reject(err) : resolve(stat)));
+            const stat = typeof (minioClient as any).statObjectAsync === 'function' ? await (minioClient as any).statObjectAsync(bucketName, key) : await new Promise<any>((resolve, reject) => (minioClient as any).statObject(bucketName, key, (err: any, stat: any) => err ? reject(err) : resolve(stat)));
             size = stat.size || null;
             lastModified = stat.metaData && stat.metaData['last-modified'] ? stat.metaData['last-modified'] : (stat.lastModified ? stat.lastModified.toISOString() : null);
           } catch (inner) {
