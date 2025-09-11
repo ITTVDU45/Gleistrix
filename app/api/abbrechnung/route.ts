@@ -87,7 +87,7 @@ export async function POST(req: NextRequest){
     let totalHours = 0
     const uniqueEmployees = new Set<string>()
     try {
-      const timesAny: any = project.mitarbeiterZeiten || {}
+      const timesAny: any = (project as any)?.mitarbeiterZeiten || {}
       for (const d of (days || [])) {
         const entries = timesAny?.[d] || []
         for (const e of entries) {
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest){
     } catch (e) {}
 
     // Build detailed HTML with per-day breakdown
-    const timesAny: any = project.mitarbeiterZeiten || {}
+    const timesAny: any = (project as any)?.mitarbeiterZeiten || {}
     const copySet = new Set(Array.isArray(copyDays) ? copyDays : [])
     const dayRows: string[] = []
     for (const d of (days || [])) {
