@@ -241,7 +241,7 @@ export async function POST(req: NextRequest){
         }
         
         console.log('Setze neuen Status:', newStatus)
-        await Project.findByIdAndUpdate(project._id, { $set: { abgerechneteTage: merged, status: newStatus } })
+        await Project.findByIdAndUpdate((project as any)._id, { $set: { abgerechneteTage: merged, status: newStatus } })
 
         // Aktivitäten-Logs schreiben
         try {
