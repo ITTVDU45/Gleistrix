@@ -75,8 +75,8 @@ export default function DashboardPage() {
     try {
       console.log('Dashboard - Starte Datenladung...');
       
-      // Projekte laden
-      const projectsData = await ProjectsApi.list()
+      // Projekte laden (inkl. Zeiten/Fahrzeuge/Technik für Statistiken)
+      const projectsData = await ProjectsApi.list(0, 500, '', { includeTimes: true, includeVehicles: true, includeTechnik: true })
       setProjects((projectsData as any).projects || [])
 
       // Mitarbeiter laden

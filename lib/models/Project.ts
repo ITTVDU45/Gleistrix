@@ -61,7 +61,7 @@ const projectSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['aktiv', 'abgeschlossen', 'fertiggestellt', 'geleistet', 'kein Status'],
+    enum: ['aktiv', 'abgeschlossen', 'fertiggestellt', 'geleistet', 'teilweise_abgerechnet', 'kein Status'],
     default: 'aktiv'
   },
   atwsImEinsatz: {
@@ -95,6 +95,16 @@ const projectSchema = new mongoose.Schema({
   fahrzeuge: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
+  }
+  ,
+  dokumente: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  }
+  ,
+  abgerechneteTage: {
+    type: [String],
+    default: []
   }
 }, {
   timestamps: true,

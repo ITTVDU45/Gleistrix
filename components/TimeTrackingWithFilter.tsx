@@ -16,17 +16,45 @@ interface TimeTrackingWithFilterProps {
 
 export default function TimeTrackingWithFilter({ projects, employees }: TimeTrackingWithFilterProps) {
   // Hilfsfunktion zur Formatierung von Stunden in HH:MM Format
-  const formatHours = (hours: number): string => {
-    const wholeHours = Math.floor(hours);
-    const minutes = Math.round((hours - wholeHours) * 60);
-    return `${wholeHours}:${minutes.toString().padStart(2, '0')}`;
+  const formatHoursDot = (value: any): string => {
+    const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
+    if (Number.isNaN(num)) return '-';
+    const whole = Math.floor(num);
+    const minutes = Math.round((num - whole) * 60);
+    return `${whole}.${String(minutes).padStart(2, '0')}`;
+  };
+
+  // Zeitformatierung wie in Projektdetails: bei tagübergreifend Datum+Uhrzeit, sonst nur Uhrzeit
+  const formatZeit = (start: string, ende: string): string => {
+    if (!start || !ende) return start || ende || '-';
+    const sIso = String(start);
+    const eIso = String(ende);
+    const hasIso = sIso.includes('T') && eIso.includes('T');
+    const sDay = hasIso ? sIso.slice(0, 10) : '';
+    const eDay = hasIso ? eIso.slice(0, 10) : '';
+    if (hasIso && sDay !== eDay) {
+      const d = (iso: string) => {
+        const dt = new Date(iso);
+        const dd = String(dt.getDate()).padStart(2, '0');
+        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+        const yyyy = dt.getFullYear();
+        const hh = String(dt.getHours()).padStart(2, '0');
+        const mi = String(dt.getMinutes()).padStart(2, '0');
+        return `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+      };
+      return `${d(sIso)} - ${d(eIso)}`;
+    }
+    const s = sIso.includes('T') ? sIso.slice(11, 16) : sIso;
+    const e = eIso.includes('T') ? eIso.slice(11, 16) : eIso;
+    return `${s} - ${e}`;
   };
 
   // Alle Zeiteinträge aus allen Projekten sammeln
   const allTimeEntriesRaw = projects.flatMap((project: Project) => 
     Object.entries(project.mitarbeiterZeiten || {}).flatMap(([date, entries]) =>
       entries.map((entry: TimeEntry) => ({
-        ...entry,
+        // explicitly map known fields so downstream components always receive them
+        id: `${project.id}-${date}-${entry.id || Math.random()}`,
         projectName: project.name,
         date,
         orderNumber: project.auftragsnummer,
@@ -34,7 +62,23 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
         client: project.auftraggeber,
         status: project.status as any,
         ort: (project as any).baustelle || '-',
-        id: `${project.id}-${date}-${entry.id || Math.random()}`
+        name: entry.name || entry.mitarbeiter || '-',
+        funktion: entry.funktion || entry.role || '-',
+        start: entry.start || entry.beginn || '-',
+        ende: entry.ende || entry.end || '-',
+        stunden: typeof entry.stunden === 'number' ? entry.stunden : (parseFloat(String(entry.stunden || 0)) || 0),
+        pause: entry.pause || '-',
+        nachtzulage: entry.nachtzulage !== undefined ? entry.nachtzulage : (entry.nachtstunden !== undefined ? entry.nachtstunden : 0),
+        // Bevorzuge explizite Sonntagsstunden; fallback auf evtl. numerisches sonntag-Feld
+        sonntagsstunden: (entry as any).sonntagsstunden !== undefined
+          ? (entry as any).sonntagsstunden
+          : (entry as any).sonntag !== undefined
+            ? (typeof (entry as any).sonntag === 'number' ? (entry as any).sonntag : parseFloat(String((entry as any).sonntag)) || 0)
+            : 0,
+        feiertag: entry.feiertag !== undefined ? entry.feiertag : 0,
+        fahrtstunden: entry.fahrtstunden !== undefined ? entry.fahrtstunden : (entry.fahrt || 0),
+        extra: entry.extra || entry.extraInfo || '-',
+        bemerkung: entry.bemerkung || entry.note || '',
       }))
     )
   );
@@ -132,8 +176,8 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
         </CardHeader>
         <CardContent>
           {filteredEntries.length > 0 ? (
-            <div className="rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden">
-              <Table>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-600 overflow-auto">
+              <Table className="min-w-[1200px]">
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-700">
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Datum</TableHead>
@@ -187,44 +231,47 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                           <span className="text-slate-700 dark:text-slate-300">
-                            {entry.start} - {entry.ende}
+                            {formatZeit(entry.start, entry.ende)}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="font-mono rounded-lg">
-                          {formatHours(entry.stunden)}
+                          {formatHoursDot(entry.stunden)}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
-                          {entry.pause ? `${entry.pause}h` : '-'}
+                          {(() => {
+                            const p = typeof entry.pause === 'number' ? entry.pause : parseFloat(String(entry.pause).replace(',', '.'));
+                            return Number.isFinite(p) && p > 0 ? `${formatHoursDot(p)}h` : '-';
+                          })()}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
                           {entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ?
-                            parseFloat(entry.nachtzulage).toFixed(2) + 'h' :
+                            formatHoursDot(entry.nachtzulage) + 'h' :
                             '-'}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
-                          {entry.sonntag !== undefined && entry.sonntag !== null && entry.sonntag !== '' ?
-                            parseFloat(entry.sonntag).toFixed(2) + 'h' :
+                          {entry.sonntagsstunden !== undefined && entry.sonntagsstunden !== null && entry.sonntagsstunden !== '' ?
+                            formatHoursDot(entry.sonntagsstunden) + 'h' :
                             '-'}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
                           {entry.feiertag !== undefined && entry.feiertag !== null && entry.feiertag !== '' ?
-                            parseFloat(entry.feiertag).toFixed(2) + 'h' :
+                            formatHoursDot(entry.feiertag) + 'h' :
                             '-'}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
-                          {entry.fahrtstunden > 0 ? `${entry.fahrtstunden}h` : '-'}
+                          {entry.fahrtstunden > 0 ? `${formatHoursDot(entry.fahrtstunden)}h` : '-'}
                         </span>
                       </TableCell>
                       <TableCell>

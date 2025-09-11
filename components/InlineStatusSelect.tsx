@@ -24,10 +24,17 @@ export default function InlineStatusSelect({ project, onStatusChange, showInline
     { value: 'abgeschlossen' as ProjectStatus, label: 'Abgeschlossen', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' },
     { value: 'fertiggestellt' as ProjectStatus, label: 'Fertiggestellt', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' },
     { value: 'geleistet' as ProjectStatus, label: 'Geleistet', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
+    { value: 'teilweise_abgerechnet' as ProjectStatus, label: 'Teilweise abgerechnet', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
     { value: 'kein Status' as ProjectStatus, label: 'Kein Status', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400' }
   ];
 
-  const currentStatus = statusOptions.find(option => option.value === project.status);
+  const currentStatus = statusOptions.find(option => option.value === project.status as ProjectStatus);
+
+  const formatStatusLabel = (s?: string) => {
+    if (!s) return 'Unbekannt'
+    // replace underscores and capitalize words
+    return String(s).replace(/_/g, ' ').replace(/\b\w/g, c => String(c).toUpperCase())
+  }
 
   const handleStatusChange = async (newStatus: string) => {
     if (newStatus === project.status) return;
@@ -56,10 +63,10 @@ export default function InlineStatusSelect({ project, onStatusChange, showInline
         onValueChange={handleStatusChange} 
         disabled={isUpdating}
       >
-        <SelectTrigger className="h-8 w-32 border-0 bg-transparent p-0 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors">
+        <SelectTrigger className="h-8 w-auto min-w-[10rem] border-0 bg-transparent p-0 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors">
           <SelectValue>
-            <Badge className={`${currentStatus?.color} rounded-lg text-xs font-medium ${isUpdating ? 'opacity-50' : ''}`}>
-              {isUpdating ? '...' : currentStatus?.label}
+            <Badge className={`${currentStatus?.color ?? 'bg-gray-100 text-gray-800'} rounded-lg text-sm font-medium whitespace-nowrap px-3 py-1 ${isUpdating ? 'opacity-50' : ''}`}>
+              {isUpdating ? '...' : (currentStatus?.label ?? formatStatusLabel(project.status))}
             </Badge>
           </SelectValue>
         </SelectTrigger>

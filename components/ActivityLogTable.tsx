@@ -62,7 +62,8 @@ const MODULE_OPTIONS = [
   { value: 'vehicle', label: 'Fahrzeuge', icon: Car },
   { value: 'settings', label: 'Einstellungen', icon: Settings },
   { value: 'system', label: 'System', icon: Activity },
-  { value: 'time_tracking', label: 'Zeiterfassung', icon: Clock }
+  { value: 'time_tracking', label: 'Zeiterfassung', icon: Clock },
+  { value: 'billing', label: 'Abrechnung', icon: FileText }
 ];
 
 const ACTION_TYPE_OPTIONS = [
@@ -71,6 +72,9 @@ const ACTION_TYPE_OPTIONS = [
   { value: 'project_updated', label: 'Projekt bearbeitet' },
   { value: 'project_deleted', label: 'Projekt gelöscht' },
   { value: 'project_status_changed', label: 'Projektstatus geändert' },
+  { value: 'project_billed', label: 'Projekt abgerechnet' },
+  { value: 'billing_partial', label: 'Teilweise abgerechnet' },
+  { value: 'billing_full', label: 'Komplett abgerechnet' },
   { value: 'project_technology_added', label: 'Technik hinzugefügt' },
   { value: 'project_time_entry_added', label: 'Zeiteintrag hinzugefügt' },
   { value: 'project_vehicle_assigned', label: 'Fahrzeug zugewiesen' },
@@ -227,6 +231,7 @@ export default function ActivityLogTable() {
       case 'settings': return <Settings className="h-4 w-4" />;
       case 'system': return <Activity className="h-4 w-4" />;
       case 'time_tracking': return <Clock className="h-4 w-4" />;
+      case 'billing': return <FileText className="h-4 w-4" />;
       default: return <Activity className="h-4 w-4" />;
     }
   };
@@ -240,6 +245,7 @@ export default function ActivityLogTable() {
       case 'settings': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
       case 'system': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
       case 'time_tracking': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400';
+      case 'billing': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
     }
   };
@@ -523,6 +529,19 @@ export default function ActivityLogTable() {
                         <div className="whitespace-pre-wrap break-words">
                           {log.details.description}
                         </div>
+                        {(log.actionType === 'billing_partial' || log.actionType === 'billing_full' || log.actionType === 'project_billed') && Array.isArray((log as any).details?.context?.days) && (
+                          <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                            <div className="font-medium">Tage:</div>
+                            <div className="mt-1">
+                              {((log as any).details.context.days as string[]).join(', ')}
+                            </div>
+                            {Array.isArray((log as any).details?.context?.copyDays) && (log as any).details.context.copyDays.length > 0 && (
+                              <div className="mt-1">
+                                <span className="font-medium">Kopie-Tage:</span> {((log as any).details.context.copyDays as string[]).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

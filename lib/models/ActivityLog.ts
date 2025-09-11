@@ -29,7 +29,9 @@ const ActivityLogSchema = new Schema<IActivityLog>({
     required: true,
     enum: [
       // Projekt Aktionen
-      'project_created', 'project_updated', 'project_deleted', 'project_status_changed',
+      'project_created', 'project_updated', 'project_deleted', 'project_status_changed', 'project_billed',
+      // Abrechnung Aktionen
+      'billing_partial', 'billing_full',
       'project_technology_added', 'project_technology_updated', 'project_technology_removed',
       'project_time_entry_added', 'project_time_entry_updated', 'project_time_entry_deleted',
       'project_vehicle_assigned', 'project_vehicle_updated', 'project_vehicle_unassigned',
@@ -56,7 +58,7 @@ const ActivityLogSchema = new Schema<IActivityLog>({
   module: {
     type: String,
     required: true,
-    enum: ['project', 'employee', 'vehicle', 'time_tracking', 'settings', 'system']
+    enum: ['project', 'employee', 'vehicle', 'time_tracking', 'settings', 'system', 'billing']
   },
   performedBy: {
     userId: {
@@ -107,4 +109,22 @@ ActivityLogSchema.index({ module: 1 });
 ActivityLogSchema.index({ actionType: 1 });
 ActivityLogSchema.index({ 'details.entityId': 1 });
 
-export default mongoose.models.ActivityLog || mongoose.model<IActivityLog>('ActivityLog', ActivityLogSchema); 
+// In Dev/Hot-Reload kann ein altes Model ohne neue Enums im Cache liegen.
+// Wenn das vorhandene Model die neuen Enum-Werte nicht enthält, neu kompilieren.
+const existingModel = (mongoose.models.ActivityLog as any) || null;
+if (existingModel) {
+  try {
+    const actionTypeEnum: string[] = existingModel.schema?.path('actionType')?.options?.enum || [];
+    const moduleEnum: string[] = existingModel.schema?.path('module')?.options?.enum || [];
+    const hasBillingActions = Array.isArray(actionTypeEnum) && actionTypeEnum.includes('billing_full') && actionTypeEnum.includes('billing_partial');
+    const hasBillingModule = Array.isArray(moduleEnum) && moduleEnum.includes('billing');
+    if (!hasBillingActions || !hasBillingModule) {
+      delete (mongoose.models as any).ActivityLog;
+    }
+  } catch (_) {
+    // Bei Fehler: defensiv neu kompilieren
+    delete (mongoose.models as any).ActivityLog;
+  }
+}
+
+export default (mongoose.models.ActivityLog as any) || mongoose.model<IActivityLog>('ActivityLog', ActivityLogSchema); 

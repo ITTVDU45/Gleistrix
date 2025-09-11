@@ -77,12 +77,36 @@ export async function GET(req: NextRequest) {
     }
 
     if (dateFrom || dateTo) {
-      filter.timestamp = {};
+      // Robuste Datum-Parsing: unterstützt yyyy-MM-dd und dd.MM.yyyy
+      const parseDate = (s: string, endOfDay = false) => {
+        let d = new Date(s);
+        if (Number.isNaN(d.getTime())) {
+          const ddmmyyyy = s.match(/^([0-3]?\d)\.([01]?\d)\.(\d{4})$/);
+          if (ddmmyyyy) {
+            const day = parseInt(ddmmyyyy[1], 10);
+            const month = parseInt(ddmmyyyy[2], 10) - 1;
+            const year = parseInt(ddmmyyyy[3], 10);
+            d = new Date(year, month, day);
+          }
+        }
+        if (!Number.isNaN(d.getTime())) {
+          if (endOfDay) d.setHours(23, 59, 59, 999);
+          else d.setHours(0, 0, 0, 0);
+          return d;
+        }
+        return null as any;
+      };
+      const tsFilter: any = {};
       if (dateFrom) {
-        filter.timestamp.$gte = new Date(dateFrom);
+        const d = parseDate(dateFrom, false);
+        if (d) tsFilter.$gte = d;
       }
       if (dateTo) {
-        filter.timestamp.$lte = new Date(dateTo);
+        const d = parseDate(dateTo, true);
+        if (d) tsFilter.$lte = d;
+      }
+      if (Object.keys(tsFilter).length > 0) {
+        filter.timestamp = tsFilter;
       }
     }
 

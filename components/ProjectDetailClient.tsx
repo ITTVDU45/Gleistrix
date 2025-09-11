@@ -18,6 +18,7 @@ import { ArrowLeft, Edit, Trash2, Plus, Lock, Unlock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import TechnikList from './TechnikList';
+import DocumentsCard from './projektdetail/DocumentsCard';
 import VehicleAssignmentList from './VehicleAssignmentList';
 import { EditTimeEntryForm } from './EditTimeEntryForm';
 import { TimeEntryForm } from './TimeEntryForm';
@@ -61,7 +62,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   };
 
   const router = useRouter();
-  const id = projectId;
+  const id = projectId || '';
   const { projects, fetchProjects } = useProjects();
   const { employees } = useEmployees();
   const { vehicles } = useVehicles();
@@ -69,6 +70,18 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   const [error, setError] = React.useState<string | null>(null);
   const { data: session } = useSession();
   const userId = (session as any)?.user?.id as string | undefined;
+
+  // Normalisierung, damit immer ein string `id` am Projekt vorhanden ist
+  const normalizeProject = (p: any): Project | any => {
+    if (!p) return p
+    const pid = typeof p.id === 'string' && p.id ? p.id : (typeof p._id === 'string' ? p._id : '')
+    return pid ? { ...p, id: pid } : p
+  }
+
+  const getProjectId = (): string => {
+    const pid = (project && ((project as any).id || (project as any)._id)) || id
+    return typeof pid === 'string' ? pid : ''
+  }
 
   // Locking-System
   const {
@@ -308,14 +321,35 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
   React.useEffect(() => {
     if (!id) return;
-    const found = projects.find((p) => p.id === id);
-    if (found) {
-      setProject(found);
-      setError(null);
-    } else {
-      setProject(null);
-      setError('Projekt nicht gefunden');
-    }
+    let cancelled = false;
+    const load = async () => {
+      // 1) Versuche vollständiges Projekt direkt vom Server zu laden (inkl. mitarbeiterZeiten)
+      try {
+        const res = await ProjectsApi.get(id as string);
+        const full = res && (res as any).project ? (res as any).project : (res as any);
+        if (!cancelled && full && (full as any)._id) {
+          setProject(normalizeProject(full) as any);
+          setError(null);
+          return;
+        }
+      } catch {
+        // Ignorieren, wir greifen auf Context zurück
+      }
+
+      // 2) Fallback: Context-Projekt setzen
+      const found = projects.find((p) => p.id === id);
+      if (!cancelled) {
+        if (found) {
+          setProject(normalizeProject(found) as any);
+          setError(null);
+        } else {
+          setProject(null);
+          setError('Projekt nicht gefunden');
+        }
+      }
+    };
+    load();
+    return () => { cancelled = true };
   }, [id, projects]);
 
   // Hilfsfunktion: Alle Tage des Projekts als Array
@@ -380,7 +414,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       const payload = isBatch
         ? { technik: { action: 'add', dates: date, technik } }
         : { technik: { action: 'add', date, technik } };
-      const response = await ProjectsApi.update(project.id, payload as any)
+      const pid = getProjectId()
+      if (!pid) throw new Error('Projekt-ID unbekannt')
+      const response = await ProjectsApi.update(pid, payload as any)
       if ((response as any).success !== false) {
         await fetchProjects();
         setSnackbar({
@@ -488,7 +524,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
     try {
       if (!project) throw new Error('Projekt nicht geladen');
-      const response = await ProjectsApi.update(project.id, { technik: { action: 'remove', date, technikId } } as any)
+      const pid = getProjectId()
+      if (!pid) throw new Error('Projekt-ID unbekannt')
+      const response = await ProjectsApi.update(pid, { technik: { action: 'remove', date, technikId } } as any)
       if ((response as any).success !== false) {
         await fetchProjects();
         setSnackbar({
@@ -582,9 +620,21 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
     try {
       if (!project) throw new Error('Projekt nicht geladen');
-      const response = await ProjectsApi.update(project.id, { times: { action: 'add', dates: Array.isArray(dates) ? dates : [dates], entry } } as any)
+      const pid = getProjectId()
+      if (!pid) throw new Error('Projekt-ID unbekannt')
+      const response = await ProjectsApi.update(pid, { times: { action: 'add', dates: Array.isArray(dates) ? dates : [dates], entry } } as any)
       if ((response as any).success !== false) {
         await fetchProjects();
+        // Projekt sofort gezielt neu laden und lokalen State aktualisieren
+        try {
+          const res = await ProjectsApi.get(getProjectId());
+          const freshProject = res && (res as any).project ? (res as any).project : (res as any);
+          if (freshProject && (freshProject as any)._id) {
+            setProject(normalizeProject(freshProject) as any);
+          }
+        } catch (e) {
+          console.warn('ProjectsApi.get after time add failed, relying on context fetch', e);
+        }
         setSnackbar({
           open: true,
           message: 'Zeiteintrag erfolgreich hinzugefügt',
@@ -621,7 +671,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
     try {
       if (!project) throw new Error('Projekt nicht geladen');
-      const response = await ProjectsApi.update(project.id, { vehicles: { action: 'assign', dates: Array.isArray(dateOrDays) ? dateOrDays : [dateOrDays], vehicle } } as any)
+      const pid = getProjectId()
+      if (!pid) throw new Error('Projekt-ID unbekannt')
+      const response = await ProjectsApi.update(pid, { vehicles: { action: 'assign', dates: Array.isArray(dateOrDays) ? dateOrDays : [dateOrDays], vehicle } } as any)
       if ((response as any).success !== false) {
         await fetchProjects();
         setSnackbar({
@@ -661,7 +713,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     try {
       if (!project) throw new Error('Projekt nicht geladen');
       const previousStatus = project.status;
-      const response = await ProjectsApi.updateStatus(project.id, newStatus)
+      const pid = getProjectId()
+      if (!pid) throw new Error('Projekt-ID unbekannt')
+      const response = await ProjectsApi.updateStatus(pid, newStatus)
       if ((response as any).success !== false) {
         await fetchProjects();
         setSnackbar({
@@ -709,10 +763,22 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   // Handler für Zeit löschen
   const handleDeleteTimeEntry = async (date: string, entryId: string) => {
     try {
-      await ProjectsApi.update(id, { times: { action: 'delete', date, entryId } } as any)
+      if (!id) throw new Error('Projekt-ID unbekannt')
+      await ProjectsApi.update(id as string, { times: { action: 'delete', date, entryId } } as any)
       await fetchProjects();
-      const updated = projects.find((p) => p.id === id);
-      if (updated) setProject(updated);
+      // Robust: Projekt frisch laden und lokalen State setzen
+      try {
+        const res = await ProjectsApi.get(id as string);
+        const freshProject = res && (res as any).project ? (res as any).project : (res as any);
+        if (freshProject && (freshProject as any)._id) {
+          setProject(freshProject as any);
+        } else {
+          const updated = projects.find((p) => p.id === id);
+          if (updated) setProject(updated);
+        }
+      } catch (e) {
+        console.warn('ProjectsApi.get after delete failed, relying on context fetch', e);
+      }
       setSnackbar({ open: true, message: 'Zeiteintrag erfolgreich gelöscht.', severity: 'success' });
     } catch (err) {
       setSnackbar({ open: true, message: 'Fehler beim Löschen des Zeiteintrags.', severity: 'error' });
@@ -728,11 +794,22 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     try {
       const days = Array.isArray(dates) ? dates : [dates];
       for (const date of days) {
-        const res = await ProjectsApi.update(id, { times: { action: 'edit', date, updatedEntry } } as any)
+        if (!id) throw new Error('Projekt-ID unbekannt')
+        const res = await ProjectsApi.update(id as string, { times: { action: 'edit', date, updatedEntry } } as any)
       }
       await fetchProjects();
-      const updated = projects.find((p) => p.id === id);
-      if (updated) setProject(updated);
+      try {
+        const resFull = await ProjectsApi.get(id as string);
+        const freshProject = resFull && (resFull as any).project ? (resFull as any).project : (resFull as any);
+        if (freshProject && (freshProject as any)._id) {
+          setProject(freshProject as any);
+        } else {
+          const updated = projects.find((p) => p.id === id);
+          if (updated) setProject(updated);
+        }
+      } catch (e) {
+        console.warn('ProjectsApi.get after edit failed, relying on context fetch', e);
+      }
       setSnackbar({ open: true, message: 'Zeiteintrag(e) erfolgreich bearbeitet.', severity: 'success' });
       setEditTimeEntry(null);
     } catch (err) {
@@ -901,6 +978,48 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
             </CardContent>
           </Card>
 
+          {/* Projektdokumente */}
+          <DocumentsCard
+            key={`${project.id}-${((project as any).dokumente?.all?.length || 0)}`}
+            projectId={project.id}
+            documents={(project as any).dokumente?.all || []}
+            onUpload={async (_files, _description) => {
+              // After presigned upload + commit, fetch full project to get dokumente and update UI
+              try {
+                if (project && project.id) {
+                  try {
+                    const res = await ProjectsApi.get(project.id as string);
+                    // API may return either the project directly or { project: project }
+                    const freshProject = res && (res as any).project ? (res as any).project : (res as any);
+                    if (freshProject && (freshProject as any)._id) {
+                      setProject(freshProject as any);
+                      console.log('ProjectDetailClient: fetched full project, dokumente count=', (freshProject as any).dokumente?.all?.length || 0);
+                    }
+                  } catch (e) {
+                    console.warn('ProjectsApi.get failed, falling back to fetchProjects', e);
+                  }
+                }
+                // also refresh project list context
+                await fetchProjects();
+              } catch (e) {
+                console.warn('Failed to refresh projects after upload', e);
+              }
+            }}
+            onUpdateDescription={async (docId, desc) => {
+              try {
+                // Update via API (falls vorhanden)
+                if ((ProjectsApi as any).updateDocumentDescription) {
+                  await (ProjectsApi as any).updateDocumentDescription(project.id, docId, { description: desc });
+                } else {
+                  await fetch(`/api/projects/${project.id}/documents/${docId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: desc }) });
+                }
+                await fetchProjects();
+              } catch (e) {
+                setSnackbar({ open: true, message: 'Beschreibung konnte nicht gespeichert werden', severity: 'error' });
+              }
+            }}
+          />
+
           {/* Technik */}
           <Card className="bg-white dark:bg-slate-800 border border-[#C0D4DE] dark:border-slate-700">
             <CardContent className="p-6">
@@ -954,7 +1073,11 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                 ))}
               </div>
               <div className="text-gray-500">
-                {project?.mitarbeiterZeiten?.[selectedZeitTag]?.length > 0 ? (
+                {(() => {
+                  const rawForDay: any = project?.mitarbeiterZeiten?.[selectedZeitTag];
+                  const list: any[] = Array.isArray(rawForDay) ? rawForDay : [];
+                  const filtered = list.filter((entry: any) => !(typeof entry.bemerkung === 'string' && entry.bemerkung.includes('Fortsetzung vom Vortag')));
+                  return filtered.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -974,19 +1097,32 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(() => {
-                         // Hole alle Einträge für den Tag, filtere Fortsetzungseinträge raus
-                         const entries = (project.mitarbeiterZeiten[selectedZeitTag] || []).filter((entry: any) => !(typeof entry.bemerkung === 'string' && entry.bemerkung.includes('Fortsetzung vom Vortag')));
-                         return entries.map((entry: any, idx: number) => {
-                           // KEINE Zusammenführung/Summierung mehr nötig!
-                           // Zeige einfach nur den Eintrag an, wie er gespeichert ist.
-                           console.log('Angezeigter Eintrag:', entry);
+                      {filtered.map((entry: any, idx: number) => {
+                           // Start/Ende: bei tagübergreifend Datum + Uhrzeit, sonst nur Uhrzeit
+                           let startStr: string = entry.start;
+                           let endStr: string = entry.ende;
+                           if (typeof entry.start === 'string' && typeof entry.ende === 'string' && entry.start.includes('T') && entry.ende.includes('T')) {
+                             const sDate = entry.start.slice(0,10);
+                             const eDate = entry.ende.slice(0,10);
+                             if (sDate !== eDate) {
+                               try {
+                                 startStr = format(parseISO(entry.start), 'dd.MM.yyyy HH:mm', { locale: de });
+                                 endStr = format(parseISO(entry.ende), 'dd.MM.yyyy HH:mm', { locale: de });
+                               } catch {
+                                 startStr = entry.start.slice(0,16).replace('T',' ');
+                                 endStr = entry.ende.slice(0,16).replace('T',' ');
+                               }
+                             } else {
+                               startStr = entry.start.slice(11,16);
+                               endStr = entry.ende.slice(11,16);
+                             }
+                           }
                            return (
                              <TableRow key={idx} className="dark:text-white">
                               <TableCell className="dark:text-white">{entry.name}</TableCell>
                               <TableCell className="dark:text-white">{entry.funktion}</TableCell>
-                              <TableCell className="dark:text-white">{entry.start === '00:00' ? '00:00' : entry.start}</TableCell>
-                              <TableCell className="dark:text-white">{entry.ende === '24:00' ? '24:00' : entry.ende}</TableCell>
+                              <TableCell className="dark:text-white">{startStr === '00:00' ? '00:00' : startStr}</TableCell>
+                              <TableCell className="dark:text-white">{endStr === '24:00' ? '24:00' : endStr}</TableCell>
                               <TableCell className="dark:text-white">{formatHours(entry.stunden)}</TableCell>
                               <TableCell className="dark:text-white">{entry.pause}</TableCell>
                               <TableCell className="dark:text-white">{entry.fahrtstunden || '-'}</TableCell>
@@ -1005,13 +1141,12 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                               </TableCell>
                             </TableRow>
                           );
-                        });
-                      })()}
+                        })}
                     </TableBody>
                   </Table>
                 ) : (
                   <div className="text-gray-500">Keine Zeiteinträge für diesen Tag.</div>
-                )}
+                )})()}
               </div>
             </CardContent>
           </Card>

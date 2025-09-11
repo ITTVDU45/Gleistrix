@@ -17,6 +17,10 @@ const nextConfig = {
       },
     ]
   },
+  // Erhöhe das Body-Limit für Server Actions / Uploads (z.B. 50 MB)
+  serverActions: {
+    bodySizeLimit: '50mb'
+  },
 }
 
 export default nextConfig
