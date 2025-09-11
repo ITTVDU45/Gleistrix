@@ -4,10 +4,10 @@ import { Project } from '@/lib/models/Project';
 import { requireAuth } from '@/lib/security/requireAuth';
 import minioClient from '@/lib/storage/minioClient';
 
-export async function GET(request: Request, { params }: { params: { id: string, docId: string } }) {
+export async function GET(request: Request, { params }: any) {
   try {
     await dbConnect();
-    const { id, docId } = params;
+    const { id, docId } = params as { id: string; docId: string };
     const auth = await requireAuth(request as any, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
 
