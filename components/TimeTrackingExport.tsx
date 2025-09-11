@@ -18,6 +18,38 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
     return `${wholeHours}:${minutes.toString().padStart(2, '0')}`;
   };
 
+  const formatHoursDot = (value: any): string => {
+    const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
+    if (Number.isNaN(num)) return '-'
+    const whole = Math.floor(num)
+    const minutes = Math.round((num - whole) * 60)
+    return `${whole}.${String(minutes).padStart(2, '0')}`
+  }
+
+  const formatZeit = (start: string, ende: string): string => {
+    if (!start || !ende) return start || ende || '-'
+    const sIso = String(start)
+    const eIso = String(ende)
+    const hasIso = sIso.includes('T') && eIso.includes('T')
+    const sDay = hasIso ? sIso.slice(0,10) : ''
+    const eDay = hasIso ? eIso.slice(0,10) : ''
+    if (hasIso && sDay !== eDay) {
+      const d = (iso: string) => {
+        const dt = new Date(iso)
+        const dd = String(dt.getDate()).padStart(2,'0')
+        const mm = String(dt.getMonth()+1).padStart(2,'0')
+        const yyyy = dt.getFullYear()
+        const hh = String(dt.getHours()).padStart(2,'0')
+        const mi = String(dt.getMinutes()).padStart(2,'0')
+        return `${dd}.${mm}.${yyyy} ${hh}:${mi}`
+      }
+      return `${d(sIso)} - ${d(eIso)}`
+    }
+    const s = sIso.includes('T') ? sIso.slice(11,16) : sIso
+    const e = eIso.includes('T') ? eIso.slice(11,16) : eIso
+    return `${s} - ${e}`
+  }
+
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportPDF = async () => {
@@ -76,9 +108,29 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       }, 0);
       doc.text(`Nachtstunden: ${totalNightHours.toFixed(1)}h`, 14, summaryTitleY + 25);
       
+      // Sonntagsstunden aus verschiedenen möglichen Feldern auslesen und summieren
       const totalSundayHours = timeEntries.reduce((sum, entry) => {
-        const sundayHours = entry.sonntag ? parseFloat(entry.sonntag) : 0;
-        return sum + sundayHours;
+        // Prüfe alle möglichen Feldnamen und nehme den ersten vorhandenen Wert
+        const sonntagWert = entry.sonntagsstunden ?? entry.sonntag ?? entry.sonntagstunden ?? 0;
+        // Konvertiere in eine Zahl (mit Komma-zu-Punkt-Umwandlung)
+        const sonntagNum = typeof sonntagWert === 'number' 
+          ? sonntagWert 
+          : parseFloat(String(sonntagWert).replace(',', '.'));
+        
+        // Debug-Log für jeden Eintrag
+        console.log('Sonntagsstunden in TimeTrackingExport:', {
+          mitarbeiter: entry.name || entry.mitarbeiter,
+          datum: entry.date,
+          sonntag: entry.sonntag,
+          sonntagsstunden: entry.sonntagsstunden,
+          sonntagstunden: entry.sonntagstunden,
+          verwendeterWert: sonntagWert,
+          alsZahl: sonntagNum,
+          bisherigeSumme: sum,
+          neueSumme: sum + (Number.isFinite(sonntagNum) ? sonntagNum : 0)
+        });
+        
+        return sum + (Number.isFinite(sonntagNum) ? sonntagNum : 0);
       }, 0);
       doc.text(`Sonntagsstunden: ${totalSundayHours.toFixed(1)}h`, 14, summaryTitleY + 30);
       
@@ -93,62 +145,66 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       doc.setFontSize(14);
       doc.text('Zeiteinträge', 14, tableTitleY);
       
-      // Tabellen-Header
+      // Tabellen-Header (wie auf Zeiterfassung)
       const headers = [
-        'Datum',
-        'Projektname',
-        'Ort',
-        'Mitarbeiter',
-        'Zeit',
-        'Gesamtstunden',
-        'Pause',
-        'Nachtstunden',
-        'Sonntagsstunden',
-        'Feiertagsstunden',
-        'Fahrtstunden',
-        'Extra',
-        'Projektstatus'
+        'Datum', 'Projektname', 'Ort', 'Mitarbeiter', 'Zeit', 'Gesamtstunden', 'Pause', 'Nachtstunden', 'Sonntagsstunden', 'Feiertagsstunden', 'Fahrtstunden', 'Extra', 'Projektstatus'
       ];
-      
-      // Tabellen-Daten
-      const data = timeEntries.map(entry => [
-        new Date(entry.date).toLocaleDateString('de-DE'),
-        entry.projectName,
-        entry.ort || '-',
-        entry.name,
-        `${entry.start} - ${entry.ende}`,
-                        `${formatHours(entry.stunden)}`,
-        entry.pause ? `${entry.pause}h` : '-',
-        entry.nachtzulage ? `${parseFloat(entry.nachtzulage).toFixed(2)}h` : '-',
-        entry.sonntag ? `${parseFloat(entry.sonntag).toFixed(2)}h` : '-',
-        entry.feiertag ? `${parseFloat(entry.feiertag).toFixed(2)}h` : '-',
-        entry.fahrtstunden > 0 ? `${entry.fahrtstunden}h` : '-',
-        entry.extra || '-',
-        entry.status
-      ]);
-      
-      // Tabelle erstellen
+
+      const data = timeEntries.map(entry => {
+        const date = entry.date ? new Date(entry.date).toLocaleDateString('de-DE') : '-'
+        const projekt = entry.projectName || entry.project || '-'
+        const ort = entry.ort || entry.location || '-' 
+        const name = entry.name || entry.mitarbeiter || '-'
+        const start = entry.start || entry.beginn || '-'
+        const ende = entry.ende || entry.end || '-'
+        const zeit = (start && ende && start !== '-' && ende !== '-') ? formatZeit(start, ende) : start || ende || '-'
+        const gesamt = typeof entry.stunden === 'number' ? formatHours(entry.stunden) : (entry.stunden ? String(entry.stunden) : '-')
+        const pauseNum = typeof entry.pause === 'number' ? entry.pause : parseFloat(String(entry.pause).replace(',', '.'))
+        const pause = Number.isFinite(pauseNum) && pauseNum > 0 ? `${formatHoursDot(pauseNum)}h` : '-'
+        const nacht = entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ? `${formatHoursDot(parseFloat(entry.nachtzulage))}h` : '-'
+        const sonntagVal = entry.sonntagsstunden ?? entry.sonntag
+        const sonntag = sonntagVal !== undefined && sonntagVal !== null && sonntagVal !== '' ? `${formatHoursDot(parseFloat(String(sonntagVal))) }h` : '-'
+        const feiertag = entry.feiertag !== undefined && entry.feiertag !== null && entry.feiertag !== '' ? `${formatHoursDot(parseFloat(entry.feiertag))}h` : '-'
+        const fahrtNum = entry.fahrtstunden ?? entry.fahrt
+        const fahrt = fahrtNum !== undefined && fahrtNum !== null && fahrtNum !== '' ? `${formatHoursDot(parseFloat(String(fahrtNum)))}h` : '-'
+        const extra = entry.extra || '-'
+        const status = entry.status || entry.projectStatus || '-'
+        return [date, projekt, ort, name, zeit, gesamt, pause, nacht, sonntag, feiertag, fahrt, extra, status]
+      })
+
+      // Spaltenbreiten proportional auf Landscape A4 verteilen, damit nichts abgeschnitten wird
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const marginL = 12
+      const marginR = 12
+      const availWidth = pageWidth - marginL - marginR
+      // Gewichte: Datum, Projekt, Ort, Mitarbeiter, Zeit, Gesamt, Pause, Nacht, Sonntag, Feiertag, Fahrt, Extra, Status
+      const weights = [8, 16, 12, 12, 22, 7, 6, 7, 7, 7, 7, 9, 10]
+      const weightSum = weights.reduce((s,w)=>s+w,0)
+      const colWidths: number[] = weights.map(w => Math.max(10, Math.round((w / weightSum) * availWidth)))
+
       autoTable(doc, {
         startY: tableTitleY + 5,
         head: [headers],
         body: data,
         theme: 'grid',
-        tableWidth: 'auto',
+        tableWidth: availWidth,
         styles: {
-          fontSize: 8,
-          cellPadding: 2,
+          fontSize: 7,
+          cellPadding: 3,
           overflow: 'linebreak',
+          cellWidth: 'wrap'
         },
         headStyles: {
           fillColor: [41, 128, 185],
           textColor: 255,
-          fontStyle: 'bold',
-          fontSize: 9,
+          fontStyle: 'bold'
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245]
         },
-        margin: { top: tableTitleY + 5, left: 10, right: 10 }
+        columnStyles: Object.fromEntries(colWidths.map((w,i)=>[i,{ cellWidth: w }])) as any,
+        margin: { left: marginL, right: marginR },
+        pageBreak: 'auto'
       });
       
       doc.save(`Zeiterfassung_${timestamp.replace(/[:.]/g, '-')}.pdf`);

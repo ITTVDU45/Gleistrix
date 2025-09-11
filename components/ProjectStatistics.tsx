@@ -165,10 +165,10 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
 
   // --- Filter State ---
   const [filter, setFilter] = useState(() => {
-    const currentMonth = '2025-07'; // Standard: Juli 2025, wo die Projekte sind
+    const currentMonth = getCurrentMonth();
     const dateRange = getMonthDateRange(currentMonth);
     return {
-      selectedMonth: currentMonth, // Standard: Juli 2025
+      selectedMonth: currentMonth,
       dateFrom: dateRange.dateFrom,
       dateTo: dateRange.dateTo,
       atwsOnly: false,

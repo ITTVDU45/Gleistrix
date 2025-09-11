@@ -43,7 +43,7 @@ export default function DynamicDashboard({ projects, employees, vehicles }: Dyna
     return options;
   };
 
-  const [selectedMonth, setSelectedMonth] = React.useState('2025-07');
+  const [selectedMonth, setSelectedMonth] = React.useState(getCurrentMonth());
 
   // Dynamische Berechnungen basierend auf ausgewähltem Monat
   const dashboardData = React.useMemo(() => {

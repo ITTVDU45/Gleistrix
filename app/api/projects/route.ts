@@ -7,45 +7,84 @@ import { getCurrentUser } from '../../../lib/auth/getCurrentUser';
 import { requireAuth } from '../../../lib/security/requireAuth';
 import { z } from 'zod';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await dbConnect();
-    const projects = await Project.find({});
-    
-    // Projekte zu JSON konvertieren
-    const projectsJson = projects.map((project: any) => ({
-      ...project.toObject(),
-      id: project._id?.toString(),
-      _id: project._id?.toString(),
-      createdAt: project.createdAt instanceof Date ? project.createdAt.toISOString() : project.createdAt,
-      updatedAt: project.updatedAt instanceof Date ? project.updatedAt.toISOString() : project.updatedAt,
-      datumBeginn: project.datumBeginn instanceof Date ? project.datumBeginn.toISOString() : project.datumBeginn,
-      datumEnde: project.datumEnde instanceof Date ? project.datumEnde.toISOString() : project.datumEnde
+
+    // Pagination + optional search
+    const url = new URL(request.url);
+    const page = Math.max(0, parseInt(url.searchParams.get('page') || '0', 10));
+    const limitRaw = parseInt(url.searchParams.get('limit') || '50', 10);
+    const limit = Math.min(Math.max(1, isNaN(limitRaw) ? 50 : limitRaw), 200); // clamp 1..200
+    const skip = page * limit;
+
+    const q = (url.searchParams.get('q') || '').trim();
+    // Optional includes for heavy fields
+    const includeTimesParam = (url.searchParams.get('includeTimes') || '').toLowerCase();
+    const includeVehiclesParam = (url.searchParams.get('includeVehicles') || '').toLowerCase();
+    const includeTechnikParam = (url.searchParams.get('includeTechnik') || '').toLowerCase();
+    const includeTimes = includeTimesParam === '1' || includeTimesParam === 'true';
+    const includeVehicles = includeVehiclesParam === '1' || includeVehiclesParam === 'true';
+    const includeTechnik = includeTechnikParam === '1' || includeTechnikParam === 'true';
+    const filter: any = {};
+    if (q) {
+      // simple text search on name or auftragsnummer
+      filter.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { auftragsnummer: { $regex: q, $options: 'i' } }
+      ];
+    }
+
+    // Only select lightweight fields to reduce payload and memory
+    const projection: any = {
+      name: 1,
+      auftragsnummer: 1,
+      datumBeginn: 1,
+      datumEnde: 1,
+      status: 1,
+      atwsImEinsatz: 1,
+      anzahlAtws: 1,
+      gesamtMeterlaenge: 1,
+      createdAt: 1,
+      updatedAt: 1
+    };
+
+    // Conditionally include heavy fields
+    if (includeTimes) {
+      projection.mitarbeiterZeiten = 1;
+    }
+    if (includeVehicles) {
+      projection.fahrzeuge = 1;
+    }
+    if (includeTechnik) {
+      projection.technik = 1;
+    }
+
+    const [projects, total] = await Promise.all([
+      Project.find(filter).select(projection).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Project.countDocuments(filter)
+    ]);
+
+    // Map ids to string
+    const projectsJson = projects.map((p: any) => ({
+      ...p,
+      id: (p._id || p.id)?.toString(),
+      _id: (p._id || p.id)?.toString(),
+      datumBeginn: p.datumBeginn instanceof Date ? p.datumBeginn.toISOString() : p.datumBeginn,
+      datumEnde: p.datumEnde instanceof Date ? p.datumEnde.toISOString() : p.datumEnde
     }));
-    
-    // Debug-Log für Technik-Daten
-    projectsJson.forEach((project: any, index: number) => {
-      console.log(`Project ${index + 1} (${project._id}):`, {
-        name: project.name,
-        technikKeys: project.technik ? Object.keys(project.technik) : [],
-        technikSize: project.technik ? Object.keys(project.technik).length : 0,
-        technikData: project.technik
-      });
-    });
-    
-    return NextResponse.json({ 
+
+    // Lightweight debug: only log counts
+    console.log(`Fetched projects page=${page} limit=${limit} returned=${projectsJson.length} total=${total}`);
+
+    return NextResponse.json({
       success: true,
-      projects: projectsJson 
+      projects: projectsJson,
+      meta: { total, page, limit }
     });
   } catch (error) {
     console.error('Fehler beim Laden der Projekte:', error);
-    return NextResponse.json(
-      { 
-        success: false,
-        message: 'Fehler beim Laden der Projekte' 
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Fehler beim Laden der Projekte' }, { status: 500 });
   }
 }
 

@@ -41,7 +41,17 @@ class LockWebSocket {
 
     try {
       this.isConnecting = true;
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
+      const envUrl = (process.env.NEXT_PUBLIC_WS_URL as string | undefined) || '';
+
+      // Feature-Flag: Wenn keine URL konfiguriert oder explizit "disabled", WS komplett überspringen
+      if (!envUrl || envUrl === 'disabled') {
+        console.log('WebSocket disabled (NEXT_PUBLIC_WS_URL not set or disabled). Using HTTP polling.');
+        this.isConnecting = false;
+        this.isConnected = false;
+        return;
+      }
+
+      const wsUrl = envUrl;
       console.log('Attempting to connect to WebSocket:', wsUrl, 'with userId:', userId);
       
       this.socket = new WebSocket(`${wsUrl}?userId=${userId}`);

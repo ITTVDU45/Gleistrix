@@ -62,6 +62,7 @@ export interface TimeEntry {
   extra: number
   nachtzulage: string
   sonntag: number
+  sonntagsstunden?: number  // Explizites Feld für Sonntagsstunden
   feiertag: number
   bemerkung: string
 }

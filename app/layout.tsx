@@ -11,14 +11,15 @@ export const metadata = {
   }
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
   // Nonce aus Middleware beziehen (optional, zur Build-Zeit ohne next/headers nutzbar)
   let nonce: string | null = null;
   try {
     // Dynamischer Import, um Build-Time Fehler zu vermeiden
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { headers } = require('next/headers');
-    nonce = headers().get('x-nonce');
+    const h = await headers();
+    nonce = h.get('x-nonce');
   } catch {}
   return (
     <html lang="de" className="h-full" suppressHydrationWarning>
@@ -29,4 +30,4 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </body>
     </html>
   );
-} 
+}

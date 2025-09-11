@@ -16,6 +16,14 @@ export const DEFAULT_NOTIFICATION_DEFS = {
     defaultEnabled: false,
     defaultConfig: { to: 'Buchhaltung@mulheimerwachdienst.de' },
   },
+  'Abrechnung erstellt – E-Mail an Buchhaltung': {
+    key: 'Abrechnung erstellt – E-Mail an Buchhaltung',
+    label: 'E-Mail an Buchhaltung bei erstellter Abrechnung',
+    description:
+      'Wenn eine Abrechnung erstellt wird, sende automatisch eine E-Mail mit der Abrechnung an die Buchhaltung.',
+    defaultEnabled: false,
+    defaultConfig: { to: 'Buchhaltung@mulheimerwachdienst.de' },
+  },
 } as const;
 
 export type NotificationDefs = typeof DEFAULT_NOTIFICATION_DEFS;

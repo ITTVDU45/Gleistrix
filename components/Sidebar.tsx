@@ -16,7 +16,8 @@ import {
   LogOut,
   User,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  PanelLeft
 } from 'lucide-react';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -24,6 +25,7 @@ import Image from 'next/image';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Projekte', href: '/projekte', icon: Building2 },
+  { name: 'Abrechnung', href: '/abbrechnung', icon: PanelLeft },
   { name: 'Mitarbeiter', href: '/mitarbeiter', icon: Users },
   { name: 'Fahrzeuge', href: '/fahrzeuge', icon: Truck },
   { name: 'Zeiterfassung', href: '/timetracking', icon: Clock },

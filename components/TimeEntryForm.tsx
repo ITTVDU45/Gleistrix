@@ -472,8 +472,17 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
               availableDays = [selectedCopyEntry.day];
             }
           } else {
-            // Bei normalen und tagübergreifenden Einträgen: Ausgewählte Tage
-            availableDays = selectedDays;
+            // Bei normalen Einträgen: Ausgewählte Tage
+            // Bei tagübergreifenden Einträgen: Ausgewählte Tage + jeweils Folgetag(e)
+            if (isMultiDay) {
+              const withNext = selectedDays.flatMap(day => {
+                const next = format(addDays(parseISO(day), 1), 'yyyy-MM-dd');
+                return [day, next];
+              });
+              availableDays = Array.from(new Set(withNext));
+            } else {
+              availableDays = selectedDays;
+            }
           }
           
           return availableDays.includes(holidayDate);
@@ -1031,7 +1040,16 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
                           return [selectedCopyEntry.day].map(day => format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
                         }
                       } else {
-                        // Bei normalen Einträgen: Ausgewählte Tage
+                        // Normale Einträge: Ausgewählte Tage
+                        // Tagübergreifend: Ausgewählte Tage + Folgetag(e)
+                        if (isMultiDay) {
+                          const withNext = selectedDays.flatMap(day => {
+                            const next = format(addDays(parseISO(day), 1), 'yyyy-MM-dd');
+                            return [day, next];
+                          });
+                          const unique = Array.from(new Set(withNext));
+                          return unique.map(day => format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
+                        }
                         return selectedDays.map(day => format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
                       }
                     })()

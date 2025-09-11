@@ -34,7 +34,7 @@ export default function Page() {
   const id = params.id as string;
   const { data: session } = useSession();
   const { employees, loading, error, updateEmployee, deleteEmployee, setEmployeeStatus, updateEmployeeStatusBasedOnVacation } = useEmployees();
-  const { projects, isLoaded: projectsLoaded, error: projectsError } = useProjects();
+  const { projects, isLoaded: projectsLoaded, error: projectsError } = useProjects({ includeTimes: true, includeVehicles: true });
   const employee = employees.find(emp => emp.id === id);
   
   // Locking-System
@@ -272,11 +272,33 @@ export default function Page() {
   const employeeAssignments = React.useMemo(() => {
     if (!employee || !projectsLoaded || !projects) return [];
     
+    console.log('Projekte geladen:', projects.length);
+    console.log('Mitarbeitername:', employee.name);
+    
+    // Debug-Log für die ersten 3 Projekte
+    projects.slice(0, 3).forEach(project => {
+      console.log(`Projekt ${project.name} mitarbeiterZeiten:`, 
+        project.mitarbeiterZeiten ? 
+        Object.keys(project.mitarbeiterZeiten).length + ' Tage' : 
+        'keine');
+    });
+    
     return projects.flatMap(project => {
-      return Object.entries(project.mitarbeiterZeiten || {})
-        .flatMap(([date, entries]) =>
-          (entries as any[])
-            .filter(entry => entry.name === employee.name)
+      if (!project.mitarbeiterZeiten) return [];
+      
+      return Object.entries(project.mitarbeiterZeiten)
+        .flatMap(([date, entries]) => {
+          if (!Array.isArray(entries)) {
+            console.warn(`Keine Array-Einträge für Projekt ${project.name} am ${date}:`, entries);
+            return [];
+          }
+          
+          return entries
+            .filter(entry => {
+              const nameMatch = entry.name === employee.name;
+              if (nameMatch) console.log(`Eintrag gefunden für ${employee.name} in ${project.name} am ${date}`);
+              return nameMatch;
+            })
             .map(entry => {
               // Sammle Fahrzeuge für diesen Tag und Mitarbeiter
               const vehiclesForDay = project.fahrzeuge?.[date] || [];
@@ -291,8 +313,8 @@ export default function Page() {
                 funktion: entry.funktion,
                 fahrzeuge: vehicleNames
               };
-            })
-        );
+            });
+        });
     }).sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime());
   }, [projects, employee?.name, projectsLoaded]);
 
