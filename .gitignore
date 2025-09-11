@@ -31,4 +31,4 @@ coverage/
 .vercel/
 
 # Project-specific
-scripts/
+scripts/\n# Ignore large archives\nMH-ZEITERFASSUNG.zip
