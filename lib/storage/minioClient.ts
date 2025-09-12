@@ -81,6 +81,7 @@ export function bucketExistsAsync(bucket: string) {
 
 export function makeBucketAsync(bucket: string, region?: string) {
   return new Promise<void>((resolve, reject) => {
+    // @ts-ignore - callback API vs options API type conflict
     minioClient.makeBucket(bucket, region || '', (err: any) => {
       if (err) return reject(err);
       resolve();
