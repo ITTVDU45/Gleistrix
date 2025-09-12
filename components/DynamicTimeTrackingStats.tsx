@@ -5,7 +5,7 @@ import { Card, CardContent } from './ui/card';
 import type { TimeEntry } from '../types';
 
 interface DynamicTimeTrackingStatsProps {
-  timeEntries: TimeEntry[];
+  timeEntries: any[]; // Verwende any[] statt TimeEntry[] für flexiblere Feldstrukturen
 }
 
 export default function DynamicTimeTrackingStats({ timeEntries }: DynamicTimeTrackingStatsProps) {
@@ -22,10 +22,17 @@ export default function DynamicTimeTrackingStats({ timeEntries }: DynamicTimeTra
     const totalEntries = timeEntries.length;
 
     // Arbeitsstunden
-    const totalWorkHours = timeEntries.reduce((sum, entry) => sum + entry.stunden, 0);
+    const totalWorkHours = timeEntries.reduce((sum, entry) => {
+      const stunden = typeof entry.stunden === 'number' ? entry.stunden : parseFloat(String(entry.stunden || 0)) || 0;
+      return sum + stunden;
+    }, 0);
 
     // Fahrtstunden
-    const totalTravelHours = timeEntries.reduce((sum, entry) => sum + (entry.fahrtstunden || 0), 0);
+    const totalTravelHours = timeEntries.reduce((sum, entry) => {
+      const fahrtstunden = typeof entry.fahrtstunden === 'number' ? entry.fahrtstunden : 
+        parseFloat(String(entry.fahrtstunden || (entry as any).fahrt || 0)) || 0;
+      return sum + fahrtstunden;
+    }, 0);
 
     // Eindeutige Projekte (fallback, wenn projectName fehlt)
     const uniqueProjects = new Set((timeEntries as any[]).map((entry) => (entry as any).projectName || '')).size;
