@@ -61,6 +61,7 @@ export function presignedGetObjectAsync(bucket: string, key: string, expiresSeco
 
 export function statObjectAsync(bucket: string, key: string) {
   return new Promise<any>((resolve, reject) => {
+    // @ts-ignore - callback API vs options API type conflict
     minioClient.statObject(bucket, key, (err: any, stat: any) => {
       if (err) return reject(err);
       resolve(stat);
