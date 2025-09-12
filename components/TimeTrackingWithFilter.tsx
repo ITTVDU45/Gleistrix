@@ -76,7 +76,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
             ? (typeof (entry as any).sonntag === 'number' ? (entry as any).sonntag : parseFloat(String((entry as any).sonntag)) || 0)
             : 0,
         feiertag: entry.feiertag !== undefined ? entry.feiertag : 0,
-        fahrtstunden: entry.fahrtstunden !== undefined ? entry.fahrtstunden : (entry.fahrt || 0),
+        fahrtstunden: entry.fahrtstunden !== undefined ? entry.fahrtstunden : ((entry as any).fahrt || 0),
         extra: entry.extra || entry.extraInfo || '-',
         bemerkung: entry.bemerkung || entry.note || '',
       }))
