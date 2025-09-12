@@ -71,6 +71,7 @@ export function statObjectAsync(bucket: string, key: string) {
 
 export function bucketExistsAsync(bucket: string) {
   return new Promise<boolean>((resolve, reject) => {
+    // @ts-ignore - callback API vs options API type conflict
     minioClient.bucketExists(bucket, (err: any, exists: boolean) => {
       if (err) return reject(err);
       resolve(exists);
