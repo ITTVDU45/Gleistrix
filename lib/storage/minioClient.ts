@@ -91,6 +91,7 @@ export function makeBucketAsync(bucket: string, region?: string) {
 
 export function getObjectBufferAsync(bucket: string, key: string) {
   return new Promise<Buffer>((resolve, reject) => {
+    // @ts-ignore - callback API vs options API type conflict
     minioClient.getObject(bucket, key, (err: any, stream: any) => {
       if (err) return reject(err);
       const chunks: Buffer[] = [];
