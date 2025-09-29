@@ -10,7 +10,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params;
     const auth = await requireAuth(request, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
-
     const body = await request.json();
     // body.files: [{ name, contentType }]
     const files: { name: string; contentType?: string }[] = body.files || [];
@@ -18,6 +17,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
+
+    // sanity checks for MinIO config: accept either MINIO_ACCESS_KEY/SECRET or MINIO_ROOT_USER/ROOT_PASSWORD
+    const hasAccessPair = !!(process.env.MINIO_ACCESS_KEY && process.env.MINIO_SECRET_KEY);
+    const hasRootPair = !!(process.env.MINIO_ROOT_USER && process.env.MINIO_ROOT_PASSWORD);
+    if (!hasAccessPair && !hasRootPair) {
+      console.error('MinIO credentials missing: neither MINIO_ACCESS_KEY/MINIO_SECRET_KEY nor MINIO_ROOT_USER/MINIO_ROOT_PASSWORD are set');
+      return NextResponse.json({ message: 'Presign fehlgeschlagen', error: 'MinIO-Konfiguration fehlt (MINIO_ACCESS_KEY / MINIO_SECRET_KEY or MINIO_ROOT_USER / MINIO_ROOT_PASSWORD)' }, { status: 500 });
+    }
+    console.info('Using MinIO credentials from', hasAccessPair ? 'MINIO_ACCESS_KEY/MINIO_SECRET_KEY' : 'MINIO_ROOT_USER/MINIO_ROOT_PASSWORD');
 
     const bucketName = process.env.MINIO_BUCKET || 'project-documents';
     try {
@@ -33,14 +41,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const results: any[] = [];
     for (const f of files) {
-      const key = getProjectObjectKey(project, f.name);
-      // expires seconds
-      const expires = 60 * 10;
-      // use promise helper when available to avoid callback result confusion
-      const presigned = typeof (minioClient as any).presignedPutObjectAsync === 'function'
-        ? await (minioClient as any).presignedPutObjectAsync(bucketName, key, expires)
-        : await new Promise<string>((resolve, reject) => minioClient.presignedPutObject(bucketName, key, expires, (err: any, url: string) => err ? reject(err) : resolve(url)));
-      results.push({ name: f.name, key, url: `minio://${bucketName}/${key}`, presignedUrl: presigned, contentType: f.contentType || 'application/octet-stream' });
+      try {
+        const key = getProjectObjectKey(project, f.name);
+        // expires seconds
+        const expires = 60 * 10;
+        // use promise helper when available to avoid callback result confusion
+        const presigned = typeof (minioClient as any).presignedPutObjectAsync === 'function'
+          ? await (minioClient as any).presignedPutObjectAsync(bucketName, key, expires)
+          : await new Promise<string>((resolve, reject) => minioClient.presignedPutObject(bucketName, key, expires, (err: any, url: string) => err ? reject(err) : resolve(url)));
+        results.push({ name: f.name, key, url: `minio://${bucketName}/${key}`, presignedUrl: presigned, contentType: f.contentType || 'application/octet-stream' });
+      } catch (fileErr) {
+        console.error('Presign for file failed', { file: f, error: fileErr });
+        // include per-file error info to help debugging
+        return NextResponse.json({ message: 'Presign fehlgeschlagen', error: String(fileErr instanceof Error ? fileErr.message : fileErr) }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ success: true, uploads: results });

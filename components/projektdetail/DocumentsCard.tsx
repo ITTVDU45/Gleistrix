@@ -31,14 +31,10 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
 
   // Log incoming prop for debugging
   React.useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('DocumentsCard props.documents', documents);
   }, [documents]);
 
   // Debug: log when documents change to help trace UI updates
   React.useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('DocumentsCard: projectId=', projectId, 'documents.length=', localDocs.length, 'documents=', localDocs);
   }, [projectId, localDocs]);
 
   // Wenn keine docs übergeben, lade aktuelle Projektdokumente vom Server
@@ -183,13 +179,7 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
               )}
             </TableBody>
           </Table>
-          {/* Debug: show raw docs for verification */}
-          <div className="mt-4 p-2 bg-slate-50 rounded-md text-xs text-slate-600">
-            <details>
-              <summary className="cursor-pointer">Debug: dokumente JSON (click to expand)</summary>
-              <pre className="whitespace-pre-wrap max-h-64 overflow-auto">{JSON.stringify(localDocs, null, 2)}</pre>
-            </details>
-          </div>
+          {/* Debug output removed */}
         </div>
 
         <DocumentsUploadDialog open={openUpload} onOpenChange={setOpenUpload} onUpload={handleUploaded} projectId={projectId} />

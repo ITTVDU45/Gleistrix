@@ -32,3 +32,5 @@ coverage/
 
 # Project-specific
 scripts/\n# Ignore large archives\nMH-ZEITERFASSUNG.zip
+.vercel
+.env*.local

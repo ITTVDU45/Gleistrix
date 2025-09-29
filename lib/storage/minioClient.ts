@@ -19,12 +19,18 @@ try {
   useSSL = (process.env.MINIO_USE_SSL || String(useSSL)) === 'true';
 }
 
+// Support both older MINIO_ACCESS_KEY / MINIO_SECRET_KEY and newer MINIO_ROOT_USER / MINIO_ROOT_PASSWORD
+const usedAccessKey = process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER || '';
+const usedSecretKey = process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || '';
+const accessKeySource = process.env.MINIO_ACCESS_KEY ? 'MINIO_ACCESS_KEY' : (process.env.MINIO_ROOT_USER ? 'MINIO_ROOT_USER' : 'none');
+const secretKeySource = process.env.MINIO_SECRET_KEY ? 'MINIO_SECRET_KEY' : (process.env.MINIO_ROOT_PASSWORD ? 'MINIO_ROOT_PASSWORD' : 'none');
+console.info('MinIO client configured - endpoint=', endPoint + ':' + port, 'useSSL=', useSSL, 'accessKeyFrom=', accessKeySource, 'secretKeyFrom=', secretKeySource);
 const minioClient = new Client({
   endPoint,
   port,
   useSSL,
-  accessKey: process.env.MINIO_ACCESS_KEY || '',
-  secretKey: process.env.MINIO_SECRET_KEY || ''
+  accessKey: usedAccessKey,
+  secretKey: usedSecretKey
 });
 
 export default minioClient;
