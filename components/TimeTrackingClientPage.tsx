@@ -23,7 +23,7 @@ import {
   RefreshCw,
   MapPin
 } from 'lucide-react';
-import type { Project, Employee, TimeEntry } from '../types';
+import type { Project, Employee, TimeEntry, TimeTrackingExportData } from '../types';
 import TimeTrackingFilters from './TimeTrackingFilters';
 import TimeTrackingExport from './TimeTrackingExport';
 
@@ -67,8 +67,8 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
   // Sortiere die Einträge: Neueste (nach Datum und Uhrzeit) zuerst
   allTimeEntries.sort((a, b) => {
     // Erst nach Datum absteigend
-    const dateA = new Date(`${a.date}T${a.start || '00:00'}`);
-    const dateB = new Date(`${b.date}T${b.start || '00:00'}`);
+    const dateA = new Date(`${a.date ?? '1970-01-01'}T${a.start || '00:00'}`);
+    const dateB = new Date(`${b.date ?? '1970-01-01'}T${b.start || '00:00'}`);
     return dateB.getTime() - dateA.getTime();
   });
 
@@ -89,22 +89,22 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
   const [searchTerm, setSearchTerm] = useState('');
 
   // Verfügbare Orte für Filter
-  const availableLocations = React.useMemo(() => {
-    return Array.from(new Set(allTimeEntries.map(entry => entry.ort).filter(ort => ort && ort !== '-')));
+  const availableLocations: string[] = React.useMemo(() => {
+    return Array.from(new Set(allTimeEntries.map(entry => entry.ort ?? '').filter(ort => ort && ort !== '-')));
   }, [allTimeEntries]);
 
   // Gefilterte Einträge
   const filteredEntries: TimeEntry[] = allTimeEntries.filter(entry => {
-    if (selectedProjects.length > 0 && !selectedProjects.includes(entry.projectName)) return false;
-    if (selectedEmployees.length > 0 && !selectedEmployees.includes(entry.name)) return false;
-    if (selectedLocations.length > 0 && !selectedLocations.includes(entry.ort)) return false;
-    if (dateFrom && entry.date < dateFrom) return false;
-    if (dateTo && entry.date > dateTo) return false;
+    if (selectedProjects.length > 0 && !(entry.projectName && selectedProjects.includes(entry.projectName))) return false;
+    if (selectedEmployees.length > 0 && !(entry.name && selectedEmployees.includes(entry.name))) return false;
+    if (selectedLocations.length > 0 && !(entry.ort && selectedLocations.includes(entry.ort))) return false;
+    if (dateFrom && (entry.date ?? '') < dateFrom) return false;
+    if (dateTo && (entry.date ?? '') > dateTo) return false;
     if (searchTerm && !(
-      entry.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (entry.client && entry.client.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (entry.ort && entry.ort.toLowerCase().includes(searchTerm.toLowerCase()))
+      (entry.projectName ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (entry.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ((entry.client ?? '').toLowerCase().includes(searchTerm.toLowerCase())) ||
+      ((entry.ort ?? '').toLowerCase().includes(searchTerm.toLowerCase()))
     )) return false;
     return true;
   });
@@ -117,7 +117,21 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Zeiterfassung</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Übersicht aller Zeiteinträge</p>
         </div>
-        <TimeTrackingExport timeEntries={filteredEntries} />
+        {/* map entries to export shape to satisfy TS and normalize numeric fields */}
+        <TimeTrackingExport timeEntries={filteredEntries.map((e) => ({
+          date: e.date ?? '',
+          projectName: e.projectName ?? '',
+          name: e.name ?? '',
+          start: e.start ?? '',
+          ende: e.ende ?? '',
+          stunden: typeof e.stunden === 'number' ? e.stunden : parseFloat(String(e.stunden || 0)) || 0,
+          fahrtstunden: typeof e.fahrtstunden === 'number' ? e.fahrtstunden : parseFloat(String(e.fahrtstunden || 0)) || 0,
+          nachtzulage: typeof (e as any).nachtzulage === 'number' ? (e as any).nachtzulage : parseFloat(String((e as any).nachtzulage || 0)) || 0,
+          orderNumber: (e as any).orderNumber ?? '',
+          sapNumber: (e as any).sapNumber ?? '',
+          client: e.client ?? '',
+          status: e.status ?? 'kein Status'
+        } as TimeTrackingExportData))} />
       </div>
 
       {/* Statistik-Karten */}

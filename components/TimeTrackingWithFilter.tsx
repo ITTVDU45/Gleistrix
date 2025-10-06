@@ -75,6 +75,12 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
           : (entry as any).sonntag !== undefined
             ? (typeof (entry as any).sonntag === 'number' ? (entry as any).sonntag : parseFloat(String((entry as any).sonntag)) || 0)
             : 0,
+        // keep legacy `sonntag` number field for compatibility with types
+        sonntag: (entry as any).sonntagsstunden !== undefined
+          ? (entry as any).sonntagsstunden
+          : (entry as any).sonntag !== undefined
+            ? (typeof (entry as any).sonntag === 'number' ? (entry as any).sonntag : parseFloat(String((entry as any).sonntag)) || 0)
+            : 0,
         feiertag: entry.feiertag !== undefined ? entry.feiertag : 0,
         fahrtstunden: entry.fahrtstunden !== undefined ? entry.fahrtstunden : ((entry as any).fahrt || 0),
         extra: entry.extra || (entry as any).extraInfo || '-',
@@ -91,8 +97,8 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
   // Sortiere die Einträge: Neueste (nach Datum und Uhrzeit) zuerst
   allTimeEntries.sort((a, b) => {
     // Erst nach Datum absteigend
-    const dateA = new Date(`${a.date}T${a.start || '00:00'}`);
-    const dateB = new Date(`${b.date}T${b.start || '00:00'}`);
+    const dateA = new Date(`${a.date ?? '1970-01-01'}T${a.start || '00:00'}`);
+    const dateB = new Date(`${b.date ?? '1970-01-01'}T${b.start || '00:00'}`);
     return dateB.getTime() - dateA.getTime();
   });
 
@@ -106,22 +112,22 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
 
   // Verfügbare Orte für Filter
   const availableLocations: string[] = React.useMemo(() => {
-    return Array.from(new Set(allTimeEntries.map(entry => entry.ort).filter(ort => ort && ort !== '-')));
+    return Array.from(new Set(allTimeEntries.map(entry => entry.ort ?? '').filter(ort => ort && ort !== '-')));
   }, [allTimeEntries]);
 
   // Gefilterte Einträge
   const filteredEntries: TimeEntry[] = React.useMemo(() => {
     return allTimeEntries.filter(entry => {
-      if (selectedProjects.length > 0 && !selectedProjects.includes(entry.projectName)) return false;
-      if (selectedEmployees.length > 0 && !selectedEmployees.includes(entry.name)) return false;
-      if (selectedLocations.length > 0 && !selectedLocations.includes(entry.ort)) return false;
-      if (dateFrom && entry.date < dateFrom) return false;
-      if (dateTo && entry.date > dateTo) return false;
+      if (selectedProjects.length > 0 && !(entry.projectName && selectedProjects.includes(entry.projectName))) return false;
+      if (selectedEmployees.length > 0 && !(entry.name && selectedEmployees.includes(entry.name))) return false;
+      if (selectedLocations.length > 0 && !(entry.ort && selectedLocations.includes(entry.ort))) return false;
+      if (dateFrom && (entry.date ?? '') < dateFrom) return false;
+      if (dateTo && (entry.date ?? '') > dateTo) return false;
       if (searchTerm && !(
-        entry.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (entry.client && entry.client.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (entry.ort && entry.ort.toLowerCase().includes(searchTerm.toLowerCase()))
+        (entry.projectName ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (entry.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ((entry.client ?? '').toLowerCase().includes(searchTerm.toLowerCase())) ||
+        ((entry.ort ?? '').toLowerCase().includes(searchTerm.toLowerCase()))
       )) return false;
       return true;
     });

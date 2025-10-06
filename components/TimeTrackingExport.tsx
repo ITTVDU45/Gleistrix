@@ -5,10 +5,11 @@ import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { fetchWithIntent } from '@/lib/http/fetchWithIntent';
 import autoTable from 'jspdf-autotable';
-import type { TimeTrackingExportData } from '../types';
+import type { TimeTrackingExportData, TimeEntry } from '../types';
 
 interface TimeTrackingExportProps {
-  timeEntries: TimeTrackingExportData[];
+  // Accept either fully shaped export data or TimeEntry objects (mapping handled in code)
+  timeEntries: Array<TimeTrackingExportData | Partial<TimeTrackingExportData> | TimeEntry>;
 }
 
 export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportProps) {
@@ -49,6 +50,13 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
     const s = sIso.includes('T') ? sIso.slice(11,16) : sIso
     const e = eIso.includes('T') ? eIso.slice(11,16) : eIso
     return `${s} - ${e}`
+  }
+
+  // helper to robustly parse numeric values (accepts number or string with comma)
+  const parseNumber = (val: any): number => {
+    if (typeof val === 'number') return val
+    const n = parseFloat(String(val || '0').replace(',', '.'))
+    return Number.isFinite(n) ? n : 0
   }
 
   const [isExporting, setIsExporting] = useState(false);
@@ -97,20 +105,29 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       doc.setFontSize(10);
       doc.text(`Anzahl Einträge: ${timeEntries.length}`, 14, summaryTitleY + 10);
       
-      const totalHours = timeEntries.reduce((sum, entry) => sum + entry.stunden, 0);
+      const totalHours = timeEntries.reduce((sum, rawEntry) => {
+        const entry: any = rawEntry as any;
+        const st = typeof entry.stunden === 'number' ? entry.stunden : parseFloat(String(entry.stunden || 0)) || 0;
+        return sum + st;
+      }, 0);
       doc.text(`Gesamtstunden: ${formatHours(totalHours)}`, 14, summaryTitleY + 15);
       
-      const totalTravelHours = timeEntries.reduce((sum, entry) => sum + entry.fahrtstunden, 0);
+      const totalTravelHours = timeEntries.reduce((sum, rawEntry) => {
+        const entry: any = rawEntry as any;
+        const f = typeof entry.fahrtstunden === 'number' ? entry.fahrtstunden : parseFloat(String(entry.fahrtstunden || 0)) || 0;
+        return sum + f;
+      }, 0);
       doc.text(`Fahrtstunden: ${totalTravelHours.toFixed(1)}h`, 14, summaryTitleY + 20);
       
-      const totalNightHours = timeEntries.reduce((sum, entry) => {
-        const nightHours = entry.nachtzulage ? parseFloat(entry.nachtzulage) : 0;
-        return sum + nightHours;
+      const totalNightHours = timeEntries.reduce((sum, rawEntry) => {
+        const entry: any = rawEntry as any;
+        return sum + parseNumber(entry.nachtzulage);
       }, 0);
       doc.text(`Nachtstunden: ${totalNightHours.toFixed(1)}h`, 14, summaryTitleY + 25);
       
       // Sonntagsstunden aus verschiedenen möglichen Feldern auslesen und summieren
-      const totalSundayHours = timeEntries.reduce((sum, entry) => {
+      const totalSundayHours = timeEntries.reduce((sum, rawEntry) => {
+        const entry: any = rawEntry as any;
         // Prüfe alle möglichen Feldnamen und nehme den ersten vorhandenen Wert
         const sonntagWert = entry.sonntagsstunden ?? entry.sonntag ?? entry.sonntagstunden ?? 0;
         // Konvertiere in eine Zahl (mit Komma-zu-Punkt-Umwandlung)
@@ -135,9 +152,9 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       }, 0);
       doc.text(`Sonntagsstunden: ${totalSundayHours.toFixed(1)}h`, 14, summaryTitleY + 30);
       
-      const totalHolidayHours = timeEntries.reduce((sum, entry) => {
-        const holidayHours = entry.feiertag ? parseFloat(entry.feiertag) : 0;
-        return sum + holidayHours;
+      const totalHolidayHours = timeEntries.reduce((sum, rawEntry) => {
+        const entry: any = rawEntry as any;
+        return sum + parseNumber(entry.feiertag);
       }, 0);
       doc.text(`Feiertagsstunden: ${totalHolidayHours.toFixed(1)}h`, 14, summaryTitleY + 35);
       
@@ -151,7 +168,8 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
         'Datum', 'Projektname', 'Ort', 'Mitarbeiter', 'Funktion', 'Zeit', 'Gesamtstunden', 'Pause', 'Nachtstunden', 'Sonntagsstunden', 'Feiertagsstunden', 'Fahrtstunden', 'Extra', 'Projektstatus'
       ];
 
-      const data = timeEntries.map(entry => {
+      const data = timeEntries.map(rawEntry => {
+        const entry: any = rawEntry as any;
         const date = entry.date ? new Date(entry.date).toLocaleDateString('de-DE') : '-'
         const projekt = entry.projectName || entry.project || '-'
         const ort = entry.ort || entry.location || '-' 
@@ -161,14 +179,14 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
         const ende = entry.ende || entry.end || '-'
         const zeit = (start && ende && start !== '-' && ende !== '-') ? formatZeit(start, ende) : start || ende || '-'
         const gesamt = typeof entry.stunden === 'number' ? formatHours(entry.stunden) : (entry.stunden ? String(entry.stunden) : '-')
-        const pauseNum = typeof entry.pause === 'number' ? entry.pause : parseFloat(String(entry.pause).replace(',', '.'))
+        const pauseNum = typeof entry.pause === 'number' ? entry.pause : parseNumber(entry.pause)
         const pause = Number.isFinite(pauseNum) && pauseNum > 0 ? `${formatHoursDot(pauseNum)}h` : '-'
-        const nacht = entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ? `${formatHoursDot(parseFloat(entry.nachtzulage))}h` : '-'
+        const nacht = entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ? `${formatHoursDot(parseNumber(entry.nachtzulage))}h` : '-'
         const sonntagVal = entry.sonntagsstunden ?? entry.sonntag
-        const sonntag = sonntagVal !== undefined && sonntagVal !== null && sonntagVal !== '' ? `${formatHoursDot(parseFloat(String(sonntagVal))) }h` : '-'
-        const feiertag = entry.feiertag !== undefined && entry.feiertag !== null && entry.feiertag !== '' ? `${formatHoursDot(parseFloat(entry.feiertag))}h` : '-'
+        const sonntag = sonntagVal !== undefined && sonntagVal !== null && sonntagVal !== '' ? `${formatHoursDot(parseNumber(sonntagVal)) }h` : '-'
+        const feiertag = entry.feiertag !== undefined && entry.feiertag !== null && entry.feiertag !== '' ? `${formatHoursDot(parseNumber(entry.feiertag))}h` : '-'
         const fahrtNum = entry.fahrtstunden ?? entry.fahrt
-        const fahrt = fahrtNum !== undefined && fahrtNum !== null && fahrtNum !== '' ? `${formatHoursDot(parseFloat(String(fahrtNum)))}h` : '-'
+        const fahrt = fahrtNum !== undefined && fahrtNum !== null && fahrtNum !== '' ? `${formatHoursDot(parseNumber(fahrtNum))}h` : '-'
         const extra = entry.extra || '-'
         const status = entry.status || entry.projectStatus || '-'
         return [date, projekt, ort, name, funktion, zeit, gesamt, pause, nacht, sonntag, feiertag, fahrt, extra, status]
