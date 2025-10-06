@@ -34,3 +34,4 @@ coverage/
 scripts/\n# Ignore large archives\nMH-ZEITERFASSUNG.zip
 .vercel
 .env*.local
+MH-ZEITERFASSUNG.zip
