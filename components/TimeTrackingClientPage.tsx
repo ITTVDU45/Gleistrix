@@ -109,6 +109,37 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
     return true;
   });
 
+  // Sortierte Einträge nach Datum (chronologisch). Verwende kopie um original nicht zu mutieren.
+  const sortedEntries = React.useMemo(() => {
+    const parseEntryTimestamp = (entry: any): number => {
+      const dateRaw: string = entry?.date ?? '';
+      let isoDate = dateRaw;
+      // support dd.mm.yyyy -> convert to YYYY-MM-DD
+      if (dateRaw && dateRaw.includes('.')) {
+        const parts = dateRaw.split('.').map(p => p.trim());
+        if (parts.length >= 3) {
+          const [dd, mm, yyyy] = parts;
+          isoDate = `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+        }
+      }
+      let timeRaw: string = String(entry?.start ?? '');
+      if (timeRaw.includes(' - ')) timeRaw = timeRaw.split(' - ')[0];
+      // if timeRaw already contains a T/ISO timestamp, try parse directly
+      if (timeRaw.includes('T')) {
+        const d = new Date(timeRaw);
+        if (!isNaN(d.getTime())) return d.getTime();
+      }
+      const isoDateTime = `${isoDate || '1970-01-01'}T${timeRaw || '00:00'}`;
+      let d = new Date(isoDateTime);
+      if (isNaN(d.getTime())) {
+        d = new Date(isoDate);
+      }
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    };
+
+    return [...filteredEntries].sort((a, b) => parseEntryTimestamp(a) - parseEntryTimestamp(b));
+  }, [filteredEntries]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -118,7 +149,7 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
           <p className="text-slate-600 dark:text-slate-400 mt-1">Übersicht aller Zeiteinträge</p>
         </div>
         {/* map entries to export shape to satisfy TS and normalize numeric fields */}
-        <TimeTrackingExport timeEntries={filteredEntries.map((e) => ({
+        <TimeTrackingExport timeEntries={(sortedEntries || filteredEntries).map((e) => ({
           date: e.date ?? '',
           projectName: e.projectName ?? '',
           name: e.name ?? '',
@@ -248,7 +279,7 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEntries.map((entry: any) => (
+                  {(sortedEntries || filteredEntries).map((entry: any) => (
                     <TableRow key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                       <TableCell>
                         <div className="flex items-center gap-2">

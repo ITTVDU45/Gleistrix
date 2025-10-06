@@ -133,6 +133,29 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
     });
   }, [allTimeEntries, selectedProjects, selectedEmployees, selectedLocations, dateFrom, dateTo, searchTerm]);
 
+  // Sortiert chronologisch nach Datum (aufsteigend)
+  const sortedEntries = React.useMemo(() => {
+    const parseEntryTimestamp = (entry: any): number => {
+      const dateRaw: string = entry?.date ?? '';
+      let isoDate = dateRaw;
+      if (dateRaw && dateRaw.includes('.')) {
+        const parts = dateRaw.split('.').map(p => p.trim());
+        if (parts.length >= 3) {
+          const [dd, mm, yyyy] = parts;
+          isoDate = `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+        }
+      }
+      let timeRaw: string = String(entry?.start ?? '');
+      if (timeRaw.includes(' - ')) timeRaw = timeRaw.split(' - ')[0];
+      const isoDateTime = `${isoDate || '1970-01-01'}T${timeRaw || '00:00'}`;
+      let d = new Date(isoDateTime);
+      if (isNaN(d.getTime())) d = new Date(isoDate);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    };
+
+    return [...filteredEntries].sort((a, b) => parseEntryTimestamp(a) - parseEntryTimestamp(b));
+  }, [filteredEntries]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -141,7 +164,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Zeiterfassung</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Übersicht aller Zeiteinträge</p>
         </div>
-        <TimeTrackingExport timeEntries={filteredEntries} />
+        <TimeTrackingExport timeEntries={sortedEntries} />
       </div>
 
       {/* Dynamische Statistik-Karten */}
@@ -202,7 +225,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEntries.map((entry: any) => (
+                  {sortedEntries.map((entry: any) => (
                     <TableRow key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                       <TableCell>
                         <div className="flex items-center gap-2">
