@@ -347,16 +347,14 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
             <Input
               id="extra"
               type="number"
-              min={1}
-              max={20}
               value={formData.extra}
               onChange={e => {
                 const val = e.target.value;
-                if (val === '' || (/^\d+$/.test(val) && +val >= 1 && +val <= 20)) {
+                if (val === '' || /^[0-9]+([\.,][0-9]+)?$/.test(val)) {
                   setFormData(prev => ({ ...prev, extra: val }));
                 }
               }}
-              placeholder="Zahl 1-20"
+              placeholder="Zahl"
               className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12"
             />
           </div>

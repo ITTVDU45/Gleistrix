@@ -986,12 +986,11 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
               <Input
                 id="extra"
                 type="number"
-                min={1}
-                max={20}
                 value={formData.extra}
                 onChange={e => {
                   const val = e.target.value;
-                  if (val === '' || (/^\d+$/.test(val) && +val >= 1 && +val <= 20)) {
+                  // allow empty or any non-negative integer/float with comma or dot
+                  if (val === '' || /^[0-9]+([\.,][0-9]+)?$/.test(val)) {
                     setFormData(prev => ({ ...prev, extra: val }));
                   }
                 }}
