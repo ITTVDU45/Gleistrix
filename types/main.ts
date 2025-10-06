@@ -53,7 +53,8 @@ export interface EmployeeAssignment {
 export interface TimeEntry {
   id: string
   name: string
-  funktion: MitarbeiterFunktion
+  // Funktion kann ein freier String oder einer der vordefinierten `MitarbeiterFunktion`-Werte sein
+  funktion?: string | MitarbeiterFunktion
   start: string
   ende: string
   stunden: number

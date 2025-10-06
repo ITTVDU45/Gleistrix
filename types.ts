@@ -38,6 +38,14 @@ export interface TimeEntry {
   name: string
   // Funktion kann ein freier String oder einer der vordefinierten `MitarbeiterFunktion`-Werte sein
   funktion?: string | MitarbeiterFunktion
+  // zusätzliche optionale Felder, die an Komponenten angehängt werden (z.B. durch Mapping)
+  date?: string
+  projectName?: string
+  client?: string
+  ort?: string
+  status?: string
+  orderNumber?: string
+  sapNumber?: string
   start: string
   ende: string
   stunden: number

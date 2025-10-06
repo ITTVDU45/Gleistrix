@@ -12,7 +12,7 @@ interface EmployeeAssignment {
   id: string;
   datum: string;
   projektName: string;
-  funktion: string;
+  funktion?: string;
   stunden: number;
   fahrtstunden: number;
   fahrzeuge?: string[];
@@ -50,7 +50,7 @@ export default function EmployeeAssignmentFilter({ assignments, onFilterChange }
   // Alle verfügbaren Optionen
   const allAvailableOptions = useMemo(() => {
     const allProjects = Array.from(new Set(assignments.map(a => a.projektName)));
-    const allFunctions = Array.from(new Set(assignments.map(a => a.funktion)));
+    const allFunctions = Array.from(new Set(assignments.flatMap(a => a.funktion ? [a.funktion] : [])));
     const allVehicles = Array.from(new Set(
       assignments.flatMap(a => a.fahrzeuge || [])
     ));
@@ -70,7 +70,7 @@ export default function EmployeeAssignmentFilter({ assignments, onFilterChange }
     if (selectedFunctions.length > 0) {
       const functionProjects = new Set<string>();
       assignments.forEach(assignment => {
-        if (selectedFunctions.includes(assignment.funktion)) {
+        if (assignment.funktion && selectedFunctions.includes(assignment.funktion)) {
           functionProjects.add(assignment.projektName);
         }
       });
@@ -120,13 +120,13 @@ export default function EmployeeAssignmentFilter({ assignments, onFilterChange }
   }, [assignments, selectedFunctions, selectedVehicles, selectedMonth, dateFrom, dateTo]);
 
   const filteredFunctions = useMemo(() => {
-    let availableFunctions = Array.from(new Set(assignments.map(a => a.funktion)));
+    let availableFunctions = Array.from(new Set(assignments.flatMap(a => a.funktion ? [a.funktion] : [])));
     
     // Wenn Projekte ausgewählt sind, zeige nur Funktionen aus diesen Projekten
     if (selectedProjects.length > 0) {
       const projectFunctions = new Set<string>();
       assignments.forEach(assignment => {
-        if (selectedProjects.includes(assignment.projektName)) {
+        if (selectedProjects.includes(assignment.projektName) && assignment.funktion) {
           projectFunctions.add(assignment.funktion);
         }
       });
@@ -137,7 +137,7 @@ export default function EmployeeAssignmentFilter({ assignments, onFilterChange }
     if (selectedVehicles.length > 0) {
       const vehicleFunctions = new Set<string>();
       assignments.forEach(assignment => {
-        if (assignment.fahrzeuge?.some(vehicle => selectedVehicles.includes(vehicle))) {
+        if (assignment.fahrzeuge?.some(vehicle => selectedVehicles.includes(vehicle)) && assignment.funktion) {
           vehicleFunctions.add(assignment.funktion);
         }
       });
@@ -165,7 +165,7 @@ export default function EmployeeAssignmentFilter({ assignments, onFilterChange }
           includeAssignment = assignment.datum <= dateTo;
         }
         
-        if (includeAssignment) {
+        if (includeAssignment && assignment.funktion) {
           dateFunctions.add(assignment.funktion);
         }
       });
@@ -195,7 +195,7 @@ export default function EmployeeAssignmentFilter({ assignments, onFilterChange }
     if (selectedFunctions.length > 0) {
       const functionVehicles = new Set<string>();
       assignments.forEach(assignment => {
-        if (selectedFunctions.includes(assignment.funktion)) {
+        if (assignment.funktion && selectedFunctions.includes(assignment.funktion)) {
           (assignment.fahrzeuge || []).forEach(vehicle => functionVehicles.add(vehicle));
         }
       });
@@ -269,7 +269,7 @@ export default function EmployeeAssignmentFilter({ assignments, onFilterChange }
     // Funktion-Filter
     if (selectedFunctions.length > 0) {
       filtered = filtered.filter(assignment =>
-        selectedFunctions.includes(assignment.funktion)
+        Boolean(assignment.funktion) && selectedFunctions.includes(assignment.funktion as string)
       );
     }
 
