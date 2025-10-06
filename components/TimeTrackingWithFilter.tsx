@@ -14,7 +14,7 @@ interface TimeTrackingWithFilterProps {
   employees: Employee[];
 }
 
-export default function TimeTrackingWithFilter({ projects, employees }: TimeTrackingWithFilterProps) {
+export default function TimeTrackingWithFilter({ projects, employees }: TimeTrackingWithFilterProps): JSX.Element {
   // Hilfsfunktion zur Formatierung von Stunden in HH:MM Format
   const formatHoursDot = (value: any): string => {
     const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
@@ -50,7 +50,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
   };
 
   // Alle Zeiteinträge aus allen Projekten sammeln
-  const allTimeEntriesRaw = projects.flatMap((project: Project) => 
+  const allTimeEntriesRaw: TimeEntry[] = projects.flatMap((project: Project) => 
     Object.entries(project.mitarbeiterZeiten || {}).flatMap(([date, entries]) =>
       entries.map((entry: TimeEntry) => ({
         // explicitly map known fields so downstream components always receive them
@@ -84,7 +84,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
   );
 
   // Filtere alle Einträge mit Bemerkung "Fortsetzung vom Vortag" heraus
-  const allTimeEntries = allTimeEntriesRaw.filter(entry => !(
+  const allTimeEntries: TimeEntry[] = allTimeEntriesRaw.filter(entry => !(
     typeof entry.bemerkung === 'string' && entry.bemerkung.includes('Fortsetzung vom Vortag')
   ));
 
@@ -100,17 +100,17 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
   const [selectedProjects, setSelectedProjects] = React.useState<string[]>([]);
   const [selectedEmployees, setSelectedEmployees] = React.useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = React.useState<string[]>([]);
-  const [dateFrom, setDateFrom] = React.useState('');
-  const [dateTo, setDateTo] = React.useState('');
-  const [searchTerm, setSearchTerm] = React.useState('');
+  const [dateFrom, setDateFrom] = React.useState<string>('');
+  const [dateTo, setDateTo] = React.useState<string>('');
+  const [searchTerm, setSearchTerm] = React.useState<string>('');
 
   // Verfügbare Orte für Filter
-  const availableLocations = React.useMemo(() => {
+  const availableLocations: string[] = React.useMemo(() => {
     return Array.from(new Set(allTimeEntries.map(entry => entry.ort).filter(ort => ort && ort !== '-')));
   }, [allTimeEntries]);
 
   // Gefilterte Einträge
-  const filteredEntries = React.useMemo(() => {
+  const filteredEntries: TimeEntry[] = React.useMemo(() => {
     return allTimeEntries.filter(entry => {
       if (selectedProjects.length > 0 && !selectedProjects.includes(entry.projectName)) return false;
       if (selectedEmployees.length > 0 && !selectedEmployees.includes(entry.name)) return false;
@@ -224,7 +224,10 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                          <span className="text-slate-700 dark:text-slate-300">{entry.name}</span>
+                          <div>
+                            <p className="text-slate-900 dark:text-slate-100">{entry.name}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-500">{entry.funktion || (entry as any).role || '-'}</p>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

@@ -27,7 +27,12 @@ import type { Project, Employee, TimeEntry } from '../types';
 import TimeTrackingFilters from './TimeTrackingFilters';
 import TimeTrackingExport from './TimeTrackingExport';
 
-export default function TimeTrackingClientPage({ projects, employees }: { projects: Project[]; employees: Employee[] }) {
+interface TimeTrackingClientPageProps {
+  projects: Project[];
+  employees: Employee[];
+}
+
+export default function TimeTrackingClientPage({ projects, employees }: TimeTrackingClientPageProps) {
   // Hilfsfunktion zur Formatierung von Stunden in HH:MM Format
   const formatHours = (hours: number): string => {
     const wholeHours = Math.floor(hours);
@@ -36,7 +41,7 @@ export default function TimeTrackingClientPage({ projects, employees }: { projec
   };
 
   // Alle Zeiteinträge aus allen Projekten sammeln
-  const allTimeEntriesRaw = projects.flatMap((project: Project) => 
+  const allTimeEntriesRaw: TimeEntry[] = projects.flatMap((project: Project) => 
     Object.entries(project.mitarbeiterZeiten || {}).flatMap(([date, entries]) =>
       entries.map((entry: TimeEntry) => ({
         ...entry,
@@ -47,13 +52,15 @@ export default function TimeTrackingClientPage({ projects, employees }: { projec
         client: project.auftraggeber,
          status: project.status as any,
          ort: (project as any).baustelle || '-',
+        // ensure Funktion is available under `funktion` (fallbacks from possible keys)
+        funktion: (entry as any).funktion || (entry as any).role || (entry as any).position || '-',
         id: `${project.id}-${date}-${entry.id || Math.random()}`
       }))
     )
   );
 
   // Filtere alle Einträge mit Bemerkung "Fortsetzung vom Vortag" heraus
-  const allTimeEntries = allTimeEntriesRaw.filter(entry => !(
+  const allTimeEntries: TimeEntry[] = allTimeEntriesRaw.filter(entry => !(
     typeof entry.bemerkung === 'string' && entry.bemerkung.includes('Fortsetzung vom Vortag')
   ));
 
@@ -87,7 +94,7 @@ export default function TimeTrackingClientPage({ projects, employees }: { projec
   }, [allTimeEntries]);
 
   // Gefilterte Einträge
-  const filteredEntries = allTimeEntries.filter(entry => {
+  const filteredEntries: TimeEntry[] = allTimeEntries.filter(entry => {
     if (selectedProjects.length > 0 && !selectedProjects.includes(entry.projectName)) return false;
     if (selectedEmployees.length > 0 && !selectedEmployees.includes(entry.name)) return false;
     if (selectedLocations.length > 0 && !selectedLocations.includes(entry.ort)) return false;
@@ -255,7 +262,10 @@ export default function TimeTrackingClientPage({ projects, employees }: { projec
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                          <span className="text-slate-700 dark:text-slate-300">{entry.name}</span>
+                          <div>
+                            <p className="text-slate-900 dark:text-slate-100">{entry.name}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-500">{entry.funktion || (entry as any).role || '-'}</p>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

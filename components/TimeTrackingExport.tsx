@@ -5,9 +5,10 @@ import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { fetchWithIntent } from '@/lib/http/fetchWithIntent';
 import autoTable from 'jspdf-autotable';
+import type { TimeTrackingExportData } from '../types';
 
 interface TimeTrackingExportProps {
-  timeEntries: any[];
+  timeEntries: TimeTrackingExportData[];
 }
 
 export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportProps) {
@@ -147,7 +148,7 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       
       // Tabellen-Header (wie auf Zeiterfassung)
       const headers = [
-        'Datum', 'Projektname', 'Ort', 'Mitarbeiter', 'Zeit', 'Gesamtstunden', 'Pause', 'Nachtstunden', 'Sonntagsstunden', 'Feiertagsstunden', 'Fahrtstunden', 'Extra', 'Projektstatus'
+        'Datum', 'Projektname', 'Ort', 'Mitarbeiter', 'Funktion', 'Zeit', 'Gesamtstunden', 'Pause', 'Nachtstunden', 'Sonntagsstunden', 'Feiertagsstunden', 'Fahrtstunden', 'Extra', 'Projektstatus'
       ];
 
       const data = timeEntries.map(entry => {
@@ -155,6 +156,7 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
         const projekt = entry.projectName || entry.project || '-'
         const ort = entry.ort || entry.location || '-' 
         const name = entry.name || entry.mitarbeiter || '-'
+        const funktion = entry.funktion || entry.role || entry.position || '-'
         const start = entry.start || entry.beginn || '-'
         const ende = entry.ende || entry.end || '-'
         const zeit = (start && ende && start !== '-' && ende !== '-') ? formatZeit(start, ende) : start || ende || '-'
@@ -169,7 +171,7 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
         const fahrt = fahrtNum !== undefined && fahrtNum !== null && fahrtNum !== '' ? `${formatHoursDot(parseFloat(String(fahrtNum)))}h` : '-'
         const extra = entry.extra || '-'
         const status = entry.status || entry.projectStatus || '-'
-        return [date, projekt, ort, name, zeit, gesamt, pause, nacht, sonntag, feiertag, fahrt, extra, status]
+        return [date, projekt, ort, name, funktion, zeit, gesamt, pause, nacht, sonntag, feiertag, fahrt, extra, status]
       })
 
       // Spaltenbreiten proportional auf Landscape A4 verteilen, damit nichts abgeschnitten wird
@@ -177,8 +179,8 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       const marginL = 12
       const marginR = 12
       const availWidth = pageWidth - marginL - marginR
-      // Gewichte: Datum, Projekt, Ort, Mitarbeiter, Zeit, Gesamt, Pause, Nacht, Sonntag, Feiertag, Fahrt, Extra, Status
-      const weights = [8, 16, 12, 12, 22, 7, 6, 7, 7, 7, 7, 9, 10]
+      // Gewichte: Datum, Projekt, Ort, Mitarbeiter, Funktion, Zeit, Gesamt, Pause, Nacht, Sonntag, Feiertag, Fahrt, Extra, Status
+      const weights = [8, 16, 12, 10, 10, 18, 7, 6, 7, 7, 7, 7, 9, 10]
       const weightSum = weights.reduce((s,w)=>s+w,0)
       const colWidths: number[] = weights.map(w => Math.max(10, Math.round((w / weightSum) * availWidth)))
 
