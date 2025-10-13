@@ -158,8 +158,28 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       }, 0);
       doc.text(`Feiertagsstunden: ${totalHolidayHours.toFixed(1)}h`, 14, summaryTitleY + 35);
       
+      // Extrastunden berechnen (versuche numerische Werte aus dem extra-Feld zu extrahieren)
+      const totalExtraHours = timeEntries.reduce((sum, rawEntry) => {
+        const entry: any = rawEntry as any;
+        const extraVal = entry.extra;
+        // Versuche, numerische Werte zu extrahieren (z.B. "2.5" oder "2,5")
+        if (typeof extraVal === 'number') {
+          return sum + extraVal;
+        } else if (typeof extraVal === 'string') {
+          const numMatch = extraVal.match(/[\d,.]+/);
+          if (numMatch) {
+            const num = parseFloat(numMatch[0].replace(',', '.'));
+            if (Number.isFinite(num)) {
+              return sum + num;
+            }
+          }
+        }
+        return sum;
+      }, 0);
+      doc.text(`Extrastunden: ${totalExtraHours.toFixed(1)}h`, 14, summaryTitleY + 40);
+      
       // Tabelle
-      const tableTitleY = summaryTitleY + 48;
+      const tableTitleY = summaryTitleY + 53;
       doc.setFontSize(14);
       doc.text('Zeiteinträge', 14, tableTitleY);
       
