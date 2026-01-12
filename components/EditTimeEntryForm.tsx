@@ -152,23 +152,36 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
   }
 
-  // Hilfsfunktion für Nachtzulage (23:00-06:00), arbeitet mit ISO-Strings in lokaler Zeit und zieht Pause ab
+  // Hilfsfunktion für Nachtzulage (23:00-06:00), arbeitet mit ISO-Strings in lokaler Zeit
+  // Die Pause wird proportional von den Nachtstunden abgezogen
   function calculateNightBonus(startISO: string, endISO: string, pause: string): number {
     const startDate = new Date(startISO);
     const endDate = new Date(endISO);
     let totalNightMinutes = 0;
+    let totalWorkMinutes = 0;
     let current = new Date(startDate);
+    
     while (current < endDate) {
       const hour = current.getHours();
       const minute = current.getMinutes();
       const minutesOfDay = hour * 60 + minute;
+      totalWorkMinutes++;
+      // Nachtzeit: 23:00-24:00 oder 0:00-6:00
       if (minutesOfDay >= 23 * 60 || minutesOfDay < 6 * 60) {
         totalNightMinutes++;
       }
       current.setMinutes(current.getMinutes() + 1);
     }
+    
+    // Pause proportional von den Nachtstunden abziehen
+    // Wenn z.B. 20% der Arbeitszeit Nachtzeit ist, werden 20% der Pause von Nachtstunden abgezogen
     const pauseNum = parseFloat((pause || '0').replace(',', '.')) || 0;
-    totalNightMinutes = Math.max(0, totalNightMinutes - pauseNum * 60);
+    if (totalWorkMinutes > 0) {
+      const nightRatio = totalNightMinutes / totalWorkMinutes;
+      const pauseInNight = pauseNum * 60 * nightRatio;
+      totalNightMinutes = Math.max(0, totalNightMinutes - pauseInNight);
+    }
+    
     return totalNightMinutes / 60;
   }
 
