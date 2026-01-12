@@ -60,14 +60,15 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     }
   }, [initialEntry]);
 
-  // Pausenoptionen 0, 0.25, 0.5, 0.75, ... 12 (0.25 Schritte)
+  // Pausenoptionen 0, 0,25, 0,5, 0,75, ... 12 (0,25 Schritte)
   const pauseOptions = useMemo(() => {
     const options: string[] = [];
     // 12 / 0.25 = 48 steps
     for (let i = 0; i <= 48; i++) {
       const val = +(i * 0.25).toFixed(2);
-      // Keep compact string (e.g. '1' instead of '1.00')
-      options.push(Number.isInteger(val) ? val.toString() : val.toString());
+      // Use comma as decimal separator (German format)
+      const strVal = Number.isInteger(val) ? val.toString() : val.toString().replace('.', ',');
+      options.push(strVal);
     }
     return options;
   }, []);

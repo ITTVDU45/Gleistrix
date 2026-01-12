@@ -196,7 +196,18 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     );
   }
 
-  const pauseOptions = ['0,5', '1', '1,5', '2', '2,5', '3', '3,5', '4', '4,5', '5', '5,5', '6', '6,5', '7', '7,5', '8', '8,5', '9', '9,5', '10'];
+  // Pausenoptionen 0, 0,25, 0,5, 0,75, ... 12 (0,25 Schritte)
+  const pauseOptions = React.useMemo(() => {
+    const options: string[] = [];
+    // 12 / 0.25 = 48 steps
+    for (let i = 0; i <= 48; i++) {
+      const val = +(i * 0.25).toFixed(2);
+      // Use comma as decimal separator (German format)
+      const strVal = Number.isInteger(val) ? val.toString() : val.toString().replace('.', ',');
+      options.push(strVal);
+    }
+    return options;
+  }, []);
 
   // Im handleSubmit: Berechne Stunden und Nachtzuschlag mit vollständigen ISO-Strings
   const handleSubmit = async (e: React.FormEvent) => {
