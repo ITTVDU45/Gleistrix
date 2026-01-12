@@ -100,6 +100,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
   const [selectedDays, setSelectedDays] = React.useState<string[]>([selectedDate])
   const [selectAllDays, setSelectAllDays] = React.useState(false)
+  const [isMultiDay, setIsMultiDay] = React.useState(false)
 
   // Alle Tage auswählen
   const handleSelectAllDays = (checked: boolean) => {
@@ -225,6 +226,26 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     }
     const endISO = `${endDay}T${formData.ende}`;
     const totalHours = calculateHoursForDay(startISO, endISO) - (parseFloat(formData.pause.replace(',', '.')) || 0);
+    
+    // Berechne Feiertagsstunden korrekt
+    let feiertagsStunden: number = 0;
+    if (formData.feiertag) {
+      if (day === endDay) {
+        // Eintägiger Eintrag: Alle Stunden sind Feiertagsstunden
+        feiertagsStunden = Math.round(totalHours);
+      } else {
+        // Tagesübergreifend: Berechne Feiertagsstunden für beide Tage
+        const startDate = new Date(startISO);
+        const endOfDay = new Date(day + 'T23:59:59');
+        feiertagsStunden += Math.round((endOfDay.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+        
+        // Wenn auch der Folgetag ein Feiertag ist, füge die Stunden hinzu
+        const startOfNextDay = new Date(endDay + 'T00:00:00');
+        const endDate = new Date(endISO);
+        feiertagsStunden += Math.round((endDate.getTime() - startOfNextDay.getTime()) / (1000 * 60 * 60));
+      }
+    }
+    
     const updatedEntry: TimeEntry = {
       ...entry,
       name: formData.name,
@@ -235,7 +256,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       pause: formData.pause,
       extra: parseFloat(formData.extra.replace(',', '.')) || 0,
       fahrtstunden: parseFloat(formData.fahrtstunden.replace(',', '.')) || 0,
-      feiertag: formData.feiertag ? 1 : 0,
+      feiertag: feiertagsStunden,
       sonntag: formData.sonntag ? 1 : 0,
       bemerkung: formData.bemerkung,
       nachtzulage: calculateNightBonus(startISO, endISO, formData.pause).toString()
@@ -424,6 +445,18 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
             <span>{apiError}</span>
           </Alert>
         )}
+
+        <div className="flex items-center space-x-3">
+          <Checkbox 
+            id="isMultiDay"
+            checked={isMultiDay} 
+            onCheckedChange={(checked) => setIsMultiDay(!!checked)} 
+            className="rounded"
+          />
+          <Label htmlFor="isMultiDay" className="text-sm font-medium text-slate-700">
+            Tagübergreifend
+          </Label>
+        </div>
 
         <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl max-h-32 overflow-y-auto">
           {projectDays.map(day => {
