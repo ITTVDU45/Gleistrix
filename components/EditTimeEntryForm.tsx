@@ -248,10 +248,9 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     // Wenn die Endzeit < Startzeit ist, ist es über Mitternacht → Endtag = Folgetag
     let endDay = day;
     if (formData.ende < formData.start) {
-      const idx = projectDays.indexOf(day);
-      if (idx !== -1 && idx + 1 < projectDays.length) {
-        endDay = projectDays[idx + 1];
-      }
+      // Berechne den Folgetag (auch außerhalb des Projektzeitraums)
+      const nextDay = addDays(parseISO(day), 1);
+      endDay = format(nextDay, 'yyyy-MM-dd');
     }
     const endISO = `${endDay}T${formData.ende}`;
     const totalHours = calculateHoursForDay(startISO, endISO) - (parseFloat(formData.pause.replace(',', '.')) || 0);

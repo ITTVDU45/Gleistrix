@@ -374,12 +374,14 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     const idx = projectDays.indexOf(startDay);
     // Wenn Endtag gleich Starttag und Endzeit < Startzeit → Endtag auf Folgetag setzen
     if (startDay === endDay && endTime < startTime) {
-      if (idx !== -1 && idx + 1 < projectDays.length) {
-        setEndDay(projectDays[idx + 1]);
-      }
+      // Berechne den Folgetag (auch außerhalb des Projektzeitraums)
+      const nextDay = addDays(parseISO(startDay), 1);
+      const nextDayStr = format(nextDay, 'yyyy-MM-dd');
+      setEndDay(nextDayStr);
     }
     // Wenn Endtag Folgetag und Endzeit >= Startzeit → Endtag auf Starttag zurücksetzen
-    if (endDay === projectDays[idx + 1] && endTime >= startTime) {
+    const calculatedNextDay = format(addDays(parseISO(startDay), 1), 'yyyy-MM-dd');
+    if (endDay === calculatedNextDay && endTime >= startTime) {
       setEndDay(startDay);
     }
   }, [startDay, endDay, startTime, endTime, projectDays, isMultiDay]);
