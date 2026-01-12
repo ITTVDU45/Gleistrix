@@ -1499,14 +1499,14 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       {/* Dialog für Zeit bearbeiten */}
       {editTimeEntry && (
         <Dialog open={!!editTimeEntry} onOpenChange={() => setEditTimeEntry(null)}>
-          <DialogContent className="sm:max-w-2xl rounded-2xl border-0 shadow-2xl bg-white dark:bg-slate-800">
+          <DialogContent className="sm:max-w-2xl rounded-2xl border-0 shadow-2xl bg-white dark:bg-slate-800 max-h-[85vh] flex flex-col">
             <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-slate-900 pb-4 border-b border-slate-100">
               <div className="p-2 bg-blue-100 rounded-xl">
                 <Edit className="h-6 w-6 text-blue-600" />
               </div>
               Zeiteintrag bearbeiten
             </DialogTitle>
-            <div className="py-4">
+            <div className="py-4 overflow-y-auto flex-1">
               <EditTimeEntryForm
                 project={project!}
                 selectedDate={editTimeEntry.date}
