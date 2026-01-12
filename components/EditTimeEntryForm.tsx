@@ -11,6 +11,7 @@ import { Label } from './ui/label'
 import { useProjects } from '../hooks/useProjects'
 import { Alert } from './ui/alert'
 import { AlertCircle } from 'lucide-react'
+import MultiSelectDropdown from './ui/MultiSelectDropdown'
 
 interface EditTimeEntryFormProps {
   project: Project
@@ -101,6 +102,8 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   const [selectedDays, setSelectedDays] = React.useState<string[]>([selectedDate])
   const [selectAllDays, setSelectAllDays] = React.useState(false)
   const [isMultiDay, setIsMultiDay] = React.useState(false)
+  const [showHolidayDropdown, setShowHolidayDropdown] = React.useState(false)
+  const [selectedHolidayDays, setSelectedHolidayDays] = React.useState<string[]>([])
 
   // Alle Tage auswählen
   const handleSelectAllDays = (checked: boolean) => {
@@ -145,6 +148,32 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       setSelectedDays([selectedCopyEntry.day]);
     }
   }, [selectedCopyEntry]);
+
+  // Synchronisiere selectedHolidayDays wenn sich selectedDays ändert
+  React.useEffect(() => {
+    if (showHolidayDropdown) {
+      // Entferne Feiertags-Tage, die nicht mehr verfügbar sind
+      setSelectedHolidayDays(prev => 
+        prev.filter(holidayDay => {
+          const holidayDate = holidayDay.split('.').reverse().join('-'); // Konvertiere dd.MM.yyyy zu yyyy-MM-dd
+          let availableDays: string[];
+          
+          // Bei tagübergreifenden Einträgen: Starttag und Folgetag
+          if (isMultiDay) {
+            const withNext = selectedDays.flatMap(day => {
+              const next = format(addDays(parseISO(day), 1), 'yyyy-MM-dd');
+              return [day, next];
+            });
+            availableDays = Array.from(new Set(withNext));
+          } else {
+            availableDays = selectedDays;
+          }
+          
+          return availableDays.includes(holidayDate);
+        })
+      );
+    }
+  }, [selectedDays, showHolidayDropdown, isMultiDay]);
 
   // Hilfsfunktion: Berechne Stunden zwischen zwei Zeitpunkten (inkl. Datum, auch über Mitternacht, in lokaler Zeit)
   function calculateHoursForDay(startISO: string, endISO: string): number {
@@ -227,22 +256,29 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     const endISO = `${endDay}T${formData.ende}`;
     const totalHours = calculateHoursForDay(startISO, endISO) - (parseFloat(formData.pause.replace(',', '.')) || 0);
     
-    // Berechne Feiertagsstunden korrekt
+    // Berechne Feiertagsstunden basierend auf selectedHolidayDays
     let feiertagsStunden: number = 0;
-    if (formData.feiertag) {
+    if (formData.feiertag && selectedHolidayDays.length > 0) {
+      const isStartDayHoliday = selectedHolidayDays.includes(format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
+      const isEndDayHoliday = day !== endDay && selectedHolidayDays.includes(format(parseISO(endDay), 'dd.MM.yyyy', { locale: de }));
+      
       if (day === endDay) {
-        // Eintägiger Eintrag: Alle Stunden sind Feiertagsstunden
-        feiertagsStunden = Math.round(totalHours);
+        // Eintägiger Eintrag: Wenn als Feiertag markiert, alle Stunden
+        if (isStartDayHoliday) {
+          feiertagsStunden = Math.round(totalHours);
+        }
       } else {
-        // Tagesübergreifend: Berechne Feiertagsstunden für beide Tage
-        const startDate = new Date(startISO);
-        const endOfDay = new Date(day + 'T23:59:59');
-        feiertagsStunden += Math.round((endOfDay.getTime() - startDate.getTime()) / (1000 * 60 * 60));
-        
-        // Wenn auch der Folgetag ein Feiertag ist, füge die Stunden hinzu
-        const startOfNextDay = new Date(endDay + 'T00:00:00');
-        const endDate = new Date(endISO);
-        feiertagsStunden += Math.round((endDate.getTime() - startOfNextDay.getTime()) / (1000 * 60 * 60));
+        // Tagesübergreifend: Berechne für jeden Tag separat
+        if (isStartDayHoliday) {
+          const startDate = new Date(startISO);
+          const endOfDay = new Date(day + 'T23:59:59');
+          feiertagsStunden += Math.round((endOfDay.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+        }
+        if (isEndDayHoliday) {
+          const startOfNextDay = new Date(endDay + 'T00:00:00');
+          const endDate = new Date(endISO);
+          feiertagsStunden += Math.round((endDate.getTime() - startOfNextDay.getTime()) / (1000 * 60 * 60));
+        }
       }
     }
     
@@ -405,16 +441,47 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
           </div>
         </div>
 
-        <div className="flex gap-6 p-3 bg-slate-50 rounded-xl">
+        <div className="flex gap-6 p-3 bg-slate-50 rounded-xl flex-wrap items-start">
           <div className="flex items-center space-x-3">
             <Checkbox
               id="feiertag"
               checked={formData.feiertag}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, feiertag: checked as boolean }))}
+              onCheckedChange={(checked) => {
+                setFormData(prev => ({ ...prev, feiertag: checked as boolean }));
+                setShowHolidayDropdown(checked as boolean);
+                if (!checked) {
+                  setSelectedHolidayDays([]);
+                }
+              }}
               className="rounded"
             />
             <Label htmlFor="feiertag" className="text-sm font-medium text-slate-700">Feiertag</Label>
           </div>
+          {showHolidayDropdown && selectedDays.length > 0 && (
+            <div className="flex-1 min-w-[250px]">
+              <Label className="text-xs text-slate-600 mb-1 block">Feiertage auswählen:</Label>
+              <MultiSelectDropdown
+                label=""
+                options={
+                  (() => {
+                    // Bei tagübergreifenden Einträgen: Starttag und Folgetag
+                    if (isMultiDay) {
+                      const withNext = selectedDays.flatMap(day => {
+                        const next = format(addDays(parseISO(day), 1), 'yyyy-MM-dd');
+                        return [day, next];
+                      });
+                      const unique = Array.from(new Set(withNext));
+                      return unique.map(day => format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
+                    }
+                    return selectedDays.map(day => format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
+                  })()
+                }
+                selected={selectedHolidayDays}
+                onChange={setSelectedHolidayDays}
+                placeholder="Feiertage wählen"
+              />
+            </div>
+          )}
           <div className="flex items-center space-x-3">
             <Checkbox
               id="sonntag"
