@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-
-// Einfache Datenbankverbindung mit Atlas
-async function dbConnect() {
-  if (mongoose.connection.readyState >= 1) {
-    return;
-  }
-  return mongoose.connect(process.env.MONGODB_URI || '');
-}
+// Zentrale dbConnect-Funktion mit Connection Pooling verwenden
+import dbConnect from '../../../../../lib/dbConnect';
 
 export async function GET(
   request: NextRequest,
@@ -31,7 +25,7 @@ export async function GET(
     }
 
     const employee = await db.collection('employees').findOne({
-    _id: new mongoose.Types.ObjectId(String(id))
+      _id: new mongoose.Types.ObjectId(String(id))
     });
 
     if (!employee) {
@@ -63,4 +57,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}
