@@ -23,6 +23,7 @@ import VehicleAssignmentList from './VehicleAssignmentList';
 import { EditTimeEntryForm } from './EditTimeEntryForm';
 import { TimeEntryForm } from './TimeEntryForm';
 import { VehicleAssignmentForm } from './VehicleAssignmentForm';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import TechnikAssignmentForm from './TechnikAssignmentForm';
 import EditTechnikDialog from './EditTechnikDialog';
 import { ResourceLockDialog } from './ui/ResourceLockDialog';
@@ -251,6 +252,11 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   const [selectedZeitTag, setSelectedZeitTag] = React.useState<string>('');
   const [selectedFahrzeugTag, setSelectedFahrzeugTag] = React.useState<string>('');
 
+  // Bulk-Delete für Zeiteinträge
+  const [selectedTimeEntries, setSelectedTimeEntries] = React.useState<Set<string>>(new Set());
+  const [showBulkDeleteTimeEntriesModal, setShowBulkDeleteTimeEntriesModal] = React.useState(false);
+  const [isBulkDeletingTimeEntries, setIsBulkDeletingTimeEntries] = React.useState(false);
+
   // State für Dialoge und Snackbar
   const [statusUpdating, setStatusUpdating] = React.useState(false);
 
@@ -276,6 +282,96 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       return () => clearTimeout(timer);
     }
   }, [snackbar.open]);
+
+  // Reset Zeiteinträge-Auswahl bei Tagwechsel
+  React.useEffect(() => {
+    setSelectedTimeEntries(new Set());
+  }, [selectedZeitTag]);
+
+  // Zeiteinträge Selection-Logik
+  const getFilteredTimeEntries = React.useCallback(() => {
+    const rawForDay: any = project?.mitarbeiterZeiten?.[selectedZeitTag];
+    const list: any[] = Array.isArray(rawForDay) ? rawForDay : [];
+    return list.filter((entry: any) => !(typeof entry.bemerkung === 'string' && entry.bemerkung.includes('Fortsetzung vom Vortag')));
+  }, [project?.mitarbeiterZeiten, selectedZeitTag]);
+
+  const timeEntriesForDay = getFilteredTimeEntries();
+  
+  const allTimeEntriesSelected = React.useMemo(() => 
+    timeEntriesForDay.length > 0 && timeEntriesForDay.every((entry: any) => selectedTimeEntries.has(entry.id)),
+    [timeEntriesForDay, selectedTimeEntries]
+  );
+
+  const someTimeEntriesSelected = React.useMemo(() => 
+    selectedTimeEntries.size > 0 && !allTimeEntriesSelected,
+    [selectedTimeEntries.size, allTimeEntriesSelected]
+  );
+
+  const toggleSelectAllTimeEntries = React.useCallback(() => {
+    if (allTimeEntriesSelected) {
+      setSelectedTimeEntries(new Set());
+    } else {
+      setSelectedTimeEntries(new Set(timeEntriesForDay.map((e: any) => e.id)));
+    }
+  }, [allTimeEntriesSelected, timeEntriesForDay]);
+
+  const toggleSelectTimeEntry = React.useCallback((entryId: string) => {
+    setSelectedTimeEntries(prev => {
+      const next = new Set(prev);
+      if (next.has(entryId)) {
+        next.delete(entryId);
+      } else {
+        next.add(entryId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Bulk-Delete Handler für Zeiteinträge
+  const handleBulkDeleteTimeEntries = React.useCallback(async () => {
+    if (selectedTimeEntries.size === 0 || !project) return;
+
+    const hasLock = await acquireLockOnDemand();
+    if (!hasLock) return;
+
+    setIsBulkDeletingTimeEntries(true);
+    try {
+      const entryIds = Array.from(selectedTimeEntries);
+      
+      // Sequentiell löschen, um Race Conditions zu vermeiden
+      for (const entryId of entryIds) {
+        await ProjectsApi.update(getProjectId(), {
+          times: { action: 'delete', date: selectedZeitTag, entryId }
+        } as any);
+      }
+
+      // Projekt neu laden
+      try {
+        const fresh = await ProjectsApi.get(getProjectId());
+        if ((fresh as any).project) setProject(normalizeProject((fresh as any).project));
+        else if ((fresh as any)._id) setProject(normalizeProject(fresh));
+      } catch (e) {
+        console.warn('ProjectsApi.get after bulk delete failed, relying on context fetch', e);
+      }
+
+      setSelectedTimeEntries(new Set());
+      setShowBulkDeleteTimeEntriesModal(false);
+      setSnackbar({ 
+        open: true, 
+        message: `${entryIds.length} Zeiteinträge erfolgreich gelöscht`, 
+        severity: 'success' 
+      });
+    } catch (err) {
+      console.error('Fehler beim Bulk-Delete:', err);
+      setSnackbar({ 
+        open: true, 
+        message: 'Fehler beim Löschen der Zeiteinträge', 
+        severity: 'error' 
+      });
+    } finally {
+      setIsBulkDeletingTimeEntries(false);
+    }
+  }, [selectedTimeEntries, project, selectedZeitTag, acquireLockOnDemand, getProjectId, normalizeProject]);
 
   // Manuelle Sperre freigeben mit Benachrichtigung
   const handleReleaseLock = async () => {
@@ -816,16 +912,38 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     setEditTimeEntry({ date, entry });
   };
 
-  const handleSaveEditTimeEntry = async (dates: string[] | string, updatedEntry: any) => {
+  // Multi-Day Edit Handler: Verarbeitet Updates und neue Einträge
+  const handleSaveEditTimeEntry = async (data: { 
+    updates: Array<{ day: string; entryId: string; entry: any }>;
+    newEntries: Array<{ day: string; entry: any }>;
+  }) => {
+    const hasLock = await acquireLockOnDemand();
+    if (!hasLock) return;
+
     try {
-      const days = Array.isArray(dates) ? dates : [dates];
-      for (const date of days) {
-        if (!id) throw new Error('Projekt-ID unbekannt')
-        const res = await ProjectsApi.update(id as string, { times: { action: 'edit', date, updatedEntry } } as any)
+      if (!id) throw new Error('Projekt-ID unbekannt');
+      const pid = getProjectId();
+
+      // 1. Updates für existierende Einträge (sequentiell, um Race Conditions zu vermeiden)
+      for (const { day, entry } of data.updates) {
+        await ProjectsApi.update(pid, { 
+          times: { action: 'edit', date: day, updatedEntry: entry } 
+        } as any);
       }
+
+      // 2. Neue Einträge hinzufügen
+      if (data.newEntries.length > 0) {
+        // Nutze das neue Format mit entries Array für atomare Updates
+        const entriesPayload = data.newEntries.map(({ day, entry }) => ({ day, entry }));
+        await ProjectsApi.update(pid, { 
+          times: { action: 'add', entries: entriesPayload } 
+        } as any);
+      }
+
+      // Projekt neu laden
       await fetchProjects();
       try {
-        const resFull = await ProjectsApi.get(id as string);
+        const resFull = await ProjectsApi.get(pid);
         const freshProject = resFull && (resFull as any).project ? (resFull as any).project : (resFull as any);
         if (freshProject && (freshProject as any)._id) {
           setProject(freshProject as any);
@@ -836,9 +954,16 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       } catch (e) {
         console.warn('ProjectsApi.get after edit failed, relying on context fetch', e);
       }
-      setSnackbar({ open: true, message: 'Zeiteintrag(e) erfolgreich bearbeitet.', severity: 'success' });
+
+      const totalCount = data.updates.length + data.newEntries.length;
+      const message = totalCount === 1 
+        ? 'Zeiteintrag erfolgreich bearbeitet.' 
+        : `${totalCount} Zeiteinträge erfolgreich bearbeitet (${data.updates.length} aktualisiert, ${data.newEntries.length} neu erstellt).`;
+      
+      setSnackbar({ open: true, message, severity: 'success' });
       setEditTimeEntry(null);
     } catch (err) {
+      console.error('Fehler beim Multi-Day Edit:', err);
       setSnackbar({ open: true, message: 'Fehler beim Bearbeiten der Zeiteinträge.', severity: 'error' });
     }
   };
@@ -1075,15 +1200,35 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
           <Card className="bg-white dark:bg-slate-800 border border-[#C0D4DE] dark:border-slate-700">
             <CardContent className="p-6">
               <div className="flex justify-between items-center mb-4 project-times-add">
-                <h3 className="text-xl font-semibold">Zeiteinträge</h3>
-                <Button 
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-                  size="sm" 
-                  onClick={() => setZeitDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                  Zeiteintrag hinzufügen
-                </Button>
+                <div>
+                  <h3 className="text-xl font-semibold">Zeiteinträge</h3>
+                  {selectedTimeEntries.size > 0 && (
+                    <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                      {selectedTimeEntries.size} ausgewählt
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {selectedTimeEntries.size > 0 && (
+                    <Button 
+                      className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                      size="sm" 
+                      onClick={() => setShowBulkDeleteTimeEntriesModal(true)}
+                      disabled={isBulkDeletingTimeEntries}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {selectedTimeEntries.size} löschen
+                    </Button>
+                  )}
+                  <Button 
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                    size="sm" 
+                    onClick={() => setZeitDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Zeiteintrag hinzufügen
+                  </Button>
+                </div>
               </div>
               <div className="flex flex-wrap gap-1 mb-4">
                 {getProjectDays().map(day => (
@@ -1107,6 +1252,19 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">
+                          <input
+                            type="checkbox"
+                            checked={allTimeEntriesSelected}
+                            ref={(el) => {
+                              if (el) el.indeterminate = someTimeEntriesSelected;
+                            }}
+                            onChange={toggleSelectAllTimeEntries}
+                            className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 
+                                       text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            title={allTimeEntriesSelected ? 'Alle abwählen' : 'Alle auswählen'}
+                          />
+                        </TableHead>
                         <TableHead className="dark:text-white">Mitarbeiter</TableHead>
                         <TableHead className="dark:text-white">Funktion</TableHead>
                         <TableHead className="dark:text-white">Start</TableHead>
@@ -1144,8 +1302,20 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                              }
                            }
                            return (
-                             <TableRow key={idx} className="dark:text-white">
-                              <TableCell className="dark:text-white">{entry.name}</TableCell>
+                            <TableRow 
+                              key={idx} 
+                              className={`dark:text-white ${selectedTimeEntries.has(entry.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                            >
+                             <TableCell>
+                               <input
+                                 type="checkbox"
+                                 checked={selectedTimeEntries.has(entry.id)}
+                                 onChange={() => toggleSelectTimeEntry(entry.id)}
+                                 className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 
+                                            text-blue-600 focus:ring-blue-500 cursor-pointer"
+                               />
+                             </TableCell>
+                             <TableCell className="dark:text-white">{entry.name}</TableCell>
                               <TableCell className="dark:text-white">{entry.funktion}</TableCell>
                               <TableCell className="dark:text-white">{startStr === '00:00' ? '00:00' : startStr}</TableCell>
                               <TableCell className="dark:text-white">{endStr === '24:00' ? '24:00' : endStr}</TableCell>
@@ -1537,7 +1707,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                 project={project!}
                 selectedDate={editTimeEntry.date}
                 entry={editTimeEntry.entry}
-                onEdit={(date, updatedEntry) => handleSaveEditTimeEntry(date, updatedEntry)}
+                onEdit={handleSaveEditTimeEntry}
                 onClose={() => setEditTimeEntry(null)}
                 employees={employees}
               />
@@ -1565,6 +1735,16 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Bulk-Delete Modal für Zeiteinträge */}
+      <ConfirmDeleteModal
+        isOpen={showBulkDeleteTimeEntriesModal}
+        onConfirm={handleBulkDeleteTimeEntries}
+        onCancel={() => setShowBulkDeleteTimeEntriesModal(false)}
+        itemCount={selectedTimeEntries.size}
+        itemType="Zeiteinträge"
+        confirmText="Löschen"
+      />
 
       {/* Dialog für Tagesauswahl vor Export */}
       <Dialog open={exportDayDialogOpen} onOpenChange={setExportDayDialogOpen}>

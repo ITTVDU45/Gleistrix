@@ -10,14 +10,20 @@ import { Checkbox } from './ui/checkbox'
 import { Label } from './ui/label'
 import { useProjects } from '../hooks/useProjects'
 import { Alert } from './ui/alert'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import MultiSelectDropdown from './ui/MultiSelectDropdown'
+
+// Typen für Multi-Day Edit
+export interface MultiDayEditData {
+  updates: Array<{ day: string; entryId: string; entry: TimeEntry }>;
+  newEntries: Array<{ day: string; entry: TimeEntry }>;
+}
 
 interface EditTimeEntryFormProps {
   project: Project
   selectedDate: string
   entry: TimeEntry
-  onEdit: (date: string, entry: TimeEntry) => void
+  onEdit: (data: MultiDayEditData) => Promise<void> | void
   onClose: () => void
   employees?: Employee[]
 }
@@ -56,6 +62,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
   const { projects: allProjects } = useProjects();
   const [apiError, setApiError] = React.useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   function isEmployeeAssignedElsewhere(employeeName: string, day: string, currentProjectId: string, projects: Project[], ownEntryId?: string): boolean {
     return projects.some(p => {
@@ -117,6 +124,16 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       setSelectedDays([])
     }
   }
+
+  // Synchronisiere selectAllDays-Checkbox wenn manuell alle Tage ausgewählt werden
+  React.useEffect(() => {
+    const availableDays = projectDays.filter(day => {
+      if (!formData.name) return true;
+      return !isEmployeeAssignedElsewhere(formData.name, day, project.id, allProjects, entry.id);
+    });
+    const allSelected = availableDays.length > 0 && availableDays.every(day => selectedDays.includes(day));
+    setSelectAllDays(allSelected);
+  }, [selectedDays, projectDays, formData.name, project.id, allProjects, entry.id]);
 
   // State für Kopierfunktion
   const [copyMode, setCopyMode] = React.useState(false);
@@ -239,35 +256,38 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     return options;
   }, []);
 
-  // Im handleSubmit: Berechne Stunden und Nachtzuschlag mit vollständigen ISO-Strings
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    // Hole das Datum aus selectedDays[0] (bzw. selectedDate)
-    const day = selectedDays[0] || selectedDate;
+  // Hilfsfunktion: Finde existierenden Eintrag des Mitarbeiters an einem Tag
+  function findExistingEntryForDay(day: string): { id: string; entry: any } | null {
+    const entriesForDay = project.mitarbeiterZeiten?.[day] || [];
+    const found = entriesForDay.find((e: any) => e.name === formData.name);
+    return found ? { id: found.id, entry: found } : null;
+  }
+
+  // Erstelle einen TimeEntry für einen spezifischen Tag
+  function buildEntryForDay(day: string, existingId?: string): TimeEntry {
     const startISO = `${day}T${formData.start}`;
     // Wenn die Endzeit < Startzeit ist, ist es über Mitternacht → Endtag = Folgetag
     let endDay = day;
-    if (formData.ende < formData.start) {
-      // Berechne den Folgetag (auch außerhalb des Projektzeitraums)
+    if (formData.ende < formData.start || isMultiDay) {
       const nextDay = addDays(parseISO(day), 1);
       endDay = format(nextDay, 'yyyy-MM-dd');
     }
     const endISO = `${endDay}T${formData.ende}`;
     const totalHours = calculateHoursForDay(startISO, endISO) - (parseFloat(formData.pause.replace(',', '.')) || 0);
     
-    // Berechne Feiertagsstunden basierend auf selectedHolidayDays
+    // Berechne Feiertagsstunden basierend auf selectedHolidayDays für diesen Tag
     let feiertagsStunden: number = 0;
     if (formData.feiertag && selectedHolidayDays.length > 0) {
-      const isStartDayHoliday = selectedHolidayDays.includes(format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
-      const isEndDayHoliday = day !== endDay && selectedHolidayDays.includes(format(parseISO(endDay), 'dd.MM.yyyy', { locale: de }));
+      const dayFormatted = format(parseISO(day), 'dd.MM.yyyy', { locale: de });
+      const endDayFormatted = format(parseISO(endDay), 'dd.MM.yyyy', { locale: de });
+      const isStartDayHoliday = selectedHolidayDays.includes(dayFormatted);
+      const isEndDayHoliday = day !== endDay && selectedHolidayDays.includes(endDayFormatted);
       
       if (day === endDay) {
-        // Eintägiger Eintrag: Wenn als Feiertag markiert, alle Stunden
         if (isStartDayHoliday) {
           feiertagsStunden = Math.round(totalHours);
         }
       } else {
-        // Tagesübergreifend: Berechne für jeden Tag separat
         if (isStartDayHoliday) {
           const startDate = new Date(startISO);
           const endOfDay = new Date(day + 'T23:59:59');
@@ -280,9 +300,25 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
         }
       }
     }
+
+    // Sonntagsstunden berechnen
+    const startDate = new Date(startISO);
+    const endDate = new Date(endISO);
+    let sonntagsstunden = 0;
+    if (formData.sonntag) {
+      let current = new Date(startDate);
+      let sundayMinutes = 0;
+      while (current < endDate) {
+        if (current.getDay() === 0) { // Sonntag
+          sundayMinutes++;
+        }
+        current.setMinutes(current.getMinutes() + 1);
+      }
+      sonntagsstunden = sundayMinutes / 60;
+    }
     
-    const updatedEntry: TimeEntry = {
-      ...entry,
+    return {
+      id: existingId || `${Date.now().toString()}-${formData.name}-${day}`,
       name: formData.name,
       funktion: formData.funktion,
       start: startISO,
@@ -293,19 +329,46 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       fahrtstunden: parseFloat(formData.fahrtstunden.replace(',', '.')) || 0,
       feiertag: feiertagsStunden,
       sonntag: formData.sonntag ? 1 : 0,
+      sonntagsstunden,
       bemerkung: formData.bemerkung,
       nachtzulage: calculateNightBonus(startISO, endISO, formData.pause).toString()
-    }
+    } as TimeEntry;
+  }
+
+  // Im handleSubmit: Für jeden ausgewählten Tag einen Entry erstellen
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setApiError(null);
+
     try {
-      onEdit(selectedDate, updatedEntry)
-      setApiError(null)
-      onClose()
+      const updates: Array<{ day: string; entryId: string; entry: TimeEntry }> = [];
+      const newEntries: Array<{ day: string; entry: TimeEntry }> = [];
+
+      for (const day of selectedDays) {
+        const existing = findExistingEntryForDay(day);
+        
+        if (existing) {
+          // Existierender Eintrag -> Update
+          const updatedEntry = buildEntryForDay(day, existing.id);
+          updates.push({ day, entryId: existing.id, entry: updatedEntry });
+        } else {
+          // Kein Eintrag -> Neu erstellen
+          const newEntry = buildEntryForDay(day);
+          newEntries.push({ day, entry: newEntry });
+        }
+      }
+
+      await onEdit({ updates, newEntries });
+      onClose();
     } catch (err: any) {
       if (err?.response?.status === 409 || err?.message?.includes('bereits im Projekt')) {
         setApiError(err?.response?.data?.error || 'Mitarbeiter ist an einem der Tage bereits eingetragen.');
       } else {
-        setApiError('Fehler beim Speichern des Zeiteintrags.');
+        setApiError('Fehler beim Speichern der Zeiteinträge.');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -512,16 +575,29 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
           </Alert>
         )}
 
-        <div className="flex items-center space-x-3">
-          <Checkbox 
-            id="isMultiDay"
-            checked={isMultiDay} 
-            onCheckedChange={(checked) => setIsMultiDay(!!checked)} 
-            className="rounded"
-          />
-          <Label htmlFor="isMultiDay" className="text-sm font-medium text-slate-700">
-            Tagübergreifend
-          </Label>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center space-x-3">
+            <Checkbox 
+              id="isMultiDay"
+              checked={isMultiDay} 
+              onCheckedChange={(checked) => setIsMultiDay(!!checked)} 
+              className="rounded"
+            />
+            <Label htmlFor="isMultiDay" className="text-sm font-medium text-slate-700">
+              Tagübergreifend
+            </Label>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Checkbox 
+              id="selectAllDays"
+              checked={selectAllDays} 
+              onCheckedChange={(checked) => handleSelectAllDays(!!checked)} 
+              className="rounded"
+            />
+            <Label htmlFor="selectAllDays" className="text-sm font-medium text-slate-700">
+              Alle Tage auswählen ({projectDays.length})
+            </Label>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl max-h-32 overflow-y-auto">
@@ -577,16 +653,24 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
         <Button 
           variant="outline" 
           onClick={onClose}
+          disabled={isSubmitting}
           className="rounded-xl h-12 px-6 border-slate-200 hover:bg-slate-50"
         >
           Abbrechen
         </Button>
         <Button 
           type="submit"
-          disabled={!isFormValid()}
-          className={`bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-12 px-6 shadow-lg hover:shadow-xl transition-all duration-200 ${!isFormValid() ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={!isFormValid() || isSubmitting}
+          className={`bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-12 px-6 shadow-lg hover:shadow-xl transition-all duration-200 ${(!isFormValid() || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          Speichern
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Speichern...
+            </>
+          ) : (
+            <>Speichern {selectedDays.length > 1 ? `(${selectedDays.length} Tage)` : ''}</>
+          )}
         </Button>
       </div>
     </form>
