@@ -31,7 +31,10 @@ coverage/
 .vercel/
 
 # Project-specific
-scripts/\n# Ignore large archives\nMH-ZEITERFASSUNG.zip
-.vercel
-.env*.local
+scripts/
 MH-ZEITERFASSUNG.zip
+.env.production
+Roadmap.md
+addAdmin.cjs
+check-database.js
+insertTestProject.js
