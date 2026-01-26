@@ -3,7 +3,7 @@
  * @module lib/timeEntry/types
  */
 
-import type { MitarbeiterFunktion } from '@/types'
+import type { MitarbeiterFunktion } from '@/types/main'
 
 /**
  * Erweiterter TimeEntry-Typ mit Sonntagsstunden
