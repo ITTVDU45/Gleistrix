@@ -56,6 +56,8 @@ export interface TimeEntry {
   sonntag: number
   feiertag: number
   bemerkung: string
+  // Pausensegmente für automatische Berechnung
+  breakSegments?: Array<{ start: string; end: string }>
 }
 
 export interface TechnikEntry {
