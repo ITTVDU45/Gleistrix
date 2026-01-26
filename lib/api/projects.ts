@@ -35,6 +35,25 @@ export const ProjectsApi = {
     if (!id || id === 'undefined') throw new Error('ProjectsApi.remove: invalid id')
     return delJSON<{ message: string }>(`/api/projects/${id}`, 'projects:delete')
   },
+  bulkDelete: async (projectIds: string[]): Promise<{ deletedCount: number; cleanedEmployees: number; message: string }> => {
+    if (!Array.isArray(projectIds) || projectIds.length === 0) {
+      throw new Error('ProjectsApi.bulkDelete: projectIds must be a non-empty array')
+    }
+    const res = await fetch('/api/projects/bulk-delete', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-csrf-intent': 'projects:bulk-delete'
+      },
+      credentials: 'include',
+      body: JSON.stringify({ projectIds })
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: 'Unbekannter Fehler' }));
+      throw new Error(error.message || 'Fehler beim Löschen der Projekte');
+    }
+    return res.json();
+  },
   uploadDocuments: (id: string, formData: any) => {
     if (!id || id === 'undefined') throw new Error('ProjectsApi.uploadDocuments: invalid id')
     return fetch(`/api/projects/${id}/documents`, { method: 'POST', body: formData }).then(r => r.json())

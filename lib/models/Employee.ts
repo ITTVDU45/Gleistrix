@@ -69,14 +69,15 @@ const employeeSchema = new mongoose.Schema({
     default: []
   },
   einsaetze: [{
-    projektId: String,
-    datum: String,
+    projektId: { type: String, index: true },
+    datum: { type: String, index: true },
     stunden: Number,
     fahrtstunden: {
       type: Number,
       default: 0
     },
-    funktion: String
+    funktion: String,
+    entryId: { type: String, index: true } // Referenz zum Zeiteintrag-ID im Projekt
   }]
 }, {
   timestamps: true

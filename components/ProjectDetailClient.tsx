@@ -604,7 +604,13 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   const technikStats = getTechnikStats();
 
   // Handler für Zeiteinträge - Hinzufügen
-  const handleAddTimeEntry = async (dates: string[] | string, entry: any) => {
+  // Unterstützt zwei Formate:
+  // 1. Neues Format: Array<{day: string, entry: any}> - korrekter Entry pro Tag
+  // 2. Altes Format: dates (string[] | string) + entry - gleicher Entry für alle Tage
+  const handleAddTimeEntry = async (
+    entriesOrDates: Array<{day: string, entry: any}> | string[] | string, 
+    entry?: any
+  ) => {
     // Sperre bei Bedarf erwerben
     if (!lockInfo.isOwnLock) {
       const lockAcquired = await acquireLockOnDemand();
@@ -622,7 +628,27 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       if (!project) throw new Error('Projekt nicht geladen');
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
-      const response = await ProjectsApi.update(pid, { times: { action: 'add', dates: Array.isArray(dates) ? dates : [dates], entry } } as any)
+      
+      // Prüfen, ob neues Format (Array von {day, entry}) oder altes Format (dates + entry)
+      const isNewFormat = Array.isArray(entriesOrDates) && 
+        entriesOrDates.length > 0 && 
+        typeof entriesOrDates[0] === 'object' && 
+        'day' in entriesOrDates[0] && 
+        'entry' in entriesOrDates[0];
+      
+      let response;
+      if (isNewFormat) {
+        // Neues Format: Array von {day, entry} - jeder Tag hat korrekten Entry
+        response = await ProjectsApi.update(pid, { 
+          times: { action: 'add', entries: entriesOrDates } 
+        } as any);
+      } else {
+        // Altes Format: dates + entry - Kompatibilität
+        const dates = Array.isArray(entriesOrDates) ? entriesOrDates : [entriesOrDates];
+        response = await ProjectsApi.update(pid, { 
+          times: { action: 'add', dates, entry } 
+        } as any);
+      }
       if ((response as any).success !== false) {
         await fetchProjects();
         // Projekt sofort gezielt neu laden und lokalen State aktualisieren

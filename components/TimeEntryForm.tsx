@@ -19,6 +19,7 @@ import {
   type TimeEntryWithSunday,
   type BuildEntryParams,
   buildTimeEntry,
+  buildTimeEntriesForDays,
   calculateSundayHours,
   processBatch,
   formatBatchErrorReport
@@ -27,7 +28,7 @@ import {
 interface TimeEntryFormProps {
   project: Project
   selectedDate: string
-  onAdd: (dates: string[] | string, entry: TimeEntry) => void
+  onAdd: (entriesOrDates: Array<{day: string, entry: TimeEntry}> | string[] | string, entry?: TimeEntry) => void
   onClose: () => void
   employees?: Employee[]
   initialEntry?: Partial<TimeEntry>
@@ -620,7 +621,8 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
   /**
    * Optimierte handleSubmit mit paralleler Batch-Verarbeitung
    * Alle Mitarbeiter werden parallel verarbeitet (Promise.all)
-   * Jeder Mitarbeiter bekommt alle Tage in EINEM API-Call (nicht mehr N Calls pro Tag)
+   * Jeder Mitarbeiter bekommt alle Tage in EINEM API-Call
+   * Jeder Tag hat seinen eigenen Entry mit korrekten Werten (Feiertag, Sonntag, Nachtzuschlag)
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -644,21 +646,23 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
       // Erstelle Tasks für jeden Mitarbeiter - PARALLEL statt SEQUENTIELL
       // Jeder Task macht NUR EINEN API-Call für ALLE Tage
       const tasks = selectedEmployees.map((employeeName) => async () => {
-        // Referenztag für die Entry-Erstellung (erster ausgewählter Tag)
-        const referenceDay = daysToUse[0];
-        const dayFormatted = format(parseISO(referenceDay), 'dd.MM.yyyy', { locale: de });
-        const isHoliday = selectedHolidayDays.includes(dayFormatted);
+        // Erstellt für JEDEN Tag einen separaten Entry mit korrekten Werten
+        // (Feiertag, Sonntagsstunden, Nachtzuschlag werden pro Tag berechnet)
+        const entries = buildTimeEntriesForDays(
+          employeeName,
+          daysToUse,
+          baseParams,
+          selectedHolidayDays
+        );
         
-        // Entry mit dem modularen Builder erstellen (basierend auf dem Referenztag)
-        const entry = buildTimeEntry({
-          ...baseParams,
-          name: employeeName,
-          day: referenceDay,
-          isHoliday
-        });
+        // Array von {day, entry} für die API erstellen
+        const payload = entries.map((entry, index) => ({
+          day: daysToUse[index],
+          entry
+        }));
         
-        // EIN API-Call mit ALLEN Tagen - Backend iteriert über dates-Array
-        await onAdd(daysToUse, entry);
+        // EIN API-Call mit ALLEN Tagen und korrekten Entries pro Tag
+        await onAdd(payload);
         
         return { employeeName, success: true };
       });

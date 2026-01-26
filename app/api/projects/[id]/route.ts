@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Project } from '../../../../lib/models/Project';
+import { Employee } from '../../../../lib/models/Employee';
 import ActivityLog from '../../../../lib/models/ActivityLog';
 import User from '../../../../lib/models/User';
 import { getCurrentUser } from '../../../../lib/auth/getCurrentUser';
@@ -89,16 +90,42 @@ export async function PUT(request: Request) {
       try {
         // Für 'add' verwenden wir atomare Updates um Race Conditions zu vermeiden
         if (action === 'add') {
+          // Neues Format: entries Array mit {day, entry} pro Tag (korrekte Werte pro Tag)
+          // Altes Format: dates Array + entry (gleicher Entry für alle Tage) - für Kompatibilität
+          const entriesArray = (body.times as any).entries as Array<{day: string, entry: any}> | undefined;
           const dates = Array.isArray((body.times as any).dates) ? (body.times as any).dates as string[] : [];
-          const entry = (body.times as any).entry as any;
-          if (!entry || !Array.isArray(dates) || dates.length === 0) {
-            return NextResponse.json({ message: 'Ungültige Zeit-Daten (add)' }, { status: 400 });
+          const singleEntry = (body.times as any).entry as any;
+
+          // Validierung: Entweder neues Format (entries) oder altes Format (dates + entry)
+          const hasNewFormat = Array.isArray(entriesArray) && entriesArray.length > 0;
+          const hasOldFormat = singleEntry && Array.isArray(dates) && dates.length > 0;
+
+          if (!hasNewFormat && !hasOldFormat) {
+            return NextResponse.json({ message: 'Ungültige Zeit-Daten (add): entries oder dates+entry erforderlich' }, { status: 400 });
           }
 
           // Atomare Updates für jeden Tag mit $push - verhindert Race Conditions
           const updateOperations: Record<string, any> = {};
-          for (const d of dates) {
-            updateOperations[`mitarbeiterZeiten.${d}`] = entry;
+          const logEntries: Array<{day: string, entry: any}> = [];
+
+          if (hasNewFormat) {
+            // Neues Format: Jeder Tag hat seinen eigenen Entry mit korrekten Werten
+            for (const {day, entry} of entriesArray!) {
+              if (day && entry) {
+                updateOperations[`mitarbeiterZeiten.${day}`] = entry;
+                logEntries.push({day, entry});
+              }
+            }
+          } else {
+            // Altes Format: Gleicher Entry für alle Tage (Kompatibilität)
+            for (const d of dates) {
+              updateOperations[`mitarbeiterZeiten.${d}`] = singleEntry;
+              logEntries.push({day: d, entry: singleEntry});
+            }
+          }
+
+          if (Object.keys(updateOperations).length === 0) {
+            return NextResponse.json({ message: 'Keine gültigen Zeiteinträge' }, { status: 400 });
           }
 
           // Atomares Update mit $push auf alle Tage gleichzeitig
@@ -112,10 +139,32 @@ export async function PUT(request: Request) {
             return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
           }
 
+          // Mitarbeiter-Einsaetze synchronisieren (parallel, blockiert nicht)
+          // Jeder Zeiteintrag wird auch beim Mitarbeiter gespeichert
+          const employeeSyncPromises = logEntries.map(({day, entry}) => 
+            Employee.updateOne(
+              { name: entry.name },
+              { $push: { 
+                einsaetze: {
+                  projektId: id,
+                  datum: day,
+                  stunden: entry.stunden || 0,
+                  fahrtstunden: entry.fahrtstunden || 0,
+                  funktion: entry.funktion || '',
+                  entryId: entry.id || ''
+                }
+              }}
+            ).catch((err) => {
+              console.warn(`Mitarbeiter-Sync fehlgeschlagen für ${entry.name}:`, err.message);
+            })
+          );
+          // Parallel ausführen, aber nicht auf Ergebnis warten
+          Promise.all(employeeSyncPromises).catch(() => {});
+
           // ActivityLog für jeden Tag erstellen (asynchron, blockiert nicht)
           const currentUser = await getCurrentUser(request as any);
           if (currentUser) {
-            const logPromises = dates.map(d => 
+            const logPromises = logEntries.map(({day, entry}) => 
               ActivityLog.create({
                 timestamp: new Date(),
                 actionType: 'project_time_entry_added',
@@ -127,8 +176,8 @@ export async function PUT(request: Request) {
                 },
                 details: {
                   entityId: (updatedProject as any)._id,
-                  description: `Zeiteintrag hinzugefügt: ${entry.name} am ${d} (${entry.start ?? ''}-${entry.ende ?? ''}, ${entry.stunden ?? ''}h)`,
-                  after: { date: d, entry }
+                  description: `Zeiteintrag hinzugefügt: ${entry.name} am ${day} (${entry.start ?? ''}-${entry.ende ?? ''}, ${entry.stunden ?? ''}h)`,
+                  after: { date: day, entry }
                 }
               } as any).catch(() => {}) // Fehler ignorieren
             );
@@ -162,6 +211,21 @@ export async function PUT(request: Request) {
             const before = { ...arr[idx] };
             arr[idx] = { ...arr[idx], ...updatedEntry };
             (project as any).mitarbeiterZeiten[date] = arr;
+            
+            // Mitarbeiter-Einsatz synchronisieren
+            try {
+              await Employee.updateOne(
+                { name: updatedEntry.name, 'einsaetze.entryId': updatedEntry.id },
+                { $set: { 
+                  'einsaetze.$.stunden': updatedEntry.stunden || 0,
+                  'einsaetze.$.fahrtstunden': updatedEntry.fahrtstunden || 0,
+                  'einsaetze.$.funktion': updatedEntry.funktion || ''
+                }}
+              );
+            } catch (syncErr) {
+              console.warn('Mitarbeiter-Sync bei edit fehlgeschlagen:', syncErr);
+            }
+            
             try {
               const currentUser = await getCurrentUser(request as any);
               if (currentUser) {
@@ -198,6 +262,19 @@ export async function PUT(request: Request) {
           if ((project as any).mitarbeiterZeiten[date].length === 0) {
             delete (project as any).mitarbeiterZeiten[date];
           }
+          
+          // Mitarbeiter-Einsatz entfernen
+          if (removed) {
+            try {
+              await Employee.updateOne(
+                { name: removed.name },
+                { $pull: { einsaetze: { entryId: entryId } }}
+              );
+            } catch (syncErr) {
+              console.warn('Mitarbeiter-Sync bei delete fehlgeschlagen:', syncErr);
+            }
+          }
+          
           try {
             if (removed) {
               const currentUser = await getCurrentUser(request as any);
@@ -790,6 +867,18 @@ export async function DELETE(request: Request) {
         console.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
+    }
+
+    // Mitarbeiter-Einsätze für dieses Projekt entfernen
+    try {
+      const cleanupResult = await Employee.updateMany(
+        { 'einsaetze.projektId': id },
+        { $pull: { einsaetze: { projektId: id } }}
+      );
+      console.log(`Mitarbeiter-Einsätze bereinigt: ${cleanupResult.modifiedCount} Mitarbeiter aktualisiert`);
+    } catch (cleanupError) {
+      console.error('Fehler beim Bereinigen der Mitarbeiter-Einsätze:', cleanupError);
+      // Cleanup-Fehler sollte nicht die Hauptlöschung verhindern
     }
 
     // Projekt löschen
