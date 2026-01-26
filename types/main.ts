@@ -50,6 +50,14 @@ export interface EmployeeAssignment {
   funktion?: string
 }
 
+/**
+ * Pausenabschnitt (Start/Ende als ISO-String)
+ */
+export interface BreakSegment {
+  start: string  // ISO-String (YYYY-MM-DDTHH:mm)
+  end: string    // ISO-String
+}
+
 export interface TimeEntry {
   id: string
   name: string
@@ -66,6 +74,16 @@ export interface TimeEntry {
   sonntagsstunden?: number  // Explizites Feld für Sonntagsstunden
   feiertag: number
   bemerkung: string
+  // Neue Felder für automatische Pausenberechnung
+  breakSegments?: BreakSegment[]
+  breakTotalMinutes?: number
+  overrideBreaks?: boolean
+  // Berechnete Zuschläge in Minuten
+  nightMinutes?: number
+  sundayMinutes?: number
+  holidayMinutes?: number
+  nightHolidayMinutes?: number
+  normalMinutes?: number
 }
 
 export interface TechnikEntry {

@@ -41,7 +41,11 @@ export type {
   TimeEntryWithSunday,
   BuildEntryParams,
   BatchResult,
-  BatchProgressCallback
+  BatchProgressCallback,
+  BreakSegment,
+  ComputedPremiums,
+  SegmentAnalysis,
+  ComputedTimeEntry
 } from './types'
 
 // Calculation utilities
@@ -67,3 +71,23 @@ export {
   formatBatchErrorReport,
   type RetryConfig
 } from './batchProcessor'
+
+// Break calculation (Pausenberechnung)
+export {
+  calculateRequiredBreakMinutes,
+  calculateBreakSegments,
+  calculateBreakTotalMinutes,
+  isInBreak,
+  isNightTime,
+  isSundayTime,
+  isHolidayDate
+} from './calculateBreaks'
+
+// Main computation (Hauptberechnung)
+export {
+  computeTimeEntry,
+  analyzeTimeSegments,
+  minutesToHours,
+  formatMinutesAsTime,
+  type ComputeTimeEntryParams
+} from './computeTimeEntry'

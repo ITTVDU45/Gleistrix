@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Project } from '../../../../lib/models/Project';
 import { Employee } from '../../../../lib/models/Employee';
+import { Holiday } from '../../../../lib/models/Holiday';
 import ActivityLog from '../../../../lib/models/ActivityLog';
 import User from '../../../../lib/models/User';
 import { getCurrentUser } from '../../../../lib/auth/getCurrentUser';
@@ -12,6 +13,63 @@ import jsPDF from 'jspdf';
 import NotificationLog from '../../../../lib/models/NotificationLog';
 import { z } from 'zod';
 import { requireAuth } from '../../../../lib/security/requireAuth';
+import { computeTimeEntry, minutesToHours } from '../../../../lib/timeEntry';
+
+/**
+ * Validiert und bereichert einen Zeiteintrag mit berechneten Werten
+ * @param entry - Der zu validierende Zeiteintrag
+ * @param day - Das Datum des Eintrags
+ * @returns Der angereicherte Zeiteintrag
+ */
+async function validateAndEnrichTimeEntry(entry: any, day: string): Promise<any> {
+  if (!entry.start || !entry.ende) {
+    return entry;
+  }
+
+  try {
+    // Feiertage für den Tag aus der DB laden
+    const startDate = entry.start.includes('T') ? entry.start.slice(0, 10) : day;
+    const endDate = entry.ende.includes('T') ? entry.ende.slice(0, 10) : day;
+    
+    const holidayDocs = await Holiday.find({
+      date: { $gte: startDate, $lte: endDate }
+    }).lean();
+    const holidays = holidayDocs.map((h: any) => h.date);
+
+    // Start/Ende ISO-Strings bauen
+    const startISO = entry.start.includes('T') ? entry.start : `${day}T${entry.start}`;
+    const endISO = entry.ende.includes('T') ? entry.ende : `${day}T${entry.ende}`;
+
+    // Berechnung durchführen
+    const result = computeTimeEntry({
+      startISO,
+      endISO,
+      holidays,
+      manualBreaks: entry.breakSegments,
+      overrideBreaks: entry.overrideBreaks
+    });
+
+    // Angereicherten Entry zurückgeben
+    return {
+      ...entry,
+      // Berechnete Zuschläge speichern
+      nightMinutes: result.premiums.nightMinutes,
+      sundayMinutes: result.premiums.sundayMinutes,
+      holidayMinutes: result.premiums.holidayMinutes,
+      nightHolidayMinutes: result.premiums.nightHolidayMinutes,
+      normalMinutes: result.premiums.normalMinutes,
+      breakTotalMinutes: result.breakTotalMinutes,
+      breakSegments: result.breakSegments,
+      // Legacy-Felder aktualisieren für Abwärtskompatibilität
+      nachtzulage: minutesToHours(result.premiums.nightMinutes + result.premiums.nightHolidayMinutes).toString(),
+      feiertag: result.premiums.holidayMinutes + result.premiums.nightHolidayMinutes > 0 ? 1 : 0,
+      sonntagsstunden: minutesToHours(result.premiums.sundayMinutes)
+    };
+  } catch (error) {
+    console.error('Fehler bei Backend-Validierung:', error);
+    return entry; // Bei Fehler Original zurückgeben
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -110,17 +168,21 @@ export async function PUT(request: Request) {
 
           if (hasNewFormat) {
             // Neues Format: Jeder Tag hat seinen eigenen Entry mit korrekten Werten
+            // Backend-Validierung und Anreicherung der Zeiteinträge
             for (const {day, entry} of entriesArray!) {
               if (day && entry) {
-                updateOperations[`mitarbeiterZeiten.${day}`] = entry;
-                logEntries.push({day, entry});
+                const enrichedEntry = await validateAndEnrichTimeEntry(entry, day);
+                updateOperations[`mitarbeiterZeiten.${day}`] = enrichedEntry;
+                logEntries.push({day, entry: enrichedEntry});
               }
             }
           } else {
             // Altes Format: Gleicher Entry für alle Tage (Kompatibilität)
+            // Backend-Validierung für jeden Tag
             for (const d of dates) {
-              updateOperations[`mitarbeiterZeiten.${d}`] = singleEntry;
-              logEntries.push({day: d, entry: singleEntry});
+              const enrichedEntry = await validateAndEnrichTimeEntry(singleEntry, d);
+              updateOperations[`mitarbeiterZeiten.${d}`] = enrichedEntry;
+              logEntries.push({day: d, entry: enrichedEntry});
             }
           }
 
@@ -205,21 +267,25 @@ export async function PUT(request: Request) {
           if (!date || !updatedEntry || !updatedEntry.id) {
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (edit)' }, { status: 400 });
           }
+          
+          // Backend-Validierung und Anreicherung des Zeiteintrags
+          const enrichedEntry = await validateAndEnrichTimeEntry(updatedEntry, date);
+          
           const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
-          const idx = arr.findIndex(e => e && e.id === updatedEntry.id);
+          const idx = arr.findIndex(e => e && e.id === enrichedEntry.id);
           if (idx !== -1) {
             const before = { ...arr[idx] };
-            arr[idx] = { ...arr[idx], ...updatedEntry };
+            arr[idx] = { ...arr[idx], ...enrichedEntry };
             (project as any).mitarbeiterZeiten[date] = arr;
             
             // Mitarbeiter-Einsatz synchronisieren
             try {
               await Employee.updateOne(
-                { name: updatedEntry.name, 'einsaetze.entryId': updatedEntry.id },
+                { name: enrichedEntry.name, 'einsaetze.entryId': enrichedEntry.id },
                 { $set: { 
-                  'einsaetze.$.stunden': updatedEntry.stunden || 0,
-                  'einsaetze.$.fahrtstunden': updatedEntry.fahrtstunden || 0,
-                  'einsaetze.$.funktion': updatedEntry.funktion || ''
+                  'einsaetze.$.stunden': enrichedEntry.stunden || 0,
+                  'einsaetze.$.fahrtstunden': enrichedEntry.fahrtstunden || 0,
+                  'einsaetze.$.funktion': enrichedEntry.funktion || ''
                 }}
               );
             } catch (syncErr) {

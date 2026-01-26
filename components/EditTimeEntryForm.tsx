@@ -4,6 +4,8 @@ import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Button } from './ui/button'
 import type { Project, TimeEntry, MitarbeiterFunktion, Employee } from '../types'
+import type { BreakSegment } from '@/lib/timeEntry'
+import { calculateRequiredBreakMinutes, calculateBreakSegments } from '@/lib/timeEntry'
 import { format, parseISO, addDays } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Checkbox } from './ui/checkbox'
@@ -12,6 +14,7 @@ import { useProjects } from '../hooks/useProjects'
 import { Alert } from './ui/alert'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import MultiSelectDropdown from './ui/MultiSelectDropdown'
+import { BreakSegmentEditor } from './BreakSegmentEditor'
 
 // Typen für Multi-Day Edit
 export interface MultiDayEditData {
@@ -64,6 +67,10 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   const [apiError, setApiError] = React.useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
+  // Automatische Pausenberechnung States
+  const [autoBreakEnabled, setAutoBreakEnabled] = React.useState(true)
+  const [breakSegments, setBreakSegments] = React.useState<BreakSegment[]>(entry.breakSegments || [])
+
   function isEmployeeAssignedElsewhere(employeeName: string, day: string, currentProjectId: string, projects: Project[], ownEntryId?: string): boolean {
     return projects.some(p => {
       if (p.id === currentProjectId) return false;
@@ -111,6 +118,39 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   const [isMultiDay, setIsMultiDay] = React.useState(false)
   const [showHolidayDropdown, setShowHolidayDropdown] = React.useState(false)
   const [selectedHolidayDays, setSelectedHolidayDays] = React.useState<string[]>([])
+
+  // Automatische Pausenberechnung bei Start/Ende-Änderung (rein lokal)
+  React.useEffect(() => {
+    if (!autoBreakEnabled) return
+    if (!formData.start || !formData.ende) return
+
+    const day = selectedDate || projectDays[0]
+    if (!day) return
+
+    let endDay = day
+    const isOvernight = formData.ende < formData.start
+    if (isOvernight) {
+      endDay = format(addDays(parseISO(day), 1), 'yyyy-MM-dd')
+    }
+
+    const startISO = `${day}T${formData.start}`
+    const endISO = `${endDay}T${formData.ende}`
+
+    const totalDurationMinutes = (new Date(endISO).getTime() - new Date(startISO).getTime()) / (1000 * 60)
+    const requiredBreakMinutes = calculateRequiredBreakMinutes(totalDurationMinutes)
+    const localBreaks = calculateBreakSegments(startISO, endISO, requiredBreakMinutes)
+    setBreakSegments(localBreaks)
+
+    // Pause im Formular aktualisieren
+    const localBreakTotalMinutes = localBreaks.reduce((sum, seg) => {
+      const segStart = new Date(seg.start)
+      const segEnd = new Date(seg.end)
+      return sum + (segEnd.getTime() - segStart.getTime()) / (1000 * 60)
+    }, 0)
+    const pauseHours = localBreakTotalMinutes / 60
+    const pauseStr = pauseHours.toFixed(2).replace('.', ',')
+    setFormData(prev => ({ ...prev, pause: pauseStr }))
+  }, [formData.start, formData.ende, autoBreakEnabled, selectedDate, projectDays])
 
   // Alle Tage auswählen
   const handleSelectAllDays = (checked: boolean) => {
@@ -502,6 +542,21 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
             />
           </div>
         </div>
+
+        {/* Automatische Pausenberechnung Anzeige */}
+        {breakSegments.length > 0 && (
+          <div className="space-y-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+            <BreakSegmentEditor
+              breakSegments={breakSegments}
+              onChange={(segments) => {
+                setBreakSegments(segments)
+                setAutoBreakEnabled(false)
+              }}
+              disabled={autoBreakEnabled}
+              baseDate={selectedDays[0]}
+            />
+          </div>
+        )}
 
         <div className="flex gap-6 p-3 bg-slate-50 rounded-xl flex-wrap items-start">
           <div className="flex items-center space-x-3">

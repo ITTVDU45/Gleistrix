@@ -6,6 +6,7 @@ import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Label } from './ui/label'
 import type { Project, TimeEntry, MitarbeiterFunktion, Employee } from '../types'
+import type { BreakSegment } from '@/lib/timeEntry'
 import { format, parseISO, addDays } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useProjects } from '../hooks/useProjects'
@@ -13,6 +14,7 @@ import { Alert } from './ui/alert'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import MultiSelectDropdown from './ui/MultiSelectDropdown';
 import { useEmployees } from '../hooks/useEmployees';
+import { BreakSegmentEditor } from './BreakSegmentEditor'
 
 // Modulare TimeEntry-Utilities importieren
 import {
@@ -22,7 +24,9 @@ import {
   buildTimeEntriesForDays,
   calculateSundayHours,
   processBatch,
-  formatBatchErrorReport
+  formatBatchErrorReport,
+  calculateRequiredBreakMinutes,
+  calculateBreakSegments
 } from '@/lib/timeEntry'
 
 interface TimeEntryFormProps {
@@ -156,6 +160,79 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
   const [isMultiDay, setIsMultiDay] = useState(false)
   const [showHolidayDropdown, setShowHolidayDropdown] = useState(false)
   const [selectedHolidayDays, setSelectedHolidayDays] = useState<string[]>([])
+
+  // Automatische Pausenberechnung States
+  const [overrideBreaks, setOverrideBreaks] = useState(false)
+  const [breakSegments, setBreakSegments] = useState<BreakSegment[]>([])
+
+  // Wenn Pausen manuell bearbeitet werden, Pause-Feld synchron halten
+  useEffect(() => {
+    if (!overrideBreaks || breakSegments.length === 0) return
+    const breakTotalMinutes = breakSegments.reduce((sum, seg) => {
+      const start = new Date(seg.start)
+      const end = new Date(seg.end)
+      return sum + (end.getTime() - start.getTime()) / (1000 * 60)
+    }, 0)
+    const pauseHours = breakTotalMinutes / 60
+    const pauseStr = pauseHours.toFixed(2).replace('.', ',')
+    setFormData(prev => ({ ...prev, pause: pauseStr }))
+  }, [overrideBreaks, breakSegments])
+
+  // Fallback: Wenn kein Tag ausgewählt ist, nutze den ersten Projekttag
+  useEffect(() => {
+    if (selectedDays.length === 0 && !selectedDate && projectDays.length > 0) {
+      setSelectedDays([projectDays[0]])
+    }
+  }, [selectedDays.length, selectedDate, projectDays])
+
+  // Automatische Pausenberechnung bei Start/Ende-Änderung (rein lokal, kein API-Call)
+  // WICHTIG: Nutze startTimeValue/endTimeValue, die als Parameter übergeben werden
+  const calculateBreaksAndPremiums = useCallback((force = false, startTimeValue?: string, endTimeValue?: string) => {
+    // Fallback auf formData wenn keine Parameter übergeben
+    const start = startTimeValue || formData.start
+    const ende = endTimeValue || formData.ende
+
+    if (overrideBreaks && !force) return
+
+    // Prüfe ob Start und Ende gesetzt sind
+    if (!start || !ende) {
+      setBreakSegments([])
+      return
+    }
+
+    // Verwende selectedDate als Fallback, wenn keine Tage ausgewählt sind
+    const day = selectedDays[0] || selectedDate || projectDays[0]
+    if (!day) {
+      setBreakSegments([])
+      return
+    }
+
+    let endDay = day
+    
+    // Bei tagübergreifend oder wenn Ende < Start (z.B. 22:00 - 09:00)
+    const isOvernight = ende < start
+    if (isMultiDay || isOvernight) {
+      endDay = format(addDays(parseISO(day), 1), 'yyyy-MM-dd')
+    }
+
+    const startISO = `${day}T${start}`
+    const endISO = `${endDay}T${ende}`
+
+    // Lokale Pausenberechnung (keine API-Aufrufe mehr)
+    const totalDurationMinutes = (new Date(endISO).getTime() - new Date(startISO).getTime()) / (1000 * 60)
+    const requiredBreakMinutes = calculateRequiredBreakMinutes(totalDurationMinutes)
+    const localBreaks = calculateBreakSegments(startISO, endISO, requiredBreakMinutes)
+    setBreakSegments(localBreaks)
+
+    const localBreakTotalMinutes = localBreaks.reduce((sum, seg) => {
+      const segStart = new Date(seg.start)
+      const segEnd = new Date(seg.end)
+      return sum + (segEnd.getTime() - segStart.getTime()) / (1000 * 60)
+    }, 0)
+    const pauseHours = localBreakTotalMinutes / 60
+    const pauseStr = pauseHours.toFixed(2).replace('.', ',')
+    setFormData(prev => ({ ...prev, pause: pauseStr }))
+  }, [selectedDays, selectedDate, projectDays, isMultiDay, overrideBreaks])
 
   // Alle Tage auswählen
   const handleSelectAllDays = (checked: boolean) => {
@@ -292,6 +369,16 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
   const [startTime, setStartTime] = useState(formData.start || '');
   const [endDay, setEndDay] = useState(selectedDate || selectedDays[0] || '');
   const [endTime, setEndTime] = useState(formData.ende || '');
+
+  // Effect für automatische Pausenberechnung - nutzt startTime/endTime
+  useEffect(() => {
+    if (!overrideBreaks && startTime && endTime) {
+      const timer = setTimeout(() => {
+        calculateBreaksAndPremiums(false, startTime, endTime)
+      }, 500) // Debounce
+      return () => clearTimeout(timer)
+    }
+  }, [startTime, endTime, selectedDays, selectedDate, projectDays, isMultiDay, overrideBreaks, calculateBreaksAndPremiums])
 
   // Entferne die Validierung für Endzeit-Tag und die Einschränkung der Tag-Auswahl
   // Die folgenden useEffect- und Variablen für belegteTage, freieTage, endDayError, endDayOptions werden entfernt oder ignoriert
@@ -953,6 +1040,39 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
                 className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12"
               />
             </div>
+          </div>
+
+          {/* Automatische Pausenberechnung */}
+          <div className="space-y-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+            <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Checkbox
+                id="overrideBreaks"
+                checked={overrideBreaks}
+                onCheckedChange={(checked) => setOverrideBreaks(!!checked)}
+                className="rounded"
+              />
+              <Label htmlFor="overrideBreaks" className="text-sm font-medium text-slate-700">
+                Pausen manuell bearbeiten
+              </Label>
+            </div>
+            </div>
+
+            <BreakSegmentEditor
+              breakSegments={breakSegments}
+              onChange={(segments) => {
+                setBreakSegments(segments)
+                setOverrideBreaks(true)
+              }}
+              disabled={!overrideBreaks}
+              showRecalculateButton={overrideBreaks}
+              onRecalculate={() => {
+                setOverrideBreaks(false)
+                calculateBreaksAndPremiums(true, startTime, endTime)
+              }}
+              isCalculating={false}
+              baseDate={selectedDays[0]}
+            />
           </div>
 
           <div className="flex gap-6 p-3 bg-slate-50 rounded-xl">
