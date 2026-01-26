@@ -15,6 +15,7 @@ import { Alert } from './ui/alert'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import MultiSelectDropdown from './ui/MultiSelectDropdown'
 import { BreakSegmentEditor } from './BreakSegmentEditor'
+import { HolidaysApi } from '@/lib/api/holidays'
 
 // Typen für Multi-Day Edit
 export interface MultiDayEditData {
@@ -118,6 +119,27 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   const [isMultiDay, setIsMultiDay] = React.useState(false)
   const [showHolidayDropdown, setShowHolidayDropdown] = React.useState(false)
   const [selectedHolidayDays, setSelectedHolidayDays] = React.useState<string[]>([])
+
+  // Feiertage aus DB laden
+  const [dbHolidays, setDbHolidays] = React.useState<string[]>([])
+  React.useEffect(() => {
+    const loadHolidays = async () => {
+      try {
+        const response = await HolidaysApi.list()
+        if (response.success && response.holidays) {
+          setDbHolidays(response.holidays.map(h => h.date))
+        }
+      } catch (error) {
+        console.error('Fehler beim Laden der Feiertage:', error)
+      }
+    }
+    loadHolidays()
+  }, [])
+
+  // Prüfe welche ausgewählten Tage Feiertage sind (aus DB)
+  const detectedHolidays = React.useMemo(() => {
+    return selectedDays.filter(day => dbHolidays.includes(day))
+  }, [selectedDays, dbHolidays])
 
   // Automatische Pausenberechnung bei Start/Ende-Änderung (rein lokal)
   React.useEffect(() => {
@@ -559,6 +581,17 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
           </div>
         )}
 
+        {/* Hinweis wenn Feiertage erkannt wurden */}
+        {detectedHolidays.length > 0 && !formData.feiertag && (
+          <Alert className="bg-amber-50 border-amber-200 text-amber-800">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <span className="ml-2 text-sm">
+              <strong>Feiertag erkannt:</strong> {detectedHolidays.map(d => format(parseISO(d), 'dd.MM.yyyy', { locale: de })).join(', ')} - 
+              Bitte Feiertag-Checkbox aktivieren, um Feiertagszuschläge zu berechnen.
+            </span>
+          </Alert>
+        )}
+
         <div className="flex gap-6 p-3 bg-slate-50 rounded-xl flex-wrap items-start">
           <div className="flex items-center space-x-3">
             <Checkbox
@@ -569,10 +602,16 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
                 setShowHolidayDropdown(checked as boolean);
                 if (!checked) {
                   setSelectedHolidayDays([]);
+                } else if (detectedHolidays.length > 0) {
+                  // Automatisch die erkannten Feiertage vorauswählen
+                  setSelectedHolidayDays(detectedHolidays.map(d => format(parseISO(d), 'dd.MM.yyyy', { locale: de })));
                 }
               }}
               className="rounded"
             />
+            {detectedHolidays.length > 0 && (
+              <span className="text-xs text-amber-600 font-medium">({detectedHolidays.length} erkannt)</span>
+            )}
             <Label htmlFor="feiertag" className="text-sm font-medium text-slate-700">Feiertag</Label>
           </div>
           {showHolidayDropdown && selectedDays.length > 0 && (

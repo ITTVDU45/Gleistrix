@@ -34,11 +34,23 @@ async function validateAndEnrichTimeEntry(entry: any, day: string): Promise<any>
     const holidayDocs = await Holiday.find({
       date: { $gte: startDate, $lte: endDate }
     }).lean();
-    const holidays = holidayDocs.map((h: any) => h.date);
+    const dbHolidays = holidayDocs.map((h: any) => h.date);
 
     // Start/Ende ISO-Strings bauen
     const startISO = entry.start.includes('T') ? entry.start : `${day}T${entry.start}`;
     const endISO = entry.ende.includes('T') ? entry.ende : `${day}T${entry.ende}`;
+
+    // Prüfen ob Frontend bereits Feiertag markiert hat (manuell oder aus DB erkannt)
+    // entry.feiertag kann eine Zahl (Stunden) oder boolean sein
+    const frontendHolidayValue = typeof entry.feiertag === 'number' ? entry.feiertag : (entry.feiertag ? 1 : 0);
+    const hasFrontendHoliday = frontendHolidayValue > 0;
+
+    // Kombiniere DB-Feiertage mit Frontend-Auswahl
+    // Wenn Frontend Feiertag markiert hat, füge den Starttag hinzu
+    const holidays = [...dbHolidays];
+    if (hasFrontendHoliday && !holidays.includes(startDate)) {
+      holidays.push(startDate);
+    }
 
     // Berechnung durchführen
     const result = computeTimeEntry({
@@ -48,6 +60,12 @@ async function validateAndEnrichTimeEntry(entry: any, day: string): Promise<any>
       manualBreaks: entry.breakSegments,
       overrideBreaks: entry.overrideBreaks
     });
+
+    // Berechne Feiertags-Stunden: DB-basiert ODER Frontend-Wert beibehalten
+    // holidayMinutes enthält bereits ALLE Feiertagsminuten (auch Nacht+Feiertag)
+    const calculatedHolidayHours = minutesToHours(result.premiums.holidayMinutes);
+    // Wenn Frontend einen höheren Wert hat, diesen verwenden (manuelle Auswahl)
+    const finalHolidayHours = Math.max(calculatedHolidayHours, frontendHolidayValue);
 
     // Angereicherten Entry zurückgeben
     return {
@@ -61,8 +79,10 @@ async function validateAndEnrichTimeEntry(entry: any, day: string): Promise<any>
       breakTotalMinutes: result.breakTotalMinutes,
       breakSegments: result.breakSegments,
       // Legacy-Felder aktualisieren für Abwärtskompatibilität
-      nachtzulage: minutesToHours(result.premiums.nightMinutes + result.premiums.nightHolidayMinutes).toString(),
-      feiertag: result.premiums.holidayMinutes + result.premiums.nightHolidayMinutes > 0 ? 1 : 0,
+      // WICHTIG: nightMinutes/sundayMinutes/holidayMinutes sind bereits additiv
+      // (enthalten alle Minuten mit diesem Zuschlag, auch Kombinationen)
+      nachtzulage: minutesToHours(result.premiums.nightMinutes).toString(),
+      feiertag: finalHolidayHours,
       sonntagsstunden: minutesToHours(result.premiums.sundayMinutes)
     };
   } catch (error) {
