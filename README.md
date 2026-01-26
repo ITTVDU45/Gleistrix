@@ -2,46 +2,44 @@
 
 ## Voraussetzungen
 - Node.js 18+
+- **pnpm** (Projekt-Package-Manager) – z. B. `npm install -g pnpm`
 - MongoDB (Atlas oder lokal) – Datenbankname: `MHZeiterfassung`
 - SMTP Zugang (für Benachrichtigungen/Einladungen)
 
 ## .env.local konfigurieren
-Erstelle `.env.local` im Projektwurzelverzeichnis und trage Folgendes ein:
 
-```
-# NextAuth
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=generate_a_strong_secret
+**Ohne `MONGODB_URI` startet die App, aber `/api/auth/*` wirft 500** („Bitte MONGODB_URI in .env.local setzen“).
 
-# MongoDB
-MONGODB_URI=mongodb+srv://USER:PASS@HOST/dbname
+**Das Projekt nutzt `.env.production` für alle Environments.** Ein Symlink `.env.local` → `.env.production` ist vorhanden, sodass Next.js in Dev-Mode automatisch die Config lädt.
 
-# WebSocket (Client)
-NEXT_PUBLIC_WS_URL=ws://localhost:3001
-
-# E-Mail (SMTP)
-EMAIL_SERVER=smtp.example.com
-EMAIL_PORT=587
-EMAIL_SECURE=false
-EMAIL_USER=no-reply@example.com
-EMAIL_PASS=app_password_or_secret
-EMAIL_FROM=Mülheimer Wachdienst
-EMAIL_REPLY_TO=info@example.com
-```
+Alle Variablen sind in `.env.production` definiert. Bei Bedarf dort anpassen.
 
 ## Development starten
+
+**Das Projekt nutzt pnpm** (`packageManager` in `package.json`). Bitte **pnpm** verwenden, nicht npm – sonst entstehen Lockfile-Konflikte und Fehler wie „Next.js package not found“.
+
 ```
-# 1) Dependencies
-npm install
+# 1) Dependencies (Projektwurzel)
+pnpm install
 
 # 2) Next.js App
-npm run dev
+pnpm dev
 
 # 3) WebSocket-Server in separatem Terminal
 cd server
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
+
+Falls „Next.js package not found“ (Turbopack) auftritt: `node_modules` war unvollständig (nur `.pnpm/`, keine Root-Symlinks). Mit `node-linker=hoisted` (`.npmrc`) wird eine flache `node_modules` erzeugt. Dann:
+
+```bash
+rm -rf node_modules .next
+pnpm install
+pnpm dev
+```
+
+Falls Turbopack weiterhin Probleme macht: `pnpm run dev:webpack` (Webpack statt Turbopack).
 
 ## WebSocket-Server
 - Läuft standardmäßig auf Port `3001`.

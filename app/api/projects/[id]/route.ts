@@ -87,6 +87,59 @@ export async function PUT(request: Request) {
     if (body && body.times && typeof body.times === 'object' && typeof (body.times as any).action === 'string') {
       const action = (body.times as any).action as 'add' | 'edit' | 'delete';
       try {
+        // Für 'add' verwenden wir atomare Updates um Race Conditions zu vermeiden
+        if (action === 'add') {
+          const dates = Array.isArray((body.times as any).dates) ? (body.times as any).dates as string[] : [];
+          const entry = (body.times as any).entry as any;
+          if (!entry || !Array.isArray(dates) || dates.length === 0) {
+            return NextResponse.json({ message: 'Ungültige Zeit-Daten (add)' }, { status: 400 });
+          }
+
+          // Atomare Updates für jeden Tag mit $push - verhindert Race Conditions
+          const updateOperations: Record<string, any> = {};
+          for (const d of dates) {
+            updateOperations[`mitarbeiterZeiten.${d}`] = entry;
+          }
+
+          // Atomares Update mit $push auf alle Tage gleichzeitig
+          const updatedProject = await Project.findByIdAndUpdate(
+            id,
+            { $push: updateOperations },
+            { new: true, runValidators: true }
+          );
+
+          if (!updatedProject) {
+            return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
+          }
+
+          // ActivityLog für jeden Tag erstellen (asynchron, blockiert nicht)
+          const currentUser = await getCurrentUser(request as any);
+          if (currentUser) {
+            const logPromises = dates.map(d => 
+              ActivityLog.create({
+                timestamp: new Date(),
+                actionType: 'project_time_entry_added',
+                module: 'project',
+                performedBy: {
+                  userId: (currentUser as any)._id,
+                  name: (currentUser as any).name,
+                  role: (currentUser as any).role
+                },
+                details: {
+                  entityId: (updatedProject as any)._id,
+                  description: `Zeiteintrag hinzugefügt: ${entry.name} am ${d} (${entry.start ?? ''}-${entry.ende ?? ''}, ${entry.stunden ?? ''}h)`,
+                  after: { date: d, entry }
+                }
+              } as any).catch(() => {}) // Fehler ignorieren
+            );
+            // Parallel ausführen, aber nicht auf Ergebnis warten
+            Promise.all(logPromises).catch(() => {});
+          }
+
+          return NextResponse.json(updatedProject);
+        }
+
+        // Für edit/delete weiterhin findById + save (diese sind nicht parallelisiert)
         const project = await Project.findById(id);
         if (!project) {
           return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
@@ -95,40 +148,6 @@ export async function PUT(request: Request) {
         // Stelle sicher, dass das Zeiten-Objekt existiert
         if (!project.mitarbeiterZeiten || typeof project.mitarbeiterZeiten !== 'object') {
           (project as any).mitarbeiterZeiten = {};
-        }
-
-        if (action === 'add') {
-          const dates = Array.isArray((body.times as any).dates) ? (body.times as any).dates as string[] : [];
-          const entry = (body.times as any).entry as any;
-          if (!entry || !Array.isArray(dates) || dates.length === 0) {
-            return NextResponse.json({ message: 'Ungültige Zeit-Daten (add)' }, { status: 400 });
-          }
-          for (const d of dates) {
-            if (!(project as any).mitarbeiterZeiten[d]) {
-              (project as any).mitarbeiterZeiten[d] = [];
-            }
-            (project as any).mitarbeiterZeiten[d].push(entry);
-            try {
-              const currentUser = await getCurrentUser(request as any);
-              if (currentUser) {
-                await ActivityLog.create({
-                  timestamp: new Date(),
-                  actionType: 'project_time_entry_added',
-                  module: 'project',
-                  performedBy: {
-                    userId: (currentUser as any)._id,
-                    name: (currentUser as any).name,
-                    role: (currentUser as any).role
-                  },
-                  details: {
-                    entityId: (project as any)._id,
-                    description: `Zeiteintrag hinzugefügt: ${entry.name} am ${d} (${entry.start ?? ''}-${entry.ende ?? ''}, ${entry.stunden ?? ''}h)`,
-                    after: { date: d, entry }
-                  }
-                } as any)
-              }
-            } catch (_) {}
-          }
         }
 
         if (action === 'edit') {

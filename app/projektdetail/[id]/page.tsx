@@ -1,8 +1,11 @@
 import ProjectDetailClient from '../../../components/ProjectDetailClient';
 
-// Next 15 kann buildseitig param props als Promise typisieren.
-// Wir akzeptieren hier generisch any und lesen synchron heraus.
-export default function Page(context: any) {
-  const id = (context?.params as any)?.id as string;
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+// Next.js 15: params ist ein Promise und muss mit await aufgelöst werden.
+export default async function Page({ params }: PageProps) {
+  const { id } = await params;
   return <ProjectDetailClient projectId={id} />;
 }

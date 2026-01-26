@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Button } from './ui/button'
@@ -10,12 +10,19 @@ import { format, parseISO, addDays } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useProjects } from '../hooks/useProjects'
 import { Alert } from './ui/alert'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import MultiSelectDropdown from './ui/MultiSelectDropdown';
 import { useEmployees } from '../hooks/useEmployees';
 
-// TimeEntry-Typ lokal erweitern, damit sonntagsstunden erlaubt ist
-type TimeEntryWithSunday = import('../types').TimeEntry & { sonntagsstunden?: number };
+// Modulare TimeEntry-Utilities importieren
+import {
+  type TimeEntryWithSunday,
+  type BuildEntryParams,
+  buildTimeEntry,
+  calculateSundayHours,
+  processBatch,
+  formatBatchErrorReport
+} from '@/lib/timeEntry'
 
 interface TimeEntryFormProps {
   project: Project
@@ -85,6 +92,8 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
 
   const { projects: allProjects } = useProjects();
   const [apiError, setApiError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitProgress, setSubmitProgress] = useState({ current: 0, total: 0 })
 
   function isEmployeeAssignedElsewhere(employeeName: string, day: string, currentProjectId: string, projects: Project[]): boolean {
     return projects.some(p => {
@@ -310,60 +319,8 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     return allOtherEntries.filter(e => !belegteTage.includes(e.day));
   }, [allOtherEntries, belegteTage]);
 
-  // Hilfsfunktion: Berechne Stunden zwischen zwei Zeitpunkten (inkl. Datum, auch über Mitternacht, in lokaler Zeit)
-  function calculateHoursForDay(startISO: string, endISO: string): number {
-    const startDate = new Date(startISO);
-    const endDate = new Date(endISO);
-    return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-  }
-
-  // Hilfsfunktion für Nachtzulage (23:00-06:00), arbeitet mit ISO-Strings in lokaler Zeit
-  // Die Pause wird proportional von den Nachtstunden abgezogen
-  function calculateNightBonus(startISO: string, endISO: string, pause: string): number {
-    const startDate = new Date(startISO);
-    const endDate = new Date(endISO);
-    let totalNightMinutes = 0;
-    let totalWorkMinutes = 0;
-    let current = new Date(startDate);
-    
-    while (current < endDate) {
-      const hour = current.getHours();
-      const minute = current.getMinutes();
-      const minutesOfDay = hour * 60 + minute;
-      totalWorkMinutes++;
-      // Nachtzeit: 23:00-24:00 oder 0:00-6:00
-      if (minutesOfDay >= 23 * 60 || minutesOfDay < 6 * 60) {
-        totalNightMinutes++;
-      }
-      current.setMinutes(current.getMinutes() + 1);
-    }
-    
-    // Pause proportional von den Nachtstunden abziehen
-    // Wenn z.B. 20% der Arbeitszeit Nachtzeit ist, werden 20% der Pause von Nachtstunden abgezogen
-    const pauseNum = parseFloat((pause || '0').replace(',', '.')) || 0;
-    if (totalWorkMinutes > 0) {
-      const nightRatio = totalNightMinutes / totalWorkMinutes;
-      const pauseInNight = pauseNum * 60 * nightRatio;
-      totalNightMinutes = Math.max(0, totalNightMinutes - pauseInNight);
-    }
-    
-    return totalNightMinutes / 60;
-  }
-
-  // Hilfsfunktion: Berechne Sonntagsstunden für einen Zeitraum
-  function calculateSundayHours(startISO: string, endISO: string): number {
-    const startDate = new Date(startISO);
-    const endDate = new Date(endISO);
-    let totalSundayMinutes = 0;
-    let current = new Date(startDate);
-    while (current < endDate) {
-      if (current.getDay() === 0) { // 0 = Sonntag
-        totalSundayMinutes++;
-      }
-      current.setMinutes(current.getMinutes() + 1);
-    }
-    return totalSundayMinutes / 60;
-  }
+  // Hilfsfunktionen für Zeitberechnungen sind jetzt in @/lib/timeEntry ausgelagert
+  // calculateHoursForDay, calculateNightBonus, calculateSundayHours werden aus dem Modul importiert
 
   // Plausibilitäts-Fehler-Message
   const [plausiError, setPlausiError] = useState<string | null>(null);
@@ -622,134 +579,114 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     }
   }
 
-  // handleSubmit muss vor dem Render-Teil deklariert sein
+  /**
+   * Erstellt die Basis-Parameter für buildTimeEntry aus dem aktuellen Formular-State
+   * Wiederverwendbare Funktion für konsistente Entry-Erstellung
+   */
+  const getBaseEntryParams = useCallback((): Omit<BuildEntryParams, 'name' | 'day' | 'isHoliday'> => {
+    let entryStartTime = startTime;
+    let entryEndTime = endTime;
+    
+    // Wenn Zeiten kopieren aktiviert ist und ein Eintrag ausgewählt ist
+    if (copyMode && selectedCopyEntry) {
+      entryStartTime = selectedCopyEntry.start.slice(11, 16);
+      entryEndTime = selectedCopyEntry.ende.slice(11, 16);
+    }
+    
+    return {
+      funktion: formData.funktion,
+      startTime: entryStartTime,
+      endTime: entryEndTime,
+      pause: formData.pause,
+      extra: formData.extra,
+      fahrtstunden: formData.fahrtstunden,
+      bemerkung: formData.bemerkung,
+      isMultiDay,
+      isSunday: formData.sonntag,
+      initialEntryId: initialEntry?.id
+    };
+  }, [startTime, endTime, copyMode, selectedCopyEntry, formData, isMultiDay, initialEntry?.id]);
+
+  /**
+   * Bestimmt die zu verwendenden Tage basierend auf copyMode und selectedDays
+   */
+  const getDaysToUse = useCallback((): string[] => {
+    if (copyMode && selectedCopyEntry && selectedDays.length === 0) {
+      return [selectedCopyEntry.day];
+    }
+    return selectedDays;
+  }, [copyMode, selectedCopyEntry, selectedDays]);
+
+  /**
+   * Optimierte handleSubmit mit paralleler Batch-Verarbeitung
+   * Alle Mitarbeiter werden parallel verarbeitet (Promise.all)
+   * Jeder Mitarbeiter bekommt alle Tage in EINEM API-Call (nicht mehr N Calls pro Tag)
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (plausiError) return;
     if (selectedEmployees.length === 0) return;
+    if (isSubmitting) return; // Doppel-Submit verhindern
+    
+    setIsSubmitting(true);
+    setApiError(null);
+    setSubmitProgress({ current: 0, total: selectedEmployees.length });
     
     try {
-      for (const name of selectedEmployees) {
-        // Bestimme die Start- und Endtage basierend auf isMultiDay und copyMode
-        let entryStartDay = startDay;
-        let entryEndDay = endDay;
-        let entryStartTime = startTime;
-        let entryEndTime = endTime;
-        
-        // Wenn Zeiten kopieren aktiviert ist und ein Eintrag ausgewählt ist, verwende die kopierten Zeiten
-        if (copyMode && selectedCopyEntry) {
-          entryStartDay = selectedCopyEntry.start.slice(0, 10);
-          entryEndDay = selectedCopyEntry.ende.slice(0, 10);
-          entryStartTime = selectedCopyEntry.start.slice(11, 16);
-          entryEndTime = selectedCopyEntry.ende.slice(11, 16);
-        }
-        
-        if (!isMultiDay) {
-          // Wenn nicht tagübergreifend, verwende die ausgewählten Tage
-          // Wenn Zeiten kopieren aktiviert ist und keine Tage ausgewählt sind, verwende den Tag aus dem kopierten Eintrag
-          const daysToUse = copyMode && selectedCopyEntry && selectedDays.length === 0 
-            ? [selectedCopyEntry.day] 
-            : selectedDays;
-          
-          // Für jeden ausgewählten Tag einen separaten Eintrag erstellen
-          for (const day of daysToUse) {
-            const startISO = `${day}T${entryStartTime}`;
-            const endISO = `${day}T${entryEndTime}`;
-            const sonntagsstunden = calculateSundayHours(startISO, endISO);
-            
-            // Prüfe, ob dieser Tag als Feiertag markiert ist
-            const isHoliday = selectedHolidayDays.includes(format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
-            
-            // Berechne die Gesamtstunden (abzüglich Pause)
-            const gesamtStunden = calculateHoursForDay(startISO, endISO) - (parseFloat(formData.pause.replace(',', '.')) || 0);
-            
-            // Berechne die Feiertags-Stunden (für eintägige Einträge sind das die Gesamtstunden)
-            const feiertagsStunden = isHoliday ? Math.round(gesamtStunden) : 0;
-            
-            const entry: TimeEntryWithSunday = {
-              id: initialEntry?.id || Date.now().toString() + '-' + name + '-' + day,
-              name,
-              funktion: formData.funktion,
-              start: startISO,
-              ende: endISO,
-              stunden: gesamtStunden,
-              pause: formData.pause,
-              extra: parseFloat(formData.extra.replace(',', '.')) || 0,
-              fahrtstunden: parseFloat(formData.fahrtstunden.replace(',', '.')) || 0,
-              feiertag: feiertagsStunden,
-              sonntag: formData.sonntag ? 1 : 0,
-              sonntagsstunden,
-              bemerkung: formData.bemerkung,
-              nachtzulage: calculateNightBonus(startISO, endISO, formData.pause).toString()
-            };
-            
-            await onAdd(day, entry);
-          }
-        } else {
-          // Wenn tagübergreifend, erstelle für jeden ausgewählten Tag einen separaten Eintrag
-          // Bei kopierten tagübergreifenden Einträgen verwende den Tag aus dem kopierten Eintrag
-          const daysToUse = copyMode && selectedCopyEntry && selectedDays.length === 0 
-            ? [selectedCopyEntry.day] 
-            : selectedDays;
-          
-          for (const day of daysToUse) {
-            // Berechne den Folgetag für den Endzeitpunkt
-            const nextDay = addDays(parseISO(day), 1);
-            const nextDayStr = format(nextDay, 'yyyy-MM-dd');
-            
-            const startISO = `${day}T${entryStartTime}`;
-            const endISO = `${nextDayStr}T${entryEndTime}`;
-            const sonntagsstunden = calculateSundayHours(startISO, endISO);
-            
-            // Prüfe, ob der Starttag oder Endtag als Feiertag markiert ist
-            const isStartDayHoliday = selectedHolidayDays.includes(format(parseISO(day), 'dd.MM.yyyy', { locale: de }));
-            const isEndDayHoliday = selectedHolidayDays.includes(format(parseISO(nextDayStr), 'dd.MM.yyyy', { locale: de }));
-            
-            // Berechne die Gesamtstunden (immer die komplette Zeitspanne, abzüglich Pause)
-            const gesamtStunden = calculateHoursForDay(startISO, endISO) - (parseFloat(formData.pause.replace(',', '.')) || 0);
-            
-            // Berechne die Feiertags-Stunden für beide Tage
-            let feiertagsStunden: number = 0;
-            if (isStartDayHoliday) {
-              // Stunden für den Starttag (bis Mitternacht)
-              const startDate = new Date(startISO);
-              const endOfDay = new Date(day + 'T23:59:59');
-              feiertagsStunden += Math.round((endOfDay.getTime() - startDate.getTime()) / (1000 * 60 * 60));
-            }
-            if (isEndDayHoliday) {
-              // Stunden für den Endtag (von Mitternacht bis Endzeit)
-              const startOfDay = new Date(nextDayStr + 'T00:00:00');
-              const endDate = new Date(endISO);
-              feiertagsStunden += Math.round((endDate.getTime() - startOfDay.getTime()) / (1000 * 60 * 60));
-            }
-            
-            const entry: TimeEntryWithSunday = {
-              id: initialEntry?.id || Date.now().toString() + '-' + name + '-' + day,
-              name,
-              funktion: formData.funktion,
-              start: startISO,
-              ende: endISO,
-              stunden: gesamtStunden,
-              pause: formData.pause,
-              extra: parseFloat(formData.extra.replace(',', '.')) || 0,
-              fahrtstunden: parseFloat(formData.fahrtstunden.replace(',', '.')) || 0,
-              feiertag: feiertagsStunden,
-              sonntag: formData.sonntag ? 1 : 0,
-              sonntagsstunden,
-              bemerkung: formData.bemerkung,
-              nachtzulage: calculateNightBonus(startISO, endISO, formData.pause).toString()
-            };
-            await onAdd(day, entry);
-          }
-        }
+      const baseParams = getBaseEntryParams();
+      const daysToUse = getDaysToUse();
+      
+      if (daysToUse.length === 0) {
+        setApiError('Bitte mindestens einen Tag auswählen.');
+        return;
       }
-      onClose();
+      
+      // Erstelle Tasks für jeden Mitarbeiter - PARALLEL statt SEQUENTIELL
+      // Jeder Task macht NUR EINEN API-Call für ALLE Tage
+      const tasks = selectedEmployees.map((employeeName) => async () => {
+        // Referenztag für die Entry-Erstellung (erster ausgewählter Tag)
+        const referenceDay = daysToUse[0];
+        const dayFormatted = format(parseISO(referenceDay), 'dd.MM.yyyy', { locale: de });
+        const isHoliday = selectedHolidayDays.includes(dayFormatted);
+        
+        // Entry mit dem modularen Builder erstellen (basierend auf dem Referenztag)
+        const entry = buildTimeEntry({
+          ...baseParams,
+          name: employeeName,
+          day: referenceDay,
+          isHoliday
+        });
+        
+        // EIN API-Call mit ALLEN Tagen - Backend iteriert über dates-Array
+        await onAdd(daysToUse, entry);
+        
+        return { employeeName, success: true };
+      });
+      
+      // Parallele Ausführung mit Batch-Processor
+      const result = await processBatch(
+        tasks,
+        selectedEmployees,
+        (processed, total) => setSubmitProgress({ current: processed, total })
+      );
+      
+      if (!result.success) {
+        // Teilweise Fehler - zeige Bericht
+        const errorReport = formatBatchErrorReport(result);
+        setApiError(errorReport);
+      } else {
+        // Alle erfolgreich - Dialog schließen
+        onClose();
+      }
     } catch (err: any) {
       if (err?.response?.status === 409 || err?.message?.includes('bereits im Projekt')) {
         setApiError(err?.response?.data?.error || 'Mitarbeiter ist an einem der Tage bereits eingetragen.');
       } else {
-        setApiError('Fehler beim Speichern des Zeiteintrags.');
+        setApiError('Fehler beim Speichern der Zeiteinträge.');
       }
+    } finally {
+      setIsSubmitting(false);
+      setSubmitProgress({ current: 0, total: 0 });
     }
   };
 
@@ -1099,10 +1036,19 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
           </Button>
           <Button 
             type="submit" 
-            disabled={!isFormValid()}
-            className={`bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-12 px-6 shadow-lg hover:shadow-xl transition-all duration-200 ${!isFormValid() ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!isFormValid() || isSubmitting}
+            className={`bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-12 px-6 shadow-lg hover:shadow-xl transition-all duration-200 ${(!isFormValid() || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            Hinzufügen
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {submitProgress.total > 0 
+                  ? `${submitProgress.current}/${submitProgress.total} Mitarbeiter...`
+                  : 'Wird gespeichert...'}
+              </span>
+            ) : (
+              'Hinzufügen'
+            )}
           </Button>
         </div>
       </form>

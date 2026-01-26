@@ -80,6 +80,14 @@ export default {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    (() => {
+      try {
+        return require("tailwindcss-animate")
+      } catch {
+        return null
+      }
+    })(),
+  ].filter(Boolean),
 }
 
