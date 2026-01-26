@@ -173,8 +173,9 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
       const end = new Date(seg.end)
       return sum + (end.getTime() - start.getTime()) / (1000 * 60)
     }, 0)
-    const pauseHours = breakTotalMinutes / 60
-    const pauseStr = pauseHours.toFixed(2).replace('.', ',')
+    const pauseHours = +(breakTotalMinutes / 60).toFixed(2)
+    // Format wie pauseOptions: ganze Zahlen ohne Nachkommastellen, sonst mit Komma
+    const pauseStr = Number.isInteger(pauseHours) ? pauseHours.toString() : pauseHours.toString().replace('.', ',')
     setFormData(prev => ({ ...prev, pause: pauseStr }))
   }, [overrideBreaks, breakSegments])
 
@@ -229,8 +230,9 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
       const segEnd = new Date(seg.end)
       return sum + (segEnd.getTime() - segStart.getTime()) / (1000 * 60)
     }, 0)
-    const pauseHours = localBreakTotalMinutes / 60
-    const pauseStr = pauseHours.toFixed(2).replace('.', ',')
+    const pauseHours = +(localBreakTotalMinutes / 60).toFixed(2)
+    // Format wie pauseOptions: ganze Zahlen ohne Nachkommastellen, sonst mit Komma
+    const pauseStr = Number.isInteger(pauseHours) ? pauseHours.toString() : pauseHours.toString().replace('.', ',')
     setFormData(prev => ({ ...prev, pause: pauseStr }))
   }, [selectedDays, selectedDate, projectDays, isMultiDay, overrideBreaks])
 
