@@ -1,5 +1,7 @@
 # MH-ZEITERFASSUNG – Setup & Betrieb
 
+*(Repository: Bahndienstleister @ GitLab)*
+
 ## Voraussetzungen
 - Node.js 18+
 - **pnpm** (Projekt-Package-Manager) – z. B. `npm install -g pnpm`
@@ -84,4 +86,3 @@ Für weitere Endpunkte:
 - Fahrzeuge (Stammdaten): `vehicles:create|update|delete`
 - Mitarbeiter: `employees:create|update|delete`
 - Benutzerrolle: `users:update-role`
-
