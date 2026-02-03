@@ -1,0 +1,16 @@
+# Minimale CI für Bahndienstleister – Pipeline läuft durch, kein "ausstehend"
+default:
+  image: node:20-bookworm-slim
+
+stages:
+  - build
+
+build:
+  stage: build
+  before_script:
+    - corepack enable && corepack prepare pnpm@latest --activate
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm run build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
