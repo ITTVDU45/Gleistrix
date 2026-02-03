@@ -49,13 +49,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!project.dokumente || typeof project.dokumente !== 'object') (project as any).dokumente = {};
 
     const uploaded: any[] = [];
-    // Stelle sicher, Bucket existiert
     const bucketName = process.env.MINIO_BUCKET || 'project-documents';
-    try {
-      const exists = await minioClient.bucketExists(bucketName);
-      if (!exists) await minioClient.makeBucket(bucketName);
-    } catch (e) {
-      console.warn('MinIO bucket check failed:', e);
+    // Bei gesetztem MINIO_BUCKET Bucket als bereits erstellt ansehen (z. B. Hostiteasy); sonst prüfen/erstellen
+    if (!process.env.MINIO_BUCKET) {
+      try {
+        const exists = await minioClient.bucketExists(bucketName);
+        if (!exists) await minioClient.makeBucket(bucketName);
+      } catch (e) {
+        console.warn('MinIO bucket check failed:', e);
+      }
     }
 
     for (const f of files as any) {

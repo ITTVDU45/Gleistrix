@@ -1,11 +1,12 @@
 "use client";
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '../../components/ui/table';
 import DocumentsUploadDialog from './DocumentsUploadDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { ProjectsApi } from '@/lib/api/projects';
+import { ConfirmDeleteModal } from '../ConfirmDeleteModal';
+import { Loader2, Trash2 } from 'lucide-react';
 
 interface DocumentItem {
   id: string;
@@ -22,20 +23,56 @@ interface DocumentsCardProps {
 }
 
 export default function DocumentsCard({ projectId, documents = [], onUpload, onUpdateDescription }: DocumentsCardProps) {
-  const [openUpload, setOpenUpload] = React.useState(false);
-  const [localDocs, setLocalDocs] = React.useState<DocumentItem[]>(documents);
+  const [openUpload, setOpenUpload] = useState(false);
+  const [localDocs, setLocalDocs] = useState<DocumentItem[]>(documents);
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const allSelected = localDocs.length > 0 && localDocs.every(d => selectedDocIds.has(d.id));
+  const someSelected = selectedDocIds.size > 0 && !allSelected;
+
+  const toggleSelectAllDocs = useCallback(() => {
+    if (allSelected) {
+      setSelectedDocIds(new Set());
+    } else {
+      setSelectedDocIds(new Set(localDocs.map(d => d.id)));
+    }
+  }, [allSelected, localDocs]);
+
+  const toggleSelectDoc = useCallback((docId: string) => {
+    setSelectedDocIds(prev => {
+      const next = new Set(prev);
+      if (next.has(docId)) next.delete(docId);
+      else next.add(docId);
+      return next;
+    });
+  }, []);
+
+  const handleBulkDeleteDocuments = useCallback(async () => {
+    if (selectedDocIds.size === 0) return;
+    setIsDeleting(true);
+    const idsToDelete = new Set(selectedDocIds);
+    const failed: string[] = [];
+    for (const id of idsToDelete) {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/documents/${id}`, { method: 'DELETE', credentials: 'include' });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) failed.push(id);
+      } catch {
+        failed.push(id);
+      }
+    }
+    setLocalDocs(prev => prev.filter(d => !idsToDelete.has(d.id)));
+    setSelectedDocIds(new Set());
+    setShowBulkDeleteModal(false);
+    setIsDeleting(false);
+    if (failed.length > 0) alert(`Löschen fehlgeschlagen für ${failed.length} Dokument(e).`);
+  }, [projectId, selectedDocIds]);
 
   React.useEffect(() => {
     setLocalDocs(documents);
   }, [documents]);
-
-  // Log incoming prop for debugging
-  React.useEffect(() => {
-  }, [documents]);
-
-  // Debug: log when documents change to help trace UI updates
-  React.useEffect(() => {
-  }, [projectId, localDocs]);
 
   // Wenn keine docs übergeben, lade aktuelle Projektdokumente vom Server
   React.useEffect(() => {
@@ -88,9 +125,7 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
     if (onUpdateDescription) await onUpdateDescription(docId, value);
   };
 
-  const [deleteCandidate, setDeleteCandidate] = React.useState<string | null>(null);
-
-  const [toDeleteId, setToDeleteId] = React.useState<string | null>(null);
+  const [toDeleteId, setToDeleteId] = useState<string | null>(null);
 
   const handleDelete = (docId: string) => {
     setToDeleteId(docId);
@@ -122,8 +157,25 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
     <Card className="bg-white dark:bg-slate-800 border border-[#C0D4DE] dark:border-slate-700">
       <CardContent className="p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold">Projektdokumente</h3>
+          <div>
+            <h3 className="text-xl font-semibold">Projektdokumente</h3>
+            {selectedDocIds.size > 0 && (
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                ({selectedDocIds.size} ausgewählt)
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-2">
+            {selectedDocIds.size > 0 && (
+              <button
+                onClick={() => setShowBulkDeleteModal(true)}
+                disabled={isDeleting}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {selectedDocIds.size} löschen
+              </button>
+            )}
             <Button size="sm" className="bg-slate-600 hover:bg-slate-700 text-white rounded-xl" onClick={() => setOpenUpload(true)}>
               Dokumente hochladen
             </Button>
@@ -134,6 +186,18 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) (el as HTMLInputElement).indeterminate = someSelected;
+                    }}
+                    onChange={toggleSelectAllDocs}
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    title={allSelected ? 'Alle abwählen' : 'Alle auswählen'}
+                  />
+                </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Beschreibung</TableHead>
                 <TableHead>Aktionen</TableHead>
@@ -141,7 +205,18 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
             </TableHeader>
             <TableBody>
               {localDocs.length > 0 ? localDocs.map(doc => (
-                <TableRow key={doc.id}>
+                <TableRow
+                  key={doc.id}
+                  className={selectedDocIds.has(doc.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+                >
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selectedDocIds.has(doc.id)}
+                      onChange={() => toggleSelectDoc(doc.id)}
+                      className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </TableCell>
                   <TableCell className="flex items-center">
                     <span>{doc.name}</span>
                   </TableCell>
@@ -172,7 +247,7 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
                 </TableRow>
               )) : (
                 <TableRow>
-                  <TableCell colSpan={3}>
+                  <TableCell colSpan={4}>
                     <div className="py-2 text-gray-500">Keine Dokumente vorhanden</div>
                   </TableCell>
                 </TableRow>
@@ -183,7 +258,7 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
         </div>
 
         <DocumentsUploadDialog open={openUpload} onOpenChange={setOpenUpload} onUpload={handleUploaded} projectId={projectId} />
-        {/* Delete confirmation dialog */}
+        {/* Single-document delete confirmation dialog */}
         <Dialog open={!!toDeleteId} onOpenChange={(open) => { if (!open) setToDeleteId(null); }}>
           <DialogContent className="sm:max-w-md rounded-2xl border-0 shadow-2xl bg-white dark:bg-slate-800">
             <DialogHeader>
@@ -198,6 +273,15 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Bulk-delete confirmation modal */}
+        <ConfirmDeleteModal
+          isOpen={showBulkDeleteModal}
+          onConfirm={handleBulkDeleteDocuments}
+          onCancel={() => setShowBulkDeleteModal(false)}
+          itemCount={selectedDocIds.size}
+          itemType="Dokumente"
+          confirmText="Löschen"
+        />
       </CardContent>
     </Card>
   );

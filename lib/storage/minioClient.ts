@@ -1,6 +1,7 @@
 import { Client } from 'minio';
 
-// Parse MINIO_ENDPOINT to support full URLs like https://host:port or plain hostnames
+// Parse MINIO_ENDPOINT: full URL (https://host:port) or plain hostname/IP (e.g. VPN-internal 10.x.x.x).
+// See docs/minio-vpn-setup.md for VPN/overlay network setup.
 const rawEndpoint = process.env.MINIO_ENDPOINT || '127.0.0.1';
 let endPoint = rawEndpoint;
 let port = Number(process.env.MINIO_PORT || 9000);
@@ -24,13 +25,17 @@ const usedAccessKey = process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USE
 const usedSecretKey = process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || '';
 const accessKeySource = process.env.MINIO_ACCESS_KEY ? 'MINIO_ACCESS_KEY' : (process.env.MINIO_ROOT_USER ? 'MINIO_ROOT_USER' : 'none');
 const secretKeySource = process.env.MINIO_SECRET_KEY ? 'MINIO_SECRET_KEY' : (process.env.MINIO_ROOT_PASSWORD ? 'MINIO_ROOT_PASSWORD' : 'none');
-console.info('MinIO client configured - endpoint=', endPoint + ':' + port, 'useSSL=', useSSL, 'accessKeyFrom=', accessKeySource, 'secretKeyFrom=', secretKeySource);
+const pathStyle = process.env.MINIO_PATH_STYLE === 'true';
+const region = process.env.MINIO_REGION || undefined;
+console.info('MinIO client configured - endpoint=', endPoint + ':' + port, 'useSSL=', useSSL, 'pathStyle=', pathStyle, 'region=', region ?? 'none', 'accessKeyFrom=', accessKeySource, 'secretKeyFrom=', secretKeySource);
 const minioClient = new Client({
   endPoint,
   port,
   useSSL,
   accessKey: usedAccessKey,
-  secretKey: usedSecretKey
+  secretKey: usedSecretKey,
+  pathStyle,
+  ...(region ? { region } : {})
 });
 
 export default minioClient;

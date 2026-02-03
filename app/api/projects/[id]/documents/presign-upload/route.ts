@@ -28,15 +28,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     console.info('Using MinIO credentials from', hasAccessPair ? 'MINIO_ACCESS_KEY/MINIO_SECRET_KEY' : 'MINIO_ROOT_USER/MINIO_ROOT_PASSWORD');
 
     const bucketName = process.env.MINIO_BUCKET || 'project-documents';
-    try {
-      // prefer promise helpers if available
-      const exists = typeof (minioClient as any).bucketExistsAsync === 'function' ? await (minioClient as any).bucketExistsAsync(bucketName) : await minioClient.bucketExists(bucketName);
-      if (!exists) {
-        if (typeof (minioClient as any).makeBucketAsync === 'function') await (minioClient as any).makeBucketAsync(bucketName);
-        else await minioClient.makeBucket(bucketName);
+    // Bei gesetztem MINIO_BUCKET Bucket als bereits erstellt ansehen (z. B. Hostiteasy); sonst prüfen/erstellen
+    if (!process.env.MINIO_BUCKET) {
+      try {
+        const exists = typeof (minioClient as any).bucketExistsAsync === 'function' ? await (minioClient as any).bucketExistsAsync(bucketName) : await minioClient.bucketExists(bucketName);
+        if (!exists) {
+          if (typeof (minioClient as any).makeBucketAsync === 'function') await (minioClient as any).makeBucketAsync(bucketName);
+          else await minioClient.makeBucket(bucketName);
+        }
+      } catch (e) {
+        console.warn('MinIO bucket check failed:', e);
       }
-    } catch (e) {
-      console.warn('MinIO bucket check failed:', e);
     }
 
     const results: any[] = [];

@@ -280,4 +280,4 @@ export interface TimeTrackingExportData {
   sapNumber: string
   client: string
   status: ProjectStatus
-} 
+}

@@ -292,4 +292,77 @@ export interface TimeTrackingExportData {
   sapNumber: string
   client: string
   status: ProjectStatus
+}
+
+// ===== LVS (Lager) TYPEN =====
+export type ArticleTyp = 'Werkzeug' | 'Maschine' | 'Akku' | 'Komponente' | 'Verbrauch' | 'Sonstiges'
+export type ArticleZustand = 'neu' | 'gut' | 'gebraucht' | 'defekt'
+export type ArticleStatus = 'aktiv' | 'archiviert' | 'gesperrt'
+export type Bewegungstyp = 'eingang' | 'ausgang' | 'korrektur' | 'inventur'
+export type AssignmentStatus = 'ausgegeben' | 'zurueckgegeben' | 'ueberfaellig'
+
+export interface Article {
+  id?: string
+  _id?: string
+  artikelnummer: string
+  bezeichnung: string
+  kategorie: string
+  unterkategorie?: string
+  typ: ArticleTyp
+  bestand: number
+  mindestbestand?: number
+  lagerort?: string
+  seriennummer?: string
+  zustand?: ArticleZustand
+  barcode?: string
+  wartungsintervallMonate?: number | null
+  naechsteWartung?: string | Date | null
+  wartungsstatus?: 'ok' | 'faellig' | 'ueberfaellig' | 'in_wartung'
+  status?: ArticleStatus
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface Category {
+  id?: string
+  _id?: string
+  name: string
+  parentId?: string | null
+  beschreibung?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface StockMovement {
+  id?: string
+  _id?: string
+  artikelId: string
+  bewegungstyp: Bewegungstyp
+  menge: number
+  datum: string | Date
+  verantwortlich?: string
+  empfaenger?: string
+  lieferscheinId?: string
+  bemerkung?: string
+  artikelId_populated?: { bezeichnung?: string; artikelnummer?: string }
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ArticleAssignment {
+  id?: string
+  _id?: string
+  artikelId: string
+  personId: string
+  menge: number
+  ausgabedatum: string | Date
+  rueckgabedatum?: string | Date | null
+  geplanteRueckgabe?: string | Date | null
+  status?: AssignmentStatus
+  bemerkung?: string
+  lieferscheinId?: string
+  artikelId_populated?: { bezeichnung?: string; artikelnummer?: string }
+  personId_populated?: { name?: string }
+  createdAt?: string
+  updatedAt?: string
 } 

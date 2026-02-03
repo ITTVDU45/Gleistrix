@@ -52,13 +52,17 @@ const ActivityLogSchema = new Schema<IActivityLog>({
       'user_role_changed', 'user_deleted',
       
       // System Aktionen
-      'login', 'logout', 'password_changed', 'profile_updated'
+      'login', 'logout', 'password_changed', 'profile_updated',
+      // Lager (LVS) Aktionen
+      'lager_article_created', 'lager_article_updated', 'lager_article_archived',
+      'lager_movement_created', 'lager_assignment_created', 'lager_assignment_returned',
+      'lager_inventory_completed', 'lager_delivery_note_created'
     ]
   },
   module: {
     type: String,
     required: true,
-    enum: ['project', 'employee', 'vehicle', 'time_tracking', 'settings', 'system', 'billing']
+    enum: ['project', 'employee', 'vehicle', 'time_tracking', 'settings', 'system', 'billing', 'lager']
   },
   performedBy: {
     userId: {

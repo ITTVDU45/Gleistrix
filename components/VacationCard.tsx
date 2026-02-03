@@ -51,7 +51,6 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
   // Lade die aktuellen Mitarbeiterdaten von der API
   const fetchCurrentEmployee = async () => {
     try {
-      console.log('Fetching employee data for ID:', employee.id);
       const { EmployeesApi } = await import('@/lib/api/employees')
       const data = await EmployeesApi.get(employee.id)
       const normalized: any = data?.employee || data
@@ -81,13 +80,6 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
       onVacationChange(isOnVacation);
     }
   }, [isOnVacation, onVacationChange]);
-
-  // Debug-Logging für vacationDays
-  useEffect(() => {
-    console.log('VacationCard - currentEmployee:', currentEmployee);
-    console.log('VacationCard - currentEmployee.vacationDays:', currentEmployee.vacationDays);
-    console.log('VacationCard - currentEmployee.vacationDays.length:', currentEmployee.vacationDays?.length);
-  }, [currentEmployee.vacationDays]);
 
   const handleInputChange = (field: keyof typeof formData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -219,21 +211,9 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
             <p className="mt-2 text-slate-600 dark:text-slate-400">
               Keine Urlaubszeiten eingetragen
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-              Debug: {currentEmployee.vacationDays?.length || 0} Einträge
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-              currentEmployee ID: {currentEmployee.id}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-              vacationDays Array: {JSON.stringify(currentEmployee.vacationDays)}
-            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-slate-500 dark:text-slate-500 mb-2">
-              Debug: {currentEmployee.vacationDays.length} Urlaubszeiten gefunden
-            </p>
             {currentEmployee.vacationDays.map((vacation, index) => {
               const startDate = new Date(vacation.startDate);
               const endDate = new Date(vacation.endDate);

@@ -7,7 +7,12 @@ export type IntentKey =
   | 'employees:create' | 'employees:update' | 'employees:delete'
   | 'activity:create' | 'activity:pdf-export'
   | 'users:update-role' | 'auth:update-profile'
-  | 'invite:create-user' | 'invite:create-admin' | 'invite:delete-all';
+  | 'invite:create-user' | 'invite:create-admin' | 'invite:delete-all'
+  | 'lager:article:create' | 'lager:article:update' | 'lager:article:delete'
+  | 'lager:category:create' | 'lager:category:update' | 'lager:category:delete'
+  | 'lager:movement:create' | 'lager:assignments:create' | 'lager:assignments:bulk' | 'lager:assignments:return'
+  | 'lager:maintenance:create' | 'lager:maintenance:update'
+  | 'lager:delivery-note:create' | 'lager:inventory:create' | 'lager:inventory:update' | 'lager:inventory:complete';
 
 type FetchOptions = RequestInit & { intent?: IntentKey };
 

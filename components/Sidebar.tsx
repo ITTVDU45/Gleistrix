@@ -9,6 +9,7 @@ import {
   Building2, 
   Users, 
   Truck, 
+  Package,
   Clock, 
   Settings,
   Menu,
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Abrechnung', href: '/abbrechnung', icon: PanelLeft },
   { name: 'Mitarbeiter', href: '/mitarbeiter', icon: Users },
   { name: 'Fahrzeuge', href: '/fahrzeuge', icon: Truck },
+  { name: 'Lager', href: '/lager', icon: Package },
   { name: 'Zeiterfassung', href: '/timetracking', icon: Clock },
   { name: 'Einstellungen', href: '/einstellungen', icon: Settings },
 ];
