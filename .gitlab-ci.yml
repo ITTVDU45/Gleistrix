@@ -1,7 +1,0 @@
-# Keine Pipelines ausführen – es ist kein GitLab Runner für dieses Projekt konfiguriert.
-# Ohne Runner bleiben Pipelines dauerhaft "ausstehend". Mit dieser Regel werden
-# keine Pipelines erzeugt; die "Pipeline ausstehend"-Meldung erscheint nicht mehr.
-# Wenn später ein Runner bereitsteht: diese Datei entfernen oder durch echte CI-Jobs ersetzen.
-workflow:
-  rules:
-    - when: never
