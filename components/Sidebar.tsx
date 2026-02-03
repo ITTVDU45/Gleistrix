@@ -158,9 +158,9 @@ export default function Sidebar() {
           {/* Trennlinie unter dem Logo */}
           <div className="border-b border-slate-200 dark:border-slate-700" />
 
-          {/* Navigation */}
+          {/* Navigation (Lager nur für Superadmin) */}
           <nav className={cn('flex-1 py-6 space-y-2 transition-all duration-300', isCollapsed ? 'px-2' : 'px-4') }>
-            {navigation.map((item) => {
+            {navigation.filter((item) => item.href !== '/lager' || currentUser.role === 'superadmin').map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
@@ -257,9 +257,9 @@ export default function Sidebar() {
                 </div>
               </div>
 
-              {/* Navigation */}
+              {/* Navigation (Lager nur für Superadmin) */}
               <nav className="flex-1 px-4 py-6 space-y-2">
-                {navigation.map((item) => {
+                {navigation.filter((item) => item.href !== '/lager' || currentUser.role === 'superadmin').map((item) => {
                   const isActive = pathname === item.href;
                   return (
                     <Link
