@@ -81,78 +81,37 @@ export default function DocumentsUploadDialog({ open, onOpenChange, onUpload, pr
     if (files.length === 0) return;
     setIsUploading(true);
     try {
-      const presignRes = await fetch(`/api/projects/${projectId}/documents/presign-upload`, {
+      const formData = new FormData();
+      files.forEach((f) => formData.append('files', f));
+      const firstKey = files[0] ? getFileKey(files[0]) : '';
+      formData.set('description', descriptions[firstKey] ?? '');
+      const res = await fetch(`/api/projects/${projectId}/documents`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: files.map(f => ({ name: f.name, contentType: f.type })) })
+        body: formData
       });
-      let presignJson: any;
-      if (!presignRes.ok) {
-        const txt = await presignRes.text().catch(() => '');
-        console.error('Presign upload endpoint returned error', presignRes.status, txt);
-        alert('Presign fehlgeschlagen: ' + (txt || presignRes.status));
-        setIsUploading(false);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        console.error('Proxy upload failed', res.status, json);
+        const msg = json.message || (res.status === 413 ? 'Datei(en) zu groß.' : 'Upload fehlgeschlagen. Bitte später erneut versuchen.');
+        alert(msg);
         return;
       }
-      try {
-        presignJson = await presignRes.json();
-      } catch (err) {
-        console.error('Presign response not JSON', err);
-        alert('Presign fehlgeschlagen: ungültige Antwort');
-        setIsUploading(false);
-        return;
-      }
-      if (!presignJson?.uploads) {
-        console.error('Presign returned no uploads', presignJson);
-        alert('Presign: keine Upload-URLs erhalten');
-        setIsUploading(false);
-        return;
-      }
-
-      for (const upload of presignJson.uploads) {
-        const file = files.find(f => f.name === upload.name);
-        if (!file) continue;
-        try {
-          const res = await fetch(upload.presignedUrl, { method: 'PUT', headers: { 'Content-Type': upload.contentType }, body: file });
-          if (!res.ok) {
-            const t = await res.text().catch(() => '');
-            console.error('Upload to presigned URL failed', res.status, t);
-            alert('Upload fehlgeschlagen für ' + upload.name);
-            setIsUploading(false);
-            return;
-          }
-        } catch (err) {
-          console.error('Upload error', err);
-          alert('Upload error: ' + (err instanceof Error ? err.message : String(err)));
-          setIsUploading(false);
-          return;
-        }
-      }
-
-      const documentsWithDescriptions = presignJson.uploads.map((u: any, i: number) => ({
-        name: u.name,
-        url: u.url,
-        description: descriptions[getFileKey(files[i])] ?? ''
-      }));
-      const committed = await fetch(`/api/projects/${projectId}/documents/commit`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documents: documentsWithDescriptions })
-      }).then(r => r.json());
-      if (!committed?.success) {
-        console.warn('Commit failed', committed);
-      } else if (committed.added && onUpload) {
+      if (json.uploaded && onUpload) {
         try {
           const dt = new DataTransfer();
           files.forEach(f => dt.items.add(f));
           await onUpload(dt.files);
-        } catch (e) {}
+        } catch (err) {
+          console.warn('onUpload callback error', err);
+        }
       }
       setFiles([]);
       setDescriptions({});
       onOpenChange(false);
+    } catch (err) {
+      console.error('Upload error', err);
+      alert('Upload fehlgeschlagen. Bitte später erneut versuchen oder Administrator kontaktieren.');
     } finally {
       setIsUploading(false);
     }

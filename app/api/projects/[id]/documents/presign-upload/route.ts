@@ -48,9 +48,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // expires seconds
         const expires = 60 * 10;
         // use promise helper when available to avoid callback result confusion
-        const presigned = typeof (minioClient as any).presignedPutObjectAsync === 'function'
+        let presigned = typeof (minioClient as any).presignedPutObjectAsync === 'function'
           ? await (minioClient as any).presignedPutObjectAsync(bucketName, key, expires)
           : await new Promise<string>((resolve, reject) => minioClient.presignedPutObject(bucketName, key, expires, (err: any, url: string) => err ? reject(err) : resolve(url)));
+        // Wenn MINIO_PUBLIC_URL gesetzt ist: Presigned-URL für den Browser auf den öffentlichen Host umbiegen,
+        // damit Clients (z. B. Nutzer außerhalb des internen Netzes) den Speicher erreichen können.
+        const publicUrl = process.env.MINIO_PUBLIC_URL;
+        if (publicUrl && presigned) {
+          try {
+            const presignedUrlObj = new URL(presigned);
+            const publicUrlObj = new URL(publicUrl);
+            presignedUrlObj.protocol = publicUrlObj.protocol;
+            presignedUrlObj.host = publicUrlObj.host;
+            presigned = presignedUrlObj.toString();
+          } catch (urlErr) {
+            console.warn('MINIO_PUBLIC_URL replace failed, using original presigned URL', urlErr);
+          }
+        }
         results.push({ name: f.name, key, url: `minio://${bucketName}/${key}`, presignedUrl: presigned, contentType: f.contentType || 'application/octet-stream' });
       } catch (fileErr) {
         console.error('Presign for file failed', { file: f, error: fileErr });
