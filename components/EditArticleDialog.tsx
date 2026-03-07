@@ -14,6 +14,7 @@ import {
 } from './ui/select'
 import type { Article, Category, ArticleTyp, ArticleZustand } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
+import { ArticleImageSection } from './lager/ArticleImageSection'
 
 const TYP_OPTIONS: ArticleTyp[] = [
   'Werkzeug',
@@ -42,6 +43,7 @@ export default function EditArticleDialog({
 }: EditArticleDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [currentArticle, setCurrentArticle] = useState<Article | null>(null)
   const [form, setForm] = useState<Partial<Article>>({
     artikelnummer: '',
     bezeichnung: '',
@@ -58,6 +60,7 @@ export default function EditArticleDialog({
 
   useEffect(() => {
     if (open && article) {
+      setCurrentArticle(article)
       setForm({
         artikelnummer: article.artikelnummer ?? '',
         bezeichnung: article.bezeichnung ?? '',
@@ -73,6 +76,17 @@ export default function EditArticleDialog({
       })
     }
   }, [open, article])
+
+  const refreshArticleInDialog = async () => {
+    const id = article.id ?? (article as any)._id?.toString?.()
+    if (!id) return
+    try {
+      const res = await LagerApi.articles.get(id)
+      const data = (res as { data?: Article })?.data
+      if (data) setCurrentArticle(data)
+    } catch (_) {}
+    onSuccess()
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -254,6 +268,14 @@ export default function EditArticleDialog({
             <p className="text-xs text-slate-500 dark:text-slate-400">Schwellwert für Warnung „Unter Mindestbestand“</p>
           </div>
         </div>
+        {(article.id ?? (article as any)._id) && (
+          <ArticleImageSection
+            articleId={article.id ?? (article as any)._id?.toString?.() ?? ''}
+            images={currentArticle?.images ?? article.images}
+            onUpdate={refreshArticleInDialog}
+            disabled={isSubmitting}
+          />
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Abbrechen

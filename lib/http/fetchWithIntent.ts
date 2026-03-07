@@ -7,12 +7,14 @@ export type IntentKey =
   | 'employees:create' | 'employees:update' | 'employees:delete'
   | 'activity:create' | 'activity:pdf-export'
   | 'users:update-role' | 'auth:update-profile'
-  | 'invite:create-user' | 'invite:create-admin' | 'invite:delete-all'
+  | 'invite:create-user' | 'invite:create-admin' | 'invite:delete-all' | 'invite:activate-user'
   | 'lager:article:create' | 'lager:article:update' | 'lager:article:delete'
+  | 'lager:article:image:presign' | 'lager:article:image:commit' | 'lager:article:image:delete'
   | 'lager:category:create' | 'lager:category:update' | 'lager:category:delete'
   | 'lager:movement:create' | 'lager:assignments:create' | 'lager:assignments:bulk' | 'lager:assignments:return'
-  | 'lager:maintenance:create' | 'lager:maintenance:update'
-  | 'lager:delivery-note:create' | 'lager:inventory:create' | 'lager:inventory:update' | 'lager:inventory:complete';
+  | 'lager:maintenance:create' | 'lager:maintenance:update' | 'lager:maintenance:delete'
+  | 'lager:delivery-note:create' | 'lager:delivery-note:attachment:presign' | 'lager:delivery-note:attachment:commit' | 'lager:delivery-note:attachment:delete'
+  | 'lager:inventory:create' | 'lager:inventory:update' | 'lager:inventory:scan' | 'lager:inventory:scan-session' | 'lager:inventory:delete' | 'lager:inventory:complete';
 
 type FetchOptions = RequestInit & { intent?: IntentKey };
 
@@ -27,5 +29,8 @@ export async function fetchWithIntent(input: RequestInfo | URL, init: FetchOptio
   }
   return fetch(input, { ...rest, headers: mergedHeaders, credentials: 'include' });
 }
+
+
+
 
 

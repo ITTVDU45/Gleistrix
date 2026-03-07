@@ -14,6 +14,8 @@ const statusEnum = ['aktiv', 'archiviert', 'gesperrt'] as const
 export async function GET(request: NextRequest) {
   try {
     await dbConnect()
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
+    if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
     const { searchParams } = new URL(request.url)
     const kategorie = searchParams.get('kategorie') ?? undefined
     const typ = searchParams.get('typ') ?? undefined
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
     if (process.env.NODE_ENV === 'production' && csrf !== 'lager:article:create') {
       return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 })
     }
-    const auth = await requireAuth(request, ['user', 'admin', 'superadmin'])
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
 
     const schema = z.object({

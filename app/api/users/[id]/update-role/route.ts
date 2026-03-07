@@ -32,7 +32,7 @@ export async function PUT(
     if (process.env.NODE_ENV === 'production' && csrf !== 'users:update-role') {
       return NextResponse.json({ error: 'Ungültige Anforderung' }, { status: 400 })
     }
-    const schema = z.object({ role: z.enum(['superadmin','admin','user']) })
+    const schema = z.object({ role: z.enum(['superadmin', 'admin', 'user', 'lager']) })
     const parseResult = schema.safeParse(await req.json())
     if (!parseResult.success) {
       return NextResponse.json({ error: 'Validierungsfehler', issues: parseResult.error.flatten() }, { status: 400 })

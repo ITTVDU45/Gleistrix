@@ -21,6 +21,7 @@ import { Package, LayoutGrid, ArrowLeftRight, UserCheck, ClipboardCheck, Wrench,
 interface LagerClientProps {
   initialArticles?: Article[]
   initialCategories?: Category[]
+  userRole?: string
 }
 
 interface LagerStats {
@@ -29,12 +30,13 @@ interface LagerStats {
   ueberfaelligeRueckgaben: number
 }
 
-export default function LagerClient({ initialArticles = [], initialCategories = [] }: LagerClientProps) {
+export default function LagerClient({ initialArticles = [], initialCategories = [], userRole = 'user' }: LagerClientProps) {
   const [articles, setArticles] = useState<Article[]>(initialArticles)
   const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [stats, setStats] = useState<LagerStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const isLagerOnly = userRole === 'lager'
 
   const loadData = async () => {
     try {
@@ -95,16 +97,18 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Lager</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Artikel, Bestand, Bewegungen, Ausgabe und Inventur verwalten
+            {isLagerOnly ? 'Inventuren starten, zaehlen und abschliessen' : 'Artikel, Bestand, Bewegungen, Ausgabe und Inventur verwalten'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <AddCategoryDialog onSuccess={loadData} />
-          <AddArticleDialog categories={categories} onSuccess={loadData} />
-        </div>
+        {!isLagerOnly && (
+          <div className="flex items-center gap-2">
+            <AddCategoryDialog onSuccess={loadData} />
+            <AddArticleDialog categories={categories} onSuccess={loadData} />
+          </div>
+        )}
       </div>
 
-      {stats && (stats.unterMindestbestand > 0 || stats.faelligeWartungen > 0 || stats.ueberfaelligeRueckgaben > 0) && (
+      {!isLagerOnly && stats && (stats.unterMindestbestand > 0 || stats.faelligeWartungen > 0 || stats.ueberfaelligeRueckgaben > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="rounded-xl border-amber-200 dark:border-amber-800">
             <CardContent className="pt-4 pb-4 flex items-center gap-3">
@@ -123,7 +127,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
                 <CalendarClock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Fällige Wartungen</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Faellige Wartungen</p>
                 <p className="text-2xl font-semibold text-slate-900 dark:text-white">{stats.faelligeWartungen}</p>
               </div>
             </CardContent>
@@ -134,7 +138,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
                 <ArrowLeft className="h-5 w-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Überfällige Rückgaben</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Ueberfaellige Rueckgaben</p>
                 <p className="text-2xl font-semibold text-slate-900 dark:text-white">{stats.ueberfaelligeRueckgaben}</p>
               </div>
             </CardContent>
@@ -142,66 +146,86 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
         </div>
       )}
 
-      <Tabs defaultValue="artikel" className="w-full">
+      <Tabs defaultValue={isLagerOnly ? 'inventur' : 'artikel'} className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-slate-100 dark:bg-slate-700 rounded-xl">
-          <TabsTrigger value="artikel" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
-            <Package className="h-4 w-4" />
-            Artikel
-          </TabsTrigger>
-          <TabsTrigger value="bestand" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
-            <LayoutGrid className="h-4 w-4" />
-            Bestand
-          </TabsTrigger>
-          <TabsTrigger value="bewegungen" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
-            <ArrowLeftRight className="h-4 w-4" />
-            Bewegungen
-          </TabsTrigger>
-          <TabsTrigger value="ausgabe" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
-            <UserCheck className="h-4 w-4" />
-            Ausgabe / Rücknahme
-          </TabsTrigger>
-          <TabsTrigger value="wartung" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
-            <Wrench className="h-4 w-4" />
-            Wartung
-          </TabsTrigger>
-          <TabsTrigger value="lieferscheine" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
-            <FileText className="h-4 w-4" />
-            Lieferscheine
-          </TabsTrigger>
+          {!isLagerOnly && (
+            <>
+              <TabsTrigger value="artikel" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
+                <Package className="h-4 w-4" />
+                Artikel
+              </TabsTrigger>
+              <TabsTrigger value="bestand" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
+                <LayoutGrid className="h-4 w-4" />
+                Bestand
+              </TabsTrigger>
+              <TabsTrigger value="bewegungen" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
+                <ArrowLeftRight className="h-4 w-4" />
+                Bewegungen
+              </TabsTrigger>
+              <TabsTrigger value="ausgabe" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
+                <UserCheck className="h-4 w-4" />
+                Ausgabe / Ruecknahme
+              </TabsTrigger>
+              <TabsTrigger value="wartung" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
+                <Wrench className="h-4 w-4" />
+                Wartung
+              </TabsTrigger>
+              <TabsTrigger value="lieferscheine" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
+                <FileText className="h-4 w-4" />
+                Lieferscheine
+              </TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="inventur" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
             <ClipboardCheck className="h-4 w-4" />
             Inventur
           </TabsTrigger>
-          <TabsTrigger value="kategorien" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
-            <FolderTree className="h-4 w-4" />
-            Kategorien
-          </TabsTrigger>
+          {!isLagerOnly && (
+            <TabsTrigger value="kategorien" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
+              <FolderTree className="h-4 w-4" />
+              Kategorien
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="artikel" className="mt-4">
-          <ArticleListWithFilter articles={articles} categories={categories} onRefresh={loadData} />
-        </TabsContent>
-        <TabsContent value="bestand" className="mt-4">
-          <LagerBestandView articles={articles} categories={categories} onRefresh={loadData} />
-        </TabsContent>
-        <TabsContent value="bewegungen" className="mt-4">
-          <LagerBewegungenView articles={articles} onRefresh={loadData} />
-        </TabsContent>
-        <TabsContent value="ausgabe" className="mt-4">
-          <LagerAusgabeView articles={articles} onRefresh={loadData} />
-        </TabsContent>
-        <TabsContent value="wartung" className="mt-4">
-          <LagerWartungView articles={articles} onRefresh={loadData} />
-        </TabsContent>
-        <TabsContent value="lieferscheine" className="mt-4">
-          <LagerLieferscheineView onRefresh={loadData} />
-        </TabsContent>
+        {!isLagerOnly && (
+          <TabsContent value="artikel" className="mt-4">
+            <ArticleListWithFilter articles={articles} categories={categories} onRefresh={loadData} />
+          </TabsContent>
+        )}
+        {!isLagerOnly && (
+          <TabsContent value="bestand" className="mt-4">
+            <LagerBestandView articles={articles} categories={categories} onRefresh={loadData} />
+          </TabsContent>
+        )}
+        {!isLagerOnly && (
+          <TabsContent value="bewegungen" className="mt-4">
+            <LagerBewegungenView articles={articles} onRefresh={loadData} />
+          </TabsContent>
+        )}
+        {!isLagerOnly && (
+          <TabsContent value="ausgabe" className="mt-4">
+            <LagerAusgabeView articles={articles} onRefresh={loadData} />
+          </TabsContent>
+        )}
+        {!isLagerOnly && (
+          <TabsContent value="wartung" className="mt-4">
+            <LagerWartungView articles={articles} categories={categories} onRefresh={loadData} />
+          </TabsContent>
+        )}
+        {!isLagerOnly && (
+          <TabsContent value="lieferscheine" className="mt-4">
+            <LagerLieferscheineView onRefresh={loadData} />
+          </TabsContent>
+        )}
         <TabsContent value="inventur" className="mt-4">
           <LagerInventurView articles={articles} onRefresh={loadData} />
         </TabsContent>
-        <TabsContent value="kategorien" className="mt-4">
-          <LagerKategorienView categories={categories} onRefresh={loadData} />
-        </TabsContent>
+        {!isLagerOnly && (
+          <TabsContent value="kategorien" className="mt-4">
+            <LagerKategorienView categories={categories} onRefresh={loadData} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

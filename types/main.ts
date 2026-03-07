@@ -301,6 +301,15 @@ export type ArticleStatus = 'aktiv' | 'archiviert' | 'gesperrt'
 export type Bewegungstyp = 'eingang' | 'ausgang' | 'korrektur' | 'inventur'
 export type AssignmentStatus = 'ausgegeben' | 'zurueckgegeben' | 'ueberfaellig'
 
+export interface ArticleImage {
+  attachmentId: string
+  filename: string
+  objectKey: string
+  bucket: string
+  contentType?: string
+  createdAt?: string | Date
+}
+
 export interface Article {
   id?: string
   _id?: string
@@ -319,6 +328,7 @@ export interface Article {
   naechsteWartung?: string | Date | null
   wartungsstatus?: 'ok' | 'faellig' | 'ueberfaellig' | 'in_wartung'
   status?: ArticleStatus
+  images?: ArticleImage[]
   createdAt?: string
   updatedAt?: string
 }

@@ -9,7 +9,7 @@ import { z } from 'zod'
 export async function POST(request: NextRequest) {
   try {
     await dbConnect()
-    const auth = await requireAuth(request, ['user', 'admin', 'superadmin'])
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) {
       return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
     }

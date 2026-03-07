@@ -42,7 +42,7 @@ export async function PUT(
     if (process.env.NODE_ENV === 'production' && csrf !== 'lager:maintenance:update') {
       return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 })
     }
-    const auth = await requireAuth(request, ['user', 'admin', 'superadmin'])
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
 
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -95,6 +95,39 @@ export async function PUT(
     console.error('Fehler beim Aktualisieren der Wartung:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Aktualisieren der Wartung' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await dbConnect()
+    const { id } = await params
+    const csrf = request.headers.get('x-csrf-intent')
+    if (process.env.NODE_ENV === 'production' && csrf !== 'lager:maintenance:delete') {
+      return NextResponse.json({ success: false, message: 'Ungueltige Anforderung' }, { status: 400 })
+    }
+    const auth = await requireAuth(request, ['lager', 'admin', 'superadmin'])
+    if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, message: 'Ungueltige ID' }, { status: 400 })
+    }
+
+    const deleted = await Maintenance.findByIdAndDelete(id).lean()
+    if (!deleted) {
+      return NextResponse.json({ success: false, message: 'Wartung nicht gefunden' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, message: 'Wartung geloescht' })
+  } catch (error) {
+    console.error('Fehler beim Loeschen der Wartung:', error)
+    return NextResponse.json(
+      { success: false, message: 'Fehler beim Loeschen der Wartung' },
       { status: 500 }
     )
   }

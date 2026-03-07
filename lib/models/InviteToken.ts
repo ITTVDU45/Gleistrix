@@ -4,7 +4,7 @@ const InviteTokenSchema = new Schema({
   email: { type: String, required: true },
   role: {
     type: String,
-    enum: ['superadmin', 'admin', 'user'],
+    enum: ['superadmin', 'admin', 'user', 'lager'],
     required: true
   },
   token: { type: String, required: true, unique: true },

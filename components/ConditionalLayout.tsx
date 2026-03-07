@@ -9,6 +9,7 @@ const noSidebarRoutes = [
   '/auth/set-password',
   '/setup',
   '/send-email',
+  '/lager/app',
 ];
 
 interface ConditionalLayoutProps {

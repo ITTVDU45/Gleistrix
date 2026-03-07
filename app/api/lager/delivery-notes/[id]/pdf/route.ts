@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     await dbConnect()
-    const auth = await requireAuth(_request, ['user', 'admin', 'superadmin'])
+    const auth = await requireAuth(_request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) {
       return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
     }

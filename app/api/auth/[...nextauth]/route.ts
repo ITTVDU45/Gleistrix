@@ -2,7 +2,6 @@ import NextAuth from "next-auth";
 import type { AuthOptions, SessionStrategy } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import dbConnect from "../../../../lib/dbConnect";
-import User from "../../../../lib/models/User";
 import { compare } from "bcryptjs";
 import mongoose from "mongoose";
 

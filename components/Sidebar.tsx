@@ -30,6 +30,7 @@ const navigation = [
   { name: 'Mitarbeiter', href: '/mitarbeiter', icon: Users },
   { name: 'Fahrzeuge', href: '/fahrzeuge', icon: Truck },
   { name: 'Lager', href: '/lager', icon: Package },
+  { name: 'Lager App', href: '/lager/app', icon: Package },
   { name: 'Zeiterfassung', href: '/timetracking', icon: Clock },
   { name: 'Einstellungen', href: '/einstellungen', icon: Settings },
 ];
@@ -133,6 +134,13 @@ export default function Sidebar() {
     return null;
   }
 
+  const visibleNavigation = navigation.filter((item) => {
+    if (currentUser.role === 'lager') return item.href === '/lager' || item.href === '/lager/app'
+    if (item.href === '/lager/app') return false
+    if (item.href === '/lager') return currentUser.role === 'superadmin' || currentUser.role === 'admin'
+    return true
+  })
+
   return (
     <>
       {/* Desktop Sidebar */}
@@ -158,9 +166,9 @@ export default function Sidebar() {
           {/* Trennlinie unter dem Logo */}
           <div className="border-b border-slate-200 dark:border-slate-700" />
 
-          {/* Navigation (Lager nur für Superadmin) */}
+          {/* Navigation */}
           <nav className={cn('flex-1 py-6 space-y-2 transition-all duration-300', isCollapsed ? 'px-2' : 'px-4') }>
-            {navigation.filter((item) => item.href !== '/lager' || currentUser.role === 'superadmin').map((item) => {
+            {visibleNavigation.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
@@ -257,9 +265,9 @@ export default function Sidebar() {
                 </div>
               </div>
 
-              {/* Navigation (Lager nur für Superadmin) */}
+              {/* Navigation */}
               <nav className="flex-1 px-4 py-6 space-y-2">
-                {navigation.filter((item) => item.href !== '/lager' || currentUser.role === 'superadmin').map((item) => {
+                {visibleNavigation.map((item) => {
                   const isActive = pathname === item.href;
                   return (
                     <Link

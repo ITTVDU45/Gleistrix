@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Maintenance } from '@/lib/models/Maintenance'
-import { getCurrentUser } from '@/lib/auth/getCurrentUser'
+import { Category } from '@/lib/models/Category'
+import { Article } from '@/lib/models/Article'
 import { requireAuth } from '@/lib/security/requireAuth'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -41,11 +42,12 @@ export async function POST(request: NextRequest) {
     if (process.env.NODE_ENV === 'production' && csrf !== 'lager:maintenance:create') {
       return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 })
     }
-    const auth = await requireAuth(request, ['user', 'admin', 'superadmin'])
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
 
     const schema = z.object({
-      artikelId: z.string().min(1),
+      artikelId: z.string().optional(),
+      categoryId: z.string().optional(),
       wartungsart: z.string().min(1),
       faelligkeitsdatum: z.union([z.string(), z.date()]),
       status: z.enum(statusEnum).optional().default('geplant')
@@ -59,20 +61,69 @@ export async function POST(request: NextRequest) {
       )
     }
     const body = parseResult.data
-    const artikelId = body.artikelId
-    if (!mongoose.Types.ObjectId.isValid(artikelId)) {
-      return NextResponse.json({ success: false, message: 'Ungültige Artikel-ID' }, { status: 400 })
+    const hasArticle = body.artikelId && body.artikelId.trim().length > 0
+    const hasCategory = body.categoryId && body.categoryId.trim().length > 0
+    if (hasArticle && hasCategory) {
+      return NextResponse.json({ success: false, message: 'Entweder Artikel oder Kategorie angeben, nicht beides.' }, { status: 400 })
+    }
+    if (!hasArticle && !hasCategory) {
+      return NextResponse.json({ success: false, message: 'Artikel oder Kategorie angeben.' }, { status: 400 })
     }
 
     const faelligkeitsdatum = typeof body.faelligkeitsdatum === 'string' ? new Date(body.faelligkeitsdatum) : body.faelligkeitsdatum
-    const doc = await Maintenance.create({
-      artikelId: new mongoose.Types.ObjectId(artikelId),
-      wartungsart: body.wartungsart,
-      faelligkeitsdatum,
-      status: body.status ?? 'geplant'
-    })
-    const populated = await Maintenance.findById(doc._id).populate('artikelId', 'bezeichnung').lean()
-    return NextResponse.json({ success: true, data: populated ?? doc }, { status: 201 })
+    const statusVal = body.status ?? 'geplant'
+
+    if (hasArticle) {
+      const artikelId = body.artikelId!.trim()
+      if (!mongoose.Types.ObjectId.isValid(artikelId)) {
+        return NextResponse.json({ success: false, message: 'Ungültige Artikel-ID' }, { status: 400 })
+      }
+      const doc = await Maintenance.create({
+        artikelId: new mongoose.Types.ObjectId(artikelId),
+        wartungsart: body.wartungsart,
+        faelligkeitsdatum,
+        status: statusVal
+      })
+      const populated = await Maintenance.findById(doc._id).populate('artikelId', 'bezeichnung').lean()
+      return NextResponse.json({ success: true, created: 1, data: populated ?? doc }, { status: 201 })
+    }
+
+    // categoryId: Wartung für alle aktiven Artikel der Kategorie anlegen
+    const categoryId = body.categoryId!.trim()
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return NextResponse.json({ success: false, message: 'Ungültige Kategorie-ID' }, { status: 400 })
+    }
+    const category = await Category.findById(categoryId).lean()
+    if (!category) {
+      return NextResponse.json({ success: false, message: 'Kategorie nicht gefunden' }, { status: 404 })
+    }
+    const categoryName = (category as { name?: string }).name
+    if (!categoryName) {
+      return NextResponse.json({ success: false, message: 'Kategorie ohne Namen' }, { status: 400 })
+    }
+    const articles = await Article.find({
+      kategorie: categoryName,
+      status: { $in: ['aktiv', undefined] }
+    }).select('_id').lean()
+    if (articles.length === 0) {
+      return NextResponse.json(
+        { success: false, message: `In der Kategorie "${categoryName}" sind keine aktiven Artikel.` },
+        { status: 400 }
+      )
+    }
+    const docs = await Maintenance.insertMany(
+      articles.map((a) => ({
+        artikelId: a._id,
+        wartungsart: body.wartungsart,
+        faelligkeitsdatum,
+        status: statusVal
+      }))
+    )
+    const ids = docs.map((d) => d._id)
+    const populated = await Maintenance.find({ _id: { $in: ids } })
+      .populate('artikelId', 'bezeichnung artikelnummer')
+      .lean()
+    return NextResponse.json({ success: true, created: docs.length, data: populated }, { status: 201 })
   } catch (error) {
     console.error('Fehler beim Anlegen der Wartung:', error)
     return NextResponse.json(

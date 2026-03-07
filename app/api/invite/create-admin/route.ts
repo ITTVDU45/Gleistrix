@@ -3,7 +3,7 @@ import dbConnect from "../../../../lib/dbConnect"
 import InviteToken from "../../../../lib/models/InviteToken"
 import User from "../../../../lib/models/User"
 import { nanoid } from "nanoid"
-import { sendInviteEmail } from "../../../../lib/mailer"
+import { sendInviteEmailResult } from "../../../../lib/mailer"
 import { getCurrentUser } from "../../../../lib/auth/getCurrentUser"
 import { z } from 'zod'
 
@@ -30,12 +30,13 @@ export async function POST(req: NextRequest) {
       lastName: z.string().min(1),
       email: z.string().email(),
       phone: z.string().optional().or(z.literal('')),
+      resend: z.boolean().optional().default(false),
     });
     const parseResult = schema.safeParse(await req.json());
     if (!parseResult.success) {
       return NextResponse.json({ error: 'Validierungsfehler', issues: parseResult.error.flatten() }, { status: 400 });
     }
-    const { firstName, lastName, email, phone } = parseResult.data;
+    const { firstName, lastName, email, phone, resend } = parseResult.data;
 
     // Validierung
     if (!firstName || !lastName || !email) {
@@ -54,28 +55,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ein Benutzer mit dieser E-Mail existiert bereits" }, { status: 409 });
     }
 
-    // Prüfen ob bereits eine Einladung für diese E-Mail existiert
-    const existingInvite = await InviteToken.findOne({ 
-      email, 
-      used: false,
-      expiresAt: { $gt: new Date() } // Nur nicht abgelaufene Einladungen
-    });
-    
-    if (existingInvite) {
-      return NextResponse.json({ 
-        error: "Eine gültige Einladung für diese E-Mail wurde bereits gesendet",
-        message: "Die Einladung ist noch 24 Stunden gültig. Bitte warten Sie, bis sie abgelaufen ist."
-      }, { status: 409 });
+    if (resend) {
+      await InviteToken.deleteMany({ email });
+    } else {
+      const existingInvite = await InviteToken.findOne({
+        email,
+        used: false,
+        expiresAt: { $gt: new Date() }
+      });
+      if (existingInvite) {
+        return NextResponse.json({
+          error: "Eine gültige Einladung für diese E-Mail wurde bereits gesendet",
+          message: "Die Einladung ist noch 24 Stunden gültig. Bitte warten Sie, bis sie abgelaufen ist."
+        }, { status: 409 });
+      }
+      await InviteToken.deleteMany({
+        email,
+        $or: [
+          { used: true },
+          { expiresAt: { $lt: new Date() } }
+        ]
+      });
     }
-
-    // Abgelaufene oder verwendete Einladungen für diese E-Mail löschen
-    await InviteToken.deleteMany({ 
-      email,
-      $or: [
-        { used: true },
-        { expiresAt: { $lt: new Date() } }
-      ]
-    });
 
     // Eindeutigen Token generieren
     const token = nanoid(32);
@@ -100,30 +101,26 @@ export async function POST(req: NextRequest) {
     // E-Mail-Einladung senden
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
     const inviteLink = `${baseUrl}/auth/set-password?token=${token}`;
-    const emailSent = await sendInviteEmail(email, `${firstName} ${lastName}`, 'admin', inviteLink, expiresAt);
+    const emailResult = await sendInviteEmailResult(email, `${firstName} ${lastName}`, 'admin', inviteLink, expiresAt);
 
-    if (emailSent) {
+    if (emailResult.ok) {
       console.log('=== ADMIN EINLADUNG GESENDET ===');
       console.log(`An: ${email}`);
       console.log(`Name: ${firstName} ${lastName}`);
-      console.log(`Telefon: ${phone || 'Nicht angegeben'}`);
-      console.log(`Rolle: Admin`);
-      console.log(`Token: ${token}`);
-      console.log(`Link: ${inviteLink}`);
-      console.log(`Gültig bis: ${expiresAt.toLocaleString('de-DE')}`);
       console.log('==================================');
     } else {
-      console.log('=== E-MAIL VERSAND FEHLGESCHLAGEN ===');
+      console.warn('=== E-MAIL VERSAND FEHLGESCHLAGEN ===', emailResult.error);
       console.log(`An: ${email}`);
-      console.log(`Name: ${firstName} ${lastName}`);
-      console.log(`Token: ${token}`);
-      console.log(`Link: ${inviteLink}`);
-      console.log(`Gültig bis: ${expiresAt.toLocaleString('de-DE')}`);
+      console.log(`Token/Link für manuellen Versand: ${inviteLink}`);
       console.log('=====================================');
     }
 
-    return NextResponse.json({ 
-      message: "Admin-Einladung erfolgreich gesendet",
+    return NextResponse.json({
+      message: emailResult.ok
+        ? "Admin-Einladung erfolgreich gesendet"
+        : "Einladung angelegt, E-Mail konnte nicht zugestellt werden.",
+      emailSent: emailResult.ok,
+      emailError: emailResult.error,
       invite: {
         email,
         name: `${firstName} ${lastName}`,

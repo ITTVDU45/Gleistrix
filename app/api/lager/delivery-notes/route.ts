@@ -7,9 +7,11 @@ import mongoose from 'mongoose'
 import { z } from 'zod'
 import { getNextDeliveryNoteNumber } from '@/lib/utils/deliveryNoteNumber'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await dbConnect()
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
+    if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
     const list = await DeliveryNote.find({})
       .sort({ datum: -1, nummer: -1 })
       .limit(200)
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (process.env.NODE_ENV === 'production' && csrf !== 'lager:delivery-note:create') {
       return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 })
     }
-    const auth = await requireAuth(request, ['user', 'admin', 'superadmin'])
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
 
     const schema = z.object({

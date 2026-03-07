@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue
 } from './ui/select'
-import { Plus, Package } from 'lucide-react'
+import { Plus, Package, ImagePlus } from 'lucide-react'
 import type { Article, Category, ArticleTyp, ArticleZustand } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 
@@ -41,6 +41,7 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [pendingImages, setPendingImages] = useState<File[]>([])
   const [form, setForm] = useState<Partial<Article>>({
     artikelnummer: '',
     bezeichnung: '',
@@ -76,6 +77,16 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
         status: form.status ?? 'aktiv'
       })
       if ((res as any)?.success !== false) {
+        const newArticle = (res as { data?: { _id?: string; id?: string } })?.data
+        const newId = newArticle?._id?.toString?.() ?? (newArticle as any)?.id
+        if (newId && pendingImages.length > 0) {
+          for (const file of pendingImages) {
+            if (file.type.startsWith('image/')) {
+              await LagerApi.articles.uploadImage(newId, file)
+            }
+          }
+        }
+        setPendingImages([])
         setForm({
           artikelnummer: '',
           bezeichnung: '',
@@ -262,6 +273,31 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
                 className="rounded-xl h-10"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400">Schwellwert für Warnung „Unter Mindestbestand“</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Bilder (optional)</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? [])
+                    setPendingImages((prev) => [...prev, ...files.filter((f) => f.type.startsWith('image/'))])
+                    e.target.value = ''
+                  }}
+                />
+                <ImagePlus className="h-5 w-5 text-slate-500 dark:text-slate-400 mb-0.5" />
+                <span className="text-xs text-slate-600 dark:text-slate-400">Hinzufügen</span>
+              </label>
+              {pendingImages.length > 0 && (
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  {pendingImages.length} Bild(er) werden nach dem Anlegen hochgeladen
+                </span>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

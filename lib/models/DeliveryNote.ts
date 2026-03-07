@@ -38,7 +38,20 @@ const deliveryNoteSchema = new mongoose.Schema({
   pdfUrl: {
     type: String,
     default: ''
-  }
+  },
+  attachments: [{
+    attachmentId: { type: String, required: true },
+    filename: { type: String, required: true },
+    contentType: { type: String, default: 'application/octet-stream' },
+    size: { type: Number, default: 0 },
+    bucket: { type: String, required: true },
+    objectKey: { type: String, required: true },
+    supplier: { type: String, default: '' },
+    reference: { type: String, default: '' },
+    noteDate: { type: Date, required: false },
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now }
+  }]
 }, {
   timestamps: true
 })

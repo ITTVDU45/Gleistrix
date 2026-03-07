@@ -16,6 +16,7 @@ import { Package } from 'lucide-react'
 import type { Article, Category, ArticleStatus } from '@/types/main'
 import ArticleActions from './ArticleActions'
 import AddArticleDialog from './AddArticleDialog'
+import { ArticleThumbnail } from './lager/ArticleThumbnail'
 
 interface ArticleListWithFilterProps {
   articles: Article[]
@@ -129,6 +130,9 @@ export default function ArticleListWithFilter({
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50 dark:bg-slate-700">
+                  <TableHead className="font-medium text-slate-700 dark:text-slate-300 w-[52px]">
+                    Bild
+                  </TableHead>
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300">
                     Artikelnummer
                   </TableHead>
@@ -162,6 +166,12 @@ export default function ArticleListWithFilter({
                       key={rowKey}
                       className="hover:bg-slate-50 dark:hover:bg-slate-700"
                     >
+                      <TableCell className="w-[52px]">
+                        <ArticleThumbnail
+                          articleId={article.id ?? (article as any)._id?.toString?.() ?? ''}
+                          images={article.images}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium dark:text-white">
                         {article.artikelnummer}
                       </TableCell>

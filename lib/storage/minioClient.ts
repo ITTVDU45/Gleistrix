@@ -128,4 +128,16 @@ export function getProjectObjectKey(project: any, filename: string) {
   return `${auftragsnummer}/${safeProjectName}/${date}/${filename}`;
 }
 
+export function getDeliveryNoteObjectKey(deliveryNoteId: string, filename: string) {
+  const safeFileName = filename.replace(/[^a-zA-Z0-9-_.]/g, '_')
+  const date = new Date().toISOString().slice(0, 10)
+  return `delivery-notes/${deliveryNoteId}/${date}/${safeFileName}`
+}
+
+export function getArticleImageObjectKey(articleId: string, filename: string) {
+  const safeFileName = filename.replace(/[^a-zA-Z0-9-_.]/g, '_')
+  const date = new Date().toISOString().slice(0, 10)
+  return `article-images/${articleId}/${date}/${safeFileName}`
+}
+
 

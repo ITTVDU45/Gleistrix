@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 // Einfache In-Memory Rate-Limitierung (pro IP)
 type Bucket = { count: number; resetAt: number };
@@ -14,7 +15,7 @@ function getClientIp(req: NextRequest): string {
   return (req as any).ip || '0.0.0.0';
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const method = req.method.toUpperCase();
   const isApi = pathname.startsWith('/api/');
@@ -69,11 +70,38 @@ export function middleware(req: NextRequest) {
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('X-Frame-Options', 'DENY');
   res.headers.set('Referrer-Policy', 'no-referrer');
-  res.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  // Kamera nur für mobile Lager-App erlauben (QR-Scan, Lieferschein-Foto)
+  const permissionsPolicy = pathname.startsWith('/lager/app')
+    ? 'geolocation=(), microphone=(), camera=(self)'
+    : 'geolocation=(), microphone=(), camera=()';
+  res.headers.set('Permissions-Policy', permissionsPolicy);
 
   // Health-Endpoint oder explizit markierte Antworten unverändert durchlassen
   if (pathname === '/api/health' || req.headers.get('x-no-app-shell') === '1') {
     return res;
+  }
+
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const currentRole = (token as { role?: string } | null)?.role;
+  const isLagerUser = currentRole === 'lager';
+  const isLagerAppRoute = pathname.startsWith('/lager/app');
+  const isLagerAdminRoute = pathname === '/lager' || pathname.startsWith('/lager/');
+  const isBlockedForLager = (
+    pathname.startsWith('/dashboard')
+    || pathname.startsWith('/mitarbeiter')
+    || pathname.startsWith('/fahrzeuge')
+    || pathname.startsWith('/timetracking')
+    || pathname.startsWith('/projekte')
+    || pathname.startsWith('/abbrechnung')
+    || pathname.startsWith('/einstellungen')
+  );
+
+  // Lagerrolle wird konsequent in die mobile Lager-App geführt
+  if (isLagerUser && (isBlockedForLager || (isLagerAdminRoute && !isLagerAppRoute))) {
+    return NextResponse.redirect(new URL('/lager/app', req.url));
+  }
+  if (!isLagerUser && isLagerAppRoute && token) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
   }
   // Rate-Limit nur für mutierende API-Requests anwenden
   if (!isMutating) {
@@ -108,7 +136,7 @@ export const config = {
   matcher: [
     // App Routen explizit
     '/',
-    '/(login|projekte|mitarbeiter|fahrzeuge|projektdetail|timetracking|einstellungen)/:path*',
+    '/(login|dashboard|projekte|abbrechnung|mitarbeiter|fahrzeuge|projektdetail|timetracking|einstellungen|lager)/:path*',
   ],
 };
 

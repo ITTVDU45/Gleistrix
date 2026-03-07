@@ -11,11 +11,11 @@ export default async function LagerPage() {
   })
   const user = await getCurrentUser(req)
   if (!user) redirect('/login')
-  if (user.role !== 'superadmin') redirect('/dashboard')
+  if (user.role !== 'superadmin' && user.role !== 'admin' && user.role !== 'lager') redirect('/dashboard')
 
   return (
     <div className="space-y-6">
-      <LagerClient />
+      <LagerClient userRole={user.role ?? 'user'} />
     </div>
   )
 }

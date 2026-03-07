@@ -9,10 +9,10 @@ import mongoose from 'mongoose'
  * - Korrektes globalThis-Caching verhindert neue Connections pro Request
  */
 
-const MONGODB_URI = process.env.MONGODB_URI
-
-if (!MONGODB_URI) {
-  throw new Error('Bitte MONGODB_URI in .env.local setzen')
+function getMongoUri(): string {
+  const mongoUri = process.env.MONGODB_URI
+  if (!mongoUri) throw new Error('Bitte MONGODB_URI in .env.local setzen')
+  return mongoUri
 }
 
 // TypeScript-typisierter globaler Cache für Mongoose-Verbindung
@@ -36,8 +36,9 @@ async function dbConnect(): Promise<typeof mongoose> {
 
   // Verbindungspromise wiederverwenden falls vorhanden
   if (!cached.promise) {
+    const mongoUri = getMongoUri()
     console.log('Verbindung zur MongoDB herstellen...')
-    console.log('URI:', MONGODB_URI?.substring(0, 20) + '...')
+    console.log('URI:', mongoUri.substring(0, 20) + '...')
 
     // Serverless-optimierte MongoDB-Optionen
     // maxPoolSize: 5 verhindert Connection-Limit bei M0 Atlas Cluster
@@ -71,7 +72,7 @@ async function dbConnect(): Promise<typeof mongoose> {
       throw lastErr
     }
 
-    cached.promise = tryConnect(MONGODB_URI as string, options)
+    cached.promise = tryConnect(mongoUri, options)
       .then((m) => {
         console.log('MongoDB-Verbindung erfolgreich hergestellt')
         if (mongoose.connection.db) {

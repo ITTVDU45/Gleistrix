@@ -10,6 +10,7 @@ const noSidebarRoutes = [
   '/auth/set-password',
   '/setup',
   '/send-email',
+  '/lager/app',
 ];
 
 export default function ConditionalSidebar() {

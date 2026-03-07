@@ -196,6 +196,8 @@ export default function EinstellungenPage() {
         return 'Administrator';
       case 'user':
         return 'Benutzer';
+      case 'lager':
+        return 'LAGER';
       default:
         return role;
     }
@@ -209,6 +211,8 @@ export default function EinstellungenPage() {
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case 'user':
         return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'lager':
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
       default:
         return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
     }

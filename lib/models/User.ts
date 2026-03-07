@@ -10,7 +10,7 @@ const UserSchema = new Schema({
   address: { type: String },
   role: { 
     type: String, 
-    enum: ['superadmin', 'admin', 'user'], 
+    enum: ['superadmin', 'admin', 'user', 'lager'], 
     default: 'user',
     required: true 
   },

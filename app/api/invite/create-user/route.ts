@@ -5,7 +5,7 @@ import mongoose from "mongoose"
 import { getToken } from "next-auth/jwt"
 import { nanoid } from "nanoid"
 import User from "../../../../lib/models/User"
-import { sendInviteEmail } from "../../../../lib/mailer"
+import { sendInviteEmailResult } from "../../../../lib/mailer"
 import { z } from 'zod'
 
 export async function POST(req: NextRequest) {
@@ -47,12 +47,14 @@ export async function POST(req: NextRequest) {
       lastName: z.string().min(1),
       email: z.string().email(),
       phone: z.string().optional().or(z.literal('')),
+      role: z.enum(['user', 'lager']).optional().default('user'),
+      resend: z.boolean().optional().default(false),
     });
     const parseResult = schema.safeParse(await req.json());
     if (!parseResult.success) {
       return NextResponse.json({ error: 'Validierungsfehler', issues: parseResult.error.flatten() }, { status: 400 });
     }
-    const { firstName, lastName, email, phone } = parseResult.data;
+    const { firstName, lastName, email, phone, role, resend } = parseResult.data;
 
     // Validierung
     if (!firstName || !lastName || !email) {
@@ -71,28 +73,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ein Benutzer mit dieser E-Mail existiert bereits" }, { status: 409 });
     }
 
-    // Prüfen ob bereits eine Einladung für diese E-Mail existiert
-    const existingInvite = await InviteToken.findOne({ 
-      email, 
-      used: false,
-      expiresAt: { $gt: new Date() } // Nur nicht abgelaufene Einladungen
-    });
-    
-    if (existingInvite) {
-      return NextResponse.json({ 
-        error: "Eine gültige Einladung für diese E-Mail wurde bereits gesendet",
-        message: "Die Einladung ist noch 24 Stunden gültig. Bitte warten Sie, bis sie abgelaufen ist."
-      }, { status: 409 });
+    // Beim erneuten Senden: alle Einladungen für diese E-Mail löschen (atomar)
+    if (resend) {
+      await InviteToken.deleteMany({ email });
+    } else {
+      // Prüfen ob bereits eine Einladung für diese E-Mail existiert
+      const existingInvite = await InviteToken.findOne({
+        email,
+        used: false,
+        expiresAt: { $gt: new Date() }
+      });
+      if (existingInvite) {
+        return NextResponse.json({
+          error: "Eine gültige Einladung für diese E-Mail wurde bereits gesendet",
+          message: "Die Einladung ist noch 24 Stunden gültig. Bitte warten Sie, bis sie abgelaufen ist."
+        }, { status: 409 });
+      }
+      // Abgelaufene oder verwendete Einladungen für diese E-Mail löschen
+      await InviteToken.deleteMany({
+        email,
+        $or: [
+          { used: true },
+          { expiresAt: { $lt: new Date() } }
+        ]
+      });
     }
-
-    // Abgelaufene oder verwendete Einladungen für diese E-Mail löschen
-    await InviteToken.deleteMany({ 
-      email,
-      $or: [
-        { used: true },
-        { expiresAt: { $lt: new Date() } }
-      ]
-    });
 
     // Eindeutigen Token generieren
     const inviteTokenValue = nanoid(32);
@@ -101,7 +106,7 @@ export async function POST(req: NextRequest) {
     // Einladung in Datenbank speichern
     const inviteToken = new InviteToken({
       email,
-      role: 'user',
+      role,
       token: inviteTokenValue,
       used: false,
       expiresAt,
@@ -117,34 +122,31 @@ export async function POST(req: NextRequest) {
     // E-Mail-Einladung senden
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
     const inviteLink = `${baseUrl}/auth/set-password?token=${inviteTokenValue}`;
-    const emailSent = await sendInviteEmail(email, `${firstName} ${lastName}`, 'user', inviteLink, expiresAt);
+    const emailResult = await sendInviteEmailResult(email, `${firstName} ${lastName}`, role, inviteLink, expiresAt);
 
-    if (emailSent) {
+    if (emailResult.ok) {
       console.log('=== USER EINLADUNG GESENDET ===');
       console.log(`An: ${email}`);
       console.log(`Name: ${firstName} ${lastName}`);
-      console.log(`Telefon: ${phone || 'Nicht angegeben'}`);
-      console.log(`Rolle: Benutzer`);
-      console.log(`Token: ${inviteTokenValue}`);
-      console.log(`Link: ${inviteLink}`);
-      console.log(`Gültig bis: ${expiresAt.toLocaleString('de-DE')}`);
+      console.log(`Rolle: ${role}`);
       console.log('==================================');
     } else {
-      console.log('=== E-MAIL VERSAND FEHLGESCHLAGEN ===');
+      console.warn('=== E-MAIL VERSAND FEHLGESCHLAGEN ===', emailResult.error);
       console.log(`An: ${email}`);
-      console.log(`Name: ${firstName} ${lastName}`);
-      console.log(`Token: ${inviteTokenValue}`);
-      console.log(`Link: ${inviteLink}`);
-      console.log(`Gültig bis: ${expiresAt.toLocaleString('de-DE')}`);
+      console.log(`Token/Link für manuellen Versand: ${inviteLink}`);
       console.log('=====================================');
     }
 
-    return NextResponse.json({ 
-      message: "Benutzer-Einladung erfolgreich gesendet",
+    return NextResponse.json({
+      message: emailResult.ok
+        ? "Benutzer-Einladung erfolgreich gesendet"
+        : "Einladung angelegt, E-Mail konnte nicht zugestellt werden.",
+      emailSent: emailResult.ok,
+      emailError: emailResult.error,
       invite: {
         email,
         name: `${firstName} ${lastName}`,
-        role: 'user',
+        role,
         expiresAt
       }
     }, { status: 201 });

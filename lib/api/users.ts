@@ -4,7 +4,7 @@ export type ExistingUser = {
   id: string
   email: string
   name: string
-  role: 'superadmin' | 'admin' | 'user'
+  role: 'superadmin' | 'admin' | 'user' | 'lager'
   firstName?: string
   lastName?: string
   phone?: string
@@ -18,6 +18,6 @@ export const UsersApi = {
   remove: (id: string) => delJSON<{ success?: boolean; message?: string; error?: string }>(`/api/users/${id}`),
   toggleStatus: (id: string, isActive: boolean) =>
     putJSON<{ success?: boolean; message?: string; error?: string }>(`/api/users/${id}/toggle-status`, { isActive }, 'employees:update'),
-  updateRole: (id: string, role: 'superadmin' | 'admin' | 'user') =>
+  updateRole: (id: string, role: 'superadmin' | 'admin' | 'user' | 'lager') =>
     putJSON<{ message?: string; error?: string }>(`/api/users/${id}/update-role`, { role }, 'users:update-role'),
 }

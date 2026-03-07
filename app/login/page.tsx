@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { getSession, signIn } from 'next-auth/react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -33,8 +33,11 @@ export default function LoginPage() {
       if (result?.error) {
         setError(result.error);
       } else {
+        const session = await getSession();
+        const role = session?.user?.role;
+        const targetRoute = role === 'lager' ? '/lager/app' : '/dashboard';
         console.log('Login erfolgreich');
-        router.push('/dashboard');
+        router.push(targetRoute);
         router.refresh();
       }
     } catch (err) {

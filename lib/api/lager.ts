@@ -21,7 +21,52 @@ export const LagerApi = {
     update: (id: string, data: Partial<Article>) =>
       putJSON(`/api/lager/articles/${id}`, data as Record<string, unknown>, 'lager:article:update'),
     archive: (id: string) =>
-      delJSON(`/api/lager/articles/${id}`, 'lager:article:delete')
+      delJSON(`/api/lager/articles/${id}`, 'lager:article:delete'),
+    uploadImage: async (articleId: string, file: File) => {
+      const presignResponse = await postJSON<{
+        success: boolean
+        uploadUrl: string
+        objectKey: string
+        bucket: string
+        attachmentId: string
+      }>(
+        `/api/lager/articles/${articleId}/images/presign-upload`,
+        {
+          filename: file.name,
+          contentType: file.type || 'image/jpeg',
+          size: file.size
+        },
+        'lager:article:image:presign'
+      )
+      if (!presignResponse?.uploadUrl) throw new Error('Presign fehlgeschlagen')
+      const uploadResult = await fetch(presignResponse.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'image/jpeg' },
+        body: file
+      })
+      if (!uploadResult.ok) throw new Error(`Upload fehlgeschlagen (${uploadResult.status})`)
+      return postJSON(
+        `/api/lager/articles/${articleId}/images/commit`,
+        {
+          attachmentId: presignResponse.attachmentId,
+          objectKey: presignResponse.objectKey,
+          bucket: presignResponse.bucket,
+          filename: file.name,
+          contentType: file.type || 'image/jpeg',
+          size: file.size
+        },
+        'lager:article:image:commit'
+      )
+    },
+    getImageUrl: (articleId: string, attachmentId: string) =>
+      getJSON<{ success: boolean; url: string }>(
+        `/api/lager/articles/${articleId}/images/${attachmentId}/presign`
+      ),
+    deleteImage: (articleId: string, attachmentId: string) =>
+      delJSON(
+        `/api/lager/articles/${articleId}/images/${attachmentId}`,
+        'lager:article:image:delete'
+      )
   },
   categories: {
     list: () =>
@@ -97,10 +142,18 @@ export const LagerApi = {
     },
     get: (id: string) =>
       getJSON<{ success: boolean; data: unknown }>(`/api/lager/maintenance/${id}`),
-    create: (data: { artikelId: string; wartungsart: string; faelligkeitsdatum: string | Date; status?: string }) =>
+    create: (data: {
+      artikelId?: string
+      categoryId?: string
+      wartungsart: string
+      faelligkeitsdatum: string | Date
+      status?: string
+    }) =>
       postJSON('/api/lager/maintenance', data as Record<string, unknown>, 'lager:maintenance:create'),
     update: (id: string, data: { durchfuehrungsdatum?: string | Date | null; status?: string; ergebnis?: string; naechsterTermin?: string | Date | null }) =>
-      putJSON(`/api/lager/maintenance/${id}`, data as Record<string, unknown>, 'lager:maintenance:update')
+      putJSON(`/api/lager/maintenance/${id}`, data as Record<string, unknown>, 'lager:maintenance:update'),
+    delete: (id: string) =>
+      delJSON(`/api/lager/maintenance/${id}`, 'lager:maintenance:delete')
   },
   deliveryNotes: {
     list: () =>
@@ -113,18 +166,106 @@ export const LagerApi = {
       empfaenger: { name: string; adresse?: string }
       positionen: { artikelId: string; bezeichnung: string; menge: number; seriennummer?: string }[]
     }) =>
-      postJSON('/api/lager/delivery-notes', data as Record<string, unknown>, 'lager:delivery-note:create')
+      postJSON<{ success: boolean; data: { _id?: string; id?: string } }>(
+        '/api/lager/delivery-notes',
+        data as Record<string, unknown>,
+        'lager:delivery-note:create'
+      ),
+    uploadAttachment: async (
+      deliveryNoteId: string,
+      payload: { file: File; supplier?: string; reference?: string; noteDate?: string }
+    ) => {
+      const presignResponse = await postJSON<{
+        success: boolean
+        uploadUrl: string
+        objectKey: string
+        bucket: string
+        attachmentId: string
+      }>(
+        `/api/lager/delivery-notes/${deliveryNoteId}/attachments/presign-upload`,
+        {
+          filename: payload.file.name,
+          contentType: payload.file.type || 'application/octet-stream',
+          size: payload.file.size
+        },
+        'lager:delivery-note:attachment:presign'
+      )
+
+      const uploadResult = await fetch(presignResponse.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': payload.file.type || 'application/octet-stream' },
+        body: payload.file
+      })
+      if (!uploadResult.ok) {
+        throw new Error(`Upload fehlgeschlagen (${uploadResult.status})`)
+      }
+
+      return postJSON(
+        `/api/lager/delivery-notes/${deliveryNoteId}/attachments/commit`,
+        {
+          attachmentId: presignResponse.attachmentId,
+          objectKey: presignResponse.objectKey,
+          bucket: presignResponse.bucket,
+          filename: payload.file.name,
+          contentType: payload.file.type || 'application/octet-stream',
+          size: payload.file.size,
+          supplier: payload.supplier ?? '',
+          reference: payload.reference ?? '',
+          noteDate: payload.noteDate ?? ''
+        },
+        'lager:delivery-note:attachment:commit'
+      )
+    },
+    deleteAttachment: (deliveryNoteId: string, attachmentId: string) =>
+      delJSON(
+        `/api/lager/delivery-notes/${deliveryNoteId}/attachments/${attachmentId}`,
+        'lager:delivery-note:attachment:delete'
+      )
   },
   inventory: {
     list: () =>
       getJSON<{ success: boolean; inventory: unknown[] }>('/api/lager/inventory'),
     get: (id: string) =>
       getJSON<{ success: boolean; data: unknown }>(`/api/lager/inventory/${id}`),
-    create: (data: { typ: 'voll' | 'teil'; stichtag: string | Date; kategorien?: string[]; lagerorte?: string[] }) =>
+    create: (data: {
+      name?: string
+      beschreibung?: string
+      typ: 'voll' | 'teil'
+      stichtag?: string | Date
+      zeitraumVon?: string | Date
+      zeitraumBis?: string | Date
+      artikelIds?: string[]
+      kategorien?: string[]
+      lagerorte?: string[]
+    }) =>
       postJSON('/api/lager/inventory', data as Record<string, unknown>, 'lager:inventory:create'),
-    update: (id: string, data: { positionen: { artikelId: string; istMenge: number }[] }) =>
+    update: (id: string, data: {
+      name?: string
+      beschreibung?: string
+      typ?: 'voll' | 'teil'
+      kategorien?: string[]
+      artikelIds?: string[]
+      stichtag?: string | Date
+      zeitraumVon?: string | Date | null
+      zeitraumBis?: string | Date | null
+      positionen?: { artikelId: string; istMenge: number }[]
+    }) =>
       putJSON(`/api/lager/inventory/${id}`, data as Record<string, unknown>, 'lager:inventory:update'),
+    recordScan: (id: string, data: { artikelId: string; code: string; scannedAt?: string | Date }) =>
+      postJSON(`/api/lager/inventory/${id}/scan`, data as Record<string, unknown>, 'lager:inventory:scan'),
+    setScanSession: (id: string, data: {
+      action: 'start' | 'end'
+      name?: string
+      stichtag?: string | Date
+      zeitraumVon?: string | Date | null
+      zeitraumBis?: string | Date | null
+    }) =>
+      postJSON(`/api/lager/inventory/${id}/scan-session`, data as Record<string, unknown>, 'lager:inventory:scan-session'),
+    delete: (id: string) =>
+      delJSON(`/api/lager/inventory/${id}`, 'lager:inventory:delete'),
     complete: (id: string) =>
       postJSON(`/api/lager/inventory/${id}/complete`, {}, 'lager:inventory:complete')
   }
 }
+
+

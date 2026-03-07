@@ -77,7 +77,7 @@ const ActivityLogSchema = new Schema<IActivityLog>({
     role: {
       type: String,
       required: true,
-      enum: ['superadmin', 'admin', 'user']
+      enum: ['superadmin', 'admin', 'user', 'lager']
     }
   },
   details: {

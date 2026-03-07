@@ -13,7 +13,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Wrench, Plus, CheckCircle, FileDown } from 'lucide-react'
-import type { Article } from '@/types/main'
+import type { Article, Category } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 import AddMaintenanceDialog from './AddMaintenanceDialog'
 import PerformMaintenanceDialog from './PerformMaintenanceDialog'
@@ -29,12 +29,13 @@ interface MaintenanceRow {
 
 interface LagerWartungViewProps {
   articles: Article[]
+  categories: Category[]
   onRefresh: () => void
 }
 
 type FilterStatus = 'alle' | 'faellig' | 'geplant' | 'erledigt'
 
-export default function LagerWartungView({ articles, onRefresh }: LagerWartungViewProps) {
+export default function LagerWartungView({ articles, categories, onRefresh }: LagerWartungViewProps) {
   const [list, setList] = useState<MaintenanceRow[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterStatus>('alle')
@@ -178,7 +179,7 @@ export default function LagerWartungView({ articles, onRefresh }: LagerWartungVi
           )}
         </CardContent>
       </Card>
-      <AddMaintenanceDialog open={addOpen} onOpenChange={setAddOpen} articles={articles} onSuccess={loadList} />
+      <AddMaintenanceDialog open={addOpen} onOpenChange={setAddOpen} articles={articles} categories={categories} onSuccess={loadList} />
       <PerformMaintenanceDialog
         open={performId !== null}
         onOpenChange={(open) => !open && setPerformId(null)}

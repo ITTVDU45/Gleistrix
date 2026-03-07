@@ -45,7 +45,7 @@ export async function PUT(
     if (process.env.NODE_ENV === 'production' && csrf !== 'lager:article:update') {
       return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 })
     }
-    const auth = await requireAuth(request, ['user', 'admin', 'superadmin'])
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
 
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -139,7 +139,7 @@ export async function DELETE(
     if (process.env.NODE_ENV === 'production' && csrf !== 'lager:article:delete') {
       return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 })
     }
-    const auth = await requireAuth(request, ['user', 'admin', 'superadmin'])
+    const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
 
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {

@@ -148,7 +148,11 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<boo
 } 
 
 export async function sendInviteEmail(email: string, name: string, role: string, inviteLink: string, expiresAt: Date): Promise<boolean> {
-  const roleDisplayName = role === 'admin' ? 'Administrator' : 'Benutzer';
+  const roleDisplayName = role === 'admin'
+    ? 'Administrator'
+    : role === 'lager'
+      ? 'LAGER'
+      : 'Benutzer';
   
   const emailData: EmailData = {
     to: email,
@@ -208,4 +212,52 @@ export async function sendInviteEmail(email: string, name: string, role: string,
   };
   
   return sendEmail(emailData);
+}
+
+/** Gibt { ok, error } zurück, damit die API bei Fehlern eine Rückmeldung geben kann. */
+export async function sendInviteEmailResult(
+  email: string,
+  name: string,
+  role: string,
+  inviteLink: string,
+  expiresAt: Date
+): Promise<{ ok: boolean; error?: string }> {
+  const roleDisplayName = role === 'admin'
+    ? 'Administrator'
+    : role === 'lager'
+      ? 'LAGER'
+      : 'Benutzer';
+
+  const emailData: EmailData = {
+    to: email,
+    subject: `Einladung zu MH-ZEITERFASSUNG - ${roleDisplayName} Account`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #114F6B; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 24px;">${process.env.EMAIL_FROM || 'Mülheimer Wachdienst'}</h1>
+          <p style="margin: 5px 0 0 0; font-size: 14px;">MH-ZEITERFASSUNG</p>
+        </div>
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #114F6B; margin-bottom: 20px;">Einladung zu MH-ZEITERFASSUNG</h2>
+          <p style="font-size: 16px; line-height: 1.6; color: #333;">Hallo ${name},</p>
+          <p style="font-size: 16px; line-height: 1.6; color: #333;">Sie wurden eingeladen, sich bei MH-ZEITERFASSUNG als ${roleDisplayName} zu registrieren.</p>
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="margin: 0; font-weight: bold; color: #1976d2;">Ihre Einladung:</p>
+            <p style="margin: 5px 0 0 0; color: #333;"><strong>Rolle:</strong> ${roleDisplayName}</p>
+            <p style="margin: 5px 0 0 0; color: #333;"><strong>Gültig bis:</strong> ${expiresAt.toLocaleString('de-DE')}</p>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${inviteLink}" style="background-color: #114F6B; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Passwort setzen und Account aktivieren</a>
+          </div>
+          <p style="font-size: 14px; line-height: 1.6; color: #666; margin-top: 20px;">
+            <strong>Wichtig:</strong> Dieser Link ist nur 24 Stunden gültig. Falls der Link nicht funktioniert, kopieren Sie diese URL in Ihren Browser:<br>
+            <span style="word-break: break-all; color: #1976d2;">${inviteLink}</span>
+          </p>
+          <p style="font-size: 16px; line-height: 1.6; color: #333;">Viele Grüße<br>Ihr ${process.env.EMAIL_FROM || 'Mülheimer Wachdienst'} Team</p>
+        </div>
+      </div>
+    `,
+    text: `Einladung zu MH-ZEITERFASSUNG\n\nHallo ${name},\n\nSie wurden eingeladen, sich bei MH-ZEITERFASSUNG als ${roleDisplayName} zu registrieren.\n\nRolle: ${roleDisplayName}\nGültig bis: ${expiresAt.toLocaleString('de-DE')}\n\nLink: ${inviteLink}\n\nViele Grüße\nIhr ${process.env.EMAIL_FROM || 'Mülheimer Wachdienst'} Team`,
+  };
+  return sendEmailResult(emailData);
 } 

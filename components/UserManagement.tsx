@@ -7,6 +7,14 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from './ui/dialog';
 import { Badge } from './ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { 
@@ -31,7 +39,7 @@ interface UserFormData {
   lastName: string;
   email: string;
   phone: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'lager';
 }
 
 interface InviteToken {
@@ -80,6 +88,8 @@ export default function UserManagement() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [emailWarning, setEmailWarning] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [inviteTokens, setInviteTokens] = useState<InviteToken[]>([]);
   const [existingUsers, setExistingUsers] = useState<ExistingUser[]>([]);
@@ -89,6 +99,12 @@ export default function UserManagement() {
   const [isLoadingInvites, setIsLoadingInvites] = useState(true);
   const [showInviteSuccess, setShowInviteSuccess] = useState(false);
   const [inviteSuccessMessage, setInviteSuccessMessage] = useState('');
+  const [showActivateDialog, setShowActivateDialog] = useState(false);
+  const [activateInviteEmail, setActivateInviteEmail] = useState('');
+  const [activateInviteName, setActivateInviteName] = useState('');
+  const [activatePassword, setActivatePassword] = useState('');
+  const [activateLoading, setActivateLoading] = useState(false);
+  const [activateError, setActivateError] = useState('');
 
   // Benutzer laden
   const fetchUsers = async () => {
@@ -188,6 +204,7 @@ export default function UserManagement() {
     setIsLoading(true);
     setError('');
     setShowSuccess(false);
+    setEmailWarning(null);
 
     try {
       const response = await InvitesApi.createUser({
@@ -196,9 +213,11 @@ export default function UserManagement() {
         email: formData.email,
         phone: formData.phone,
         role: formData.role,
-      })
-      if (!(response as any).error) {
+      }) as { message?: string; error?: string; emailSent?: boolean; emailError?: string }
+      if (!response.error) {
         setShowSuccess(true);
+        setSuccessMessage(response.message || 'Einladung erfolgreich gesendet.');
+        setEmailWarning(response.emailSent === false ? (response.emailError || 'E-Mail konnte nicht zugestellt werden.') : null);
         setFormData({
           firstName: '',
           lastName: '',
@@ -206,8 +225,6 @@ export default function UserManagement() {
           phone: '',
           role: 'user'
         });
-        console.log('Einladung erfolgreich gesendet');
-        // Einladungen neu laden
         fetchInvitedUsers();
       } else {
         const errorData = response as any
@@ -227,8 +244,11 @@ export default function UserManagement() {
                   role: formData.role as any,
                 })
 
-                if (!(retryResponse as any).error) {
+                const retry = retryResponse as { message?: string; error?: string; emailSent?: boolean; emailError?: string }
+                if (!retry.error) {
                   setShowSuccess(true);
+                  setSuccessMessage(retry.message || 'Einladung erfolgreich gesendet.');
+                  setEmailWarning(retry.emailSent === false ? (retry.emailError || 'E-Mail konnte nicht zugestellt werden.') : null);
                   setFormData({
                     firstName: '',
                     lastName: '',
@@ -236,8 +256,6 @@ export default function UserManagement() {
                     phone: '',
                     role: 'user'
                   });
-                  console.log('Einladung erfolgreich erneut gesendet');
-                  // Einladungen neu laden
                   fetchInvitedUsers();
                 } else {
                   const retryErrorData = retryResponse as any
@@ -301,30 +319,74 @@ export default function UserManagement() {
 
   const handleResendInvite = async (inviteId: string, email: string, firstName: string, lastName: string, phone: string, role: string) => {
     try {
-      // Zuerst alle Einladungen für diese E-Mail löschen
-      const deleteResponse = await InvitesApi.deleteAllForEmail(email)
-      if (!(deleteResponse as any).error) {
-        const inviteResponse = await InvitesApi.createUser({ firstName, lastName, email, phone, role: role as any })
-        if (!(inviteResponse as any).error) {
-          console.log(`Einladung für ${email} erneut gesendet`);
-          // Erfolgsbenachrichtigung anzeigen
-          setInviteSuccessMessage(`Einladung für ${email} erfolgreich erneut gesendet`);
-          setShowInviteSuccess(true);
-          setTimeout(() => setShowInviteSuccess(false), 5000);
-          // Einladungen neu laden
-          fetchInvitedUsers();
-        } else {
-          const errorData = inviteResponse as any
-          console.error('Fehler beim erneuten Senden der Einladung:', errorData.error);
-          setError(errorData.message || errorData.error || 'Fehler beim erneuten Senden der Einladung');
-        }
+      const inviteResponse = await InvitesApi.createUser({
+        firstName,
+        lastName,
+        email,
+        phone,
+        role: role as 'user' | 'admin' | 'lager',
+        resend: true,
+      });
+      if (!(inviteResponse as { error?: string }).error) {
+        setInviteSuccessMessage(`Einladung für ${email} erfolgreich erneut gesendet`);
+        setShowInviteSuccess(true);
+        setTimeout(() => setShowInviteSuccess(false), 5000);
+        fetchInvitedUsers();
       } else {
-        console.error('Fehler beim Löschen der alten Einladung');
-        setError('Fehler beim Löschen der alten Einladung');
+        const errorData = inviteResponse as { message?: string; error?: string };
+        setError(errorData.message || errorData.error || 'Fehler beim erneuten Senden der Einladung');
       }
     } catch (err) {
-      console.error('Fehler beim erneuten Einladen:', err);
       setError('Ein Fehler ist aufgetreten');
+    }
+  };
+
+  const handleOpenActivate = (invite: InvitedUser) => {
+    setActivateInviteEmail(invite.email);
+    setActivateInviteName(invite.name);
+    setActivatePassword('');
+    setActivateError('');
+    setShowActivateDialog(true);
+  };
+
+  const handleCloseActivate = () => {
+    setShowActivateDialog(false);
+    setActivateInviteEmail('');
+    setActivateInviteName('');
+    setActivatePassword('');
+    setActivateError('');
+  };
+
+  const handleConfirmActivate = async () => {
+    if (!activateInviteEmail || !activatePassword.trim()) {
+      setActivateError('Bitte Passwort eingeben (mind. 6 Zeichen).');
+      return;
+    }
+    if (activatePassword.length < 6) {
+      setActivateError('Passwort muss mindestens 6 Zeichen haben.');
+      return;
+    }
+    setActivateLoading(true);
+    setActivateError('');
+    try {
+      const result = await InvitesApi.activateUser({
+        email: activateInviteEmail,
+        password: activatePassword.trim(),
+      });
+      if ((result as { error?: string }).error) {
+        setActivateError((result as { error?: string }).error || 'Aktivierung fehlgeschlagen');
+        return;
+      }
+      setInviteSuccessMessage(`Benutzer ${activateInviteName} (${activateInviteEmail}) wurde aktiviert.`);
+      setShowInviteSuccess(true);
+      setTimeout(() => setShowInviteSuccess(false), 5000);
+      handleCloseActivate();
+      fetchInvitedUsers();
+      fetchUsers();
+    } catch (err) {
+      setActivateError('Ein Fehler ist aufgetreten.');
+    } finally {
+      setActivateLoading(false);
     }
   };
 
@@ -336,6 +398,8 @@ export default function UserManagement() {
         return 'Administrator';
       case 'user':
         return 'Benutzer';
+      case 'lager':
+        return 'LAGER';
       default:
         return role;
     }
@@ -349,6 +413,8 @@ export default function UserManagement() {
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case 'user':
         return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'lager':
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
       default:
         return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
     }
@@ -374,12 +440,24 @@ export default function UserManagement() {
       </div>
 
       {showSuccess && (
-        <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800 rounded-xl">
-          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-          <AlertDescription className="text-green-800 dark:text-green-200">
-            Einladung erfolgreich gesendet! Der Benutzer erhält eine E-Mail mit einem Verifizierungslink.
-          </AlertDescription>
-        </Alert>
+        <>
+          <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800 rounded-xl">
+            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <AlertDescription className="text-green-800 dark:text-green-200">
+              {successMessage}
+              {!emailWarning && ' Der Benutzer erhält eine E-Mail mit einem Verifizierungslink.'}
+            </AlertDescription>
+          </Alert>
+          {emailWarning && (
+            <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 rounded-xl mt-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertDescription className="text-amber-800 dark:text-amber-200">
+                <strong>E-Mail-Versand fehlgeschlagen:</strong> {emailWarning}
+                <span className="block mt-1 text-sm">Die Einladung ist in der Liste. Sie können den Link manuell weitergeben oder die SMTP-Einstellungen prüfen.</span>
+              </AlertDescription>
+            </Alert>
+          )}
+        </>
       )}
 
       {showInviteSuccess && (
@@ -390,6 +468,41 @@ export default function UserManagement() {
           </AlertDescription>
         </Alert>
       )}
+
+      <Dialog open={showActivateDialog} onOpenChange={(open) => !open && handleCloseActivate()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Benutzer aktivieren</DialogTitle>
+            <DialogDescription>
+              Passwort für <strong>{activateInviteName}</strong> ({activateInviteEmail}) setzen. Der Account wird sofort angelegt und die Einladung als verwendet markiert.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="activate-password">Passwort (min. 6 Zeichen)</Label>
+              <Input
+                id="activate-password"
+                type="password"
+                value={activatePassword}
+                onChange={(e) => setActivatePassword(e.target.value)}
+                placeholder="Passwort eingeben"
+                autoComplete="new-password"
+              />
+            </div>
+            {activateError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{activateError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseActivate} disabled={activateLoading}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleConfirmActivate} disabled={activateLoading}>
+              {activateLoading ? 'Wird aktiviert…' : 'Aktivieren'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {error && (
         <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 rounded-xl">
@@ -515,7 +628,7 @@ export default function UserManagement() {
                 <Label htmlFor="role" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Rolle *
                 </Label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Button
                     type="button"
                     variant={formData.role === 'admin' ? "default" : "outline"}
@@ -541,6 +654,19 @@ export default function UserManagement() {
                   >
                     <Users className="h-4 w-4 mr-2" />
                     Benutzer
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={formData.role === 'lager' ? "default" : "outline"}
+                    className={`h-12 transition-all duration-200 ${
+                      formData.role === 'lager'
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-lg hover:shadow-xl'
+                        : 'border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'
+                    }`}
+                    onClick={() => handleInputChange('role', 'lager')}
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    LAGER
                   </Button>
                 </div>
               </div>
@@ -616,6 +742,12 @@ export default function UserManagement() {
                   <span className="text-sm text-slate-600 dark:text-slate-400">Benutzer</span>
                   <Badge className={`rounded-xl px-3 py-1 ${getRoleBadgeColor('user')}`}>
                     {getRoleDisplayName('user')}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">Lager</span>
+                  <Badge className={`rounded-xl px-3 py-1 ${getRoleBadgeColor('lager')}`}>
+                    {getRoleDisplayName('lager')}
                   </Badge>
                 </div>
               </div>
@@ -838,23 +970,35 @@ export default function UserManagement() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {!invite.used && new Date(invite.expiresAt) > new Date() && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleResendInvite(
-                                invite.id,
-                                invite.email,
-                                invite.firstName || '',
-                                invite.lastName || '',
-                                invite.phone || '',
-                                invite.role
-                              )}
-                              className="h-8 px-3 text-blue-600 hover:text-blue-700"
-                              title="Erneut einladen"
-                            >
-                              <Send className="h-4 w-4 mr-1" />
-                              Erneut
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenActivate(invite)}
+                                className="h-8 px-3 text-green-600 hover:text-green-700"
+                                title="Mit Passwort aktivieren"
+                              >
+                                <UserPlus className="h-4 w-4 mr-1" />
+                                Aktivieren
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleResendInvite(
+                                  invite.id,
+                                  invite.email,
+                                  invite.firstName || '',
+                                  invite.lastName || '',
+                                  invite.phone || '',
+                                  invite.role
+                                )}
+                                className="h-8 px-3 text-blue-600 hover:text-blue-700"
+                                title="Erneut einladen"
+                              >
+                                <Send className="h-4 w-4 mr-1" />
+                                Erneut
+                              </Button>
+                            </>
                           )}
                           {(invite.used || new Date(invite.expiresAt) < new Date()) && (
                             <Button

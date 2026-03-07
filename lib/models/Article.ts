@@ -70,6 +70,17 @@ const articleSchema = new mongoose.Schema({
     type: String,
     enum: ['aktiv', 'archiviert', 'gesperrt'],
     default: 'aktiv'
+  },
+  images: {
+    type: [{
+      attachmentId: { type: String, required: true },
+      filename: { type: String, required: true },
+      objectKey: { type: String, required: true },
+      bucket: { type: String, required: true },
+      contentType: { type: String, default: 'image/jpeg' },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    default: []
   }
 }, {
   timestamps: true
