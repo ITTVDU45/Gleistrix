@@ -107,6 +107,40 @@ export const LagerApi = {
     create: (data: { name: string }) =>
       postJSON<{ success: boolean; recipients: string[]; created?: string }>('/api/lager/recipients', data, 'lager:recipient:create')
   },
+  partners: {
+    list: () =>
+      getJSON<{
+        success: boolean
+        employees: Array<{ value: string; label: string; partnerType: 'employee'; employeeId: string }>
+        suppliers: Array<{ value: string; label: string; partnerType: 'external'; partnerId: string }>
+        partners: Array<{
+          id: string
+          type: 'employee' | 'external'
+          label: string
+          employeeId?: string
+          employeeName?: string
+          companyName?: string
+          contactName?: string
+          phone?: string
+          email?: string
+          active: boolean
+        }>
+      }>('/api/lager/partners'),
+    create: (data:
+      | { type: 'employee'; employeeId: string; contactName?: string; phone?: string; email?: string }
+      | { type: 'external'; companyName: string; contactName: string; phone?: string; email?: string }) =>
+      postJSON('/api/lager/partners', data as Record<string, unknown>, 'lager:partner:create'),
+    update: (id: string, data: {
+      type?: 'employee' | 'external'
+      employeeId?: string
+      companyName?: string
+      contactName?: string
+      phone?: string
+      email?: string
+      active?: boolean
+    }) =>
+      putJSON(`/api/lager/partners/${id}`, data as Record<string, unknown>, 'lager:partner:update')
+  },
   assignments: {
     list: (params?: { personId?: string; artikelId?: string; status?: string }) => {
       const search = new URLSearchParams()
@@ -164,6 +198,12 @@ export const LagerApi = {
   deliveryNotes: {
     list: () =>
       getJSON<{ success: boolean; deliveryNotes: unknown[] }>('/api/lager/delivery-notes'),
+    listOpenOutgoing: (recipientName?: string) => {
+      const search = new URLSearchParams()
+      if (recipientName) search.set('recipient', recipientName)
+      const q = search.toString()
+      return getJSON<{ success: boolean; deliveryNotes: unknown[] }>(`/api/lager/delivery-notes/open-outgoing${q ? `?${q}` : ''}`)
+    },
     get: (id: string) =>
       getJSON<{ success: boolean; data: unknown }>(`/api/lager/delivery-notes/${id}`),
     create: (data: {
@@ -273,3 +313,4 @@ export const LagerApi = {
       postJSON(`/api/lager/inventory/${id}/complete`, {}, 'lager:inventory:complete')
   }
 }
+

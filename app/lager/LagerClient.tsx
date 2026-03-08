@@ -15,8 +15,9 @@ import LagerInventurView from '@/components/lager/LagerInventurView'
 import LagerWartungView from '@/components/lager/LagerWartungView'
 import LagerLieferscheineView from '@/components/lager/LagerLieferscheineView'
 import LagerKategorienView from '@/components/lager/LagerKategorienView'
+import LagerPartnerView from '@/components/lager/LagerPartnerView'
 import { Card, CardContent } from '@/components/ui/card'
-import { Package, LayoutGrid, ArrowLeftRight, UserCheck, ClipboardCheck, Wrench, FileText, AlertTriangle, CalendarClock, ArrowLeft, FolderTree } from 'lucide-react'
+import { Package, LayoutGrid, ArrowLeftRight, UserCheck, ClipboardCheck, Wrench, FileText, AlertTriangle, CalendarClock, ArrowLeft, FolderTree, Building2 } from 'lucide-react'
 
 interface LagerClientProps {
   initialArticles?: Article[]
@@ -186,6 +187,12 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
               Kategorien
             </TabsTrigger>
           )}
+          {!isLagerOnly && (
+            <TabsTrigger value="lieferanten" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
+              <Building2 className="h-4 w-4" />
+              Lieferanten
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {!isLagerOnly && (
@@ -226,7 +233,15 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
             <LagerKategorienView categories={categories} onRefresh={loadData} />
           </TabsContent>
         )}
+        {!isLagerOnly && (
+          <TabsContent value="lieferanten" className="mt-4">
+            <LagerPartnerView onRefresh={loadData} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )
 }
+
+
+

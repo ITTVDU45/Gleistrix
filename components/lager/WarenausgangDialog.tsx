@@ -15,57 +15,14 @@ import {
 import { Plus } from 'lucide-react'
 import type { Article } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
-import AddRecipientDialog from '@/components/lager/AddRecipientDialog'
-import RecipientSelect, { type RecipientOption } from '@/components/lager/RecipientSelect'
-
-type RecipientEmployee = {
-  id: string
-  name: string
-}
+import AddPartnerDialog from '@/components/lager/AddPartnerDialog'
+import PartnerSelect, { type PartnerOption } from '@/components/lager/PartnerSelect'
 
 interface WarenausgangDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   articles: Article[]
   onSuccess: () => void
-}
-
-
-function normalizeRecipientName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ')
-}
-
-function buildRecipientOptions(employees: RecipientEmployee[], customRecipients: string[]): RecipientOption[] {
-  const options: RecipientOption[] = []
-  const seenCustomNames = new Set<string>()
-
-  const sortedEmployees = [...employees].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'de', { sensitivity: 'base' }))
-  sortedEmployees.forEach((employee) => {
-    const name = normalizeRecipientName(employee.name ?? '')
-    if (!name) return
-
-    options.push({
-      value: `employee:${employee.id}`,
-      name,
-      employeeId: employee.id
-    })
-  })
-
-  customRecipients
-    .map((entry) => normalizeRecipientName(entry))
-    .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
-    .forEach((name) => {
-      const key = name.toLocaleLowerCase('de-DE')
-      if (seenCustomNames.has(key)) return
-      seenCustomNames.add(key)
-      options.push({
-        value: `custom:${name}`,
-        name
-      })
-    })
-
-  return options
 }
 
 export default function WarenausgangDialog({
@@ -77,52 +34,49 @@ export default function WarenausgangDialog({
   const [artikelId, setArtikelId] = useState('')
   const [menge, setMenge] = useState(1)
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10))
-  const [empfaenger, setEmpfaenger] = useState('')
-  const [recipientEmployees, setRecipientEmployees] = useState<RecipientEmployee[]>([])
-  const [customRecipients, setCustomRecipients] = useState<string[]>([])
-  const [isAddRecipientDialogOpen, setIsAddRecipientDialogOpen] = useState(false)
+  const [kontakt, setKontakt] = useState('')
+  const [partnerEmployees, setPartnerEmployees] = useState<PartnerOption[]>([])
+  const [partnerSuppliers, setPartnerSuppliers] = useState<PartnerOption[]>([])
+  const [isAddPartnerDialogOpen, setIsAddPartnerDialogOpen] = useState(false)
   const [bemerkung, setBemerkung] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   const selectedArticle = articles.find((a) => ((a as { _id?: unknown })._id?.toString?.() ?? a.id) === artikelId)
   const maxMenge = selectedArticle ? (selectedArticle.bestand ?? 0) : 0
-  const recipientOptions = useMemo(
-    () => buildRecipientOptions(recipientEmployees, customRecipients),
-    [recipientEmployees, customRecipients]
+  const allPartnerOptions = useMemo(
+    () => [...partnerEmployees, ...partnerSuppliers],
+    [partnerEmployees, partnerSuppliers]
   )
-  const selectedRecipient = useMemo(
-    () => recipientOptions.find((option) => option.value === empfaenger) ?? null,
-    [recipientOptions, empfaenger]
+  const selectedPartner = useMemo(
+    () => allPartnerOptions.find((option) => option.value === kontakt) ?? null,
+    [allPartnerOptions, kontakt]
   )
+
+  async function loadPartnerData() {
+    const response = await LagerApi.partners.list()
+    setPartnerEmployees(response.employees ?? [])
+    setPartnerSuppliers(response.suppliers ?? [])
+  }
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
 
-    async function loadRecipientData() {
+    async function loadData() {
       try {
-        const response = await LagerApi.recipients.list()
-
+        const response = await LagerApi.partners.list()
         if (cancelled) return
-        setRecipientEmployees(
-          (response.employees ?? [])
-            .map((employee) => ({
-              ...employee,
-              id: String(employee.id ?? ''),
-              name: String(employee.name ?? '').trim()
-            }))
-            .filter((employee) => Boolean(employee.id && employee.name))
-        )
-        setCustomRecipients(response.recipients ?? [])
+        setPartnerEmployees(response.employees ?? [])
+        setPartnerSuppliers(response.suppliers ?? [])
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Empfaenger konnten nicht geladen werden')
+          setError(err instanceof Error ? err.message : 'Kontakte konnten nicht geladen werden')
         }
       }
     }
 
-    loadRecipientData()
+    loadData()
 
     return () => {
       cancelled = true
@@ -130,23 +84,10 @@ export default function WarenausgangDialog({
   }, [open])
 
   useEffect(() => {
-    if (empfaenger && !recipientOptions.some((option) => option.value === empfaenger)) {
-      setEmpfaenger('')
+    if (kontakt && !allPartnerOptions.some((option) => option.value === kontakt)) {
+      setKontakt('')
     }
-  }, [empfaenger, recipientOptions])
-
-  const handleRecipientCreated = (nextRecipients: string[], createdName: string) => {
-    setCustomRecipients(nextRecipients)
-
-    const customValue = `custom:${createdName}`
-    const addedRecipient = buildRecipientOptions(recipientEmployees, nextRecipients).find(
-      (option) => option.value === customValue
-    )
-
-    if (addedRecipient) {
-      setEmpfaenger(addedRecipient.value)
-    }
-  }
+  }, [kontakt, allPartnerOptions])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,10 +100,10 @@ export default function WarenausgangDialog({
       return
     }
 
-    const recipientName = selectedRecipient?.name ?? ''
-    const recipientEmployeeId = selectedRecipient?.employeeId
-    const movementRemark = recipientName
-      ? `Empfaenger: ${recipientName}${bemerkung ? ` - ${bemerkung}` : ''}`
+    const partnerLabel = selectedPartner?.label ?? ''
+    const partnerEmployeeId = selectedPartner?.partnerType === 'employee' ? selectedPartner.employeeId : undefined
+    const movementRemark = partnerLabel
+      ? `Empfaenger: ${partnerLabel}${bemerkung ? ` - ${bemerkung}` : ''}`
       : bemerkung
 
     setIsSubmitting(true)
@@ -173,13 +114,13 @@ export default function WarenausgangDialog({
         bewegungstyp: 'ausgang',
         menge,
         datum: new Date(datum).toISOString(),
-        empfaenger: recipientEmployeeId,
+        empfaenger: partnerEmployeeId,
         bemerkung: movementRemark
       })
       if ((res as { success?: boolean })?.success !== false) {
         setArtikelId('')
         setMenge(1)
-        setEmpfaenger('')
+        setKontakt('')
         setBemerkung('')
         onOpenChange(false)
         onSuccess()
@@ -248,14 +189,15 @@ export default function WarenausgangDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="wa-empfaenger">Empfaenger (optional)</Label>
+            <Label htmlFor="wa-kontakt">Kontakt (optional)</Label>
             <div className="flex items-center gap-2">
               <div className="flex-1">
-                <RecipientSelect
-                  id="wa-empfaenger"
-                  value={empfaenger}
-                  onValueChange={setEmpfaenger}
-                  options={recipientOptions}
+                <PartnerSelect
+                  id="wa-kontakt"
+                  value={kontakt}
+                  onValueChange={setKontakt}
+                  employees={partnerEmployees}
+                  suppliers={partnerSuppliers}
                   triggerClassName="rounded-xl h-10"
                 />
               </div>
@@ -264,9 +206,9 @@ export default function WarenausgangDialog({
                 variant="outline"
                 size="icon"
                 className="h-10 w-10 rounded-xl"
-                onClick={() => setIsAddRecipientDialogOpen(true)}
+                onClick={() => setIsAddPartnerDialogOpen(true)}
                 disabled={isSubmitting}
-                aria-label="Empfaenger hinzufuegen"
+                aria-label="Kontakt hinzufuegen"
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -292,12 +234,14 @@ export default function WarenausgangDialog({
           </div>
         </form>
 
-        <AddRecipientDialog
-          open={isAddRecipientDialogOpen}
-          onOpenChange={setIsAddRecipientDialogOpen}
-          onCreated={handleRecipientCreated}
+        <AddPartnerDialog
+          open={isAddPartnerDialogOpen}
+          onOpenChange={setIsAddPartnerDialogOpen}          onSaved={loadPartnerData}
         />
       </DialogContent>
     </Dialog>
   )
 }
+
+
+

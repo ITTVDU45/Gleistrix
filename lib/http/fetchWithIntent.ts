@@ -13,6 +13,7 @@ export type IntentKey =
   | 'lager:category:create' | 'lager:category:update' | 'lager:category:delete'
   | 'lager:movement:create' | 'lager:assignments:create' | 'lager:assignments:bulk' | 'lager:assignments:return'
   | 'lager:recipient:create'
+  | 'lager:partner:create' | 'lager:partner:update'
   | 'lager:maintenance:create' | 'lager:maintenance:update' | 'lager:maintenance:delete'
   | 'lager:delivery-note:create' | 'lager:delivery-note:attachment:presign' | 'lager:delivery-note:attachment:commit' | 'lager:delivery-note:attachment:delete'
   | 'lager:inventory:create' | 'lager:inventory:update' | 'lager:inventory:scan' | 'lager:inventory:scan-session' | 'lager:inventory:delete' | 'lager:inventory:complete';
@@ -30,6 +31,7 @@ export async function fetchWithIntent(input: RequestInfo | URL, init: FetchOptio
   }
   return fetch(input, { ...rest, headers: mergedHeaders, credentials: 'include' });
 }
+
 
 
 

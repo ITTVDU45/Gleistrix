@@ -45,11 +45,13 @@ import AddCategoryDialog from '@/components/AddCategoryDialog'
 import EditCategoryDialog from '@/components/EditCategoryDialog'
 import AddMaintenanceDialog from '@/components/lager/AddMaintenanceDialog'
 import PerformMaintenanceDialog from '@/components/lager/PerformMaintenanceDialog'
-import AddRecipientDialog from '@/components/lager/AddRecipientDialog'
-import RecipientSelect, { type RecipientOption } from '@/components/lager/RecipientSelect'
+import AddPartnerDialog from '@/components/lager/AddPartnerDialog'
+import PartnerSelect, { type PartnerOption } from '@/components/lager/PartnerSelect'
+import LagerPartnerView from '@/components/lager/LagerPartnerView'
 import QrScannerSheet from './QrScannerSheet'
 import { ArticleThumbnail } from '@/components/lager/ArticleThumbnail'
 import ArticleDetailsDialog from '@/components/lager/ArticleDetailsDialog'
+import ArticleSelect from '@/components/lager/ArticleSelect'
 
 function getArticleId(article: Article): string {
   const raw = (article as { _id?: unknown })._id ?? article.id
@@ -62,54 +64,14 @@ function getCategoryId(category: Category): string {
 }
 
 
-type RecipientEmployee = {
-  id: string
-  name: string
-}
-
-function normalizeRecipientName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ')
-}
-
-function buildRecipientOptions(employees: RecipientEmployee[], customRecipients: string[]): RecipientOption[] {
-  const options: RecipientOption[] = []
-  const seenCustomNames = new Set<string>()
-
-  const sortedEmployees = [...employees].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'de', { sensitivity: 'base' }))
-  sortedEmployees.forEach((employee) => {
-    const name = normalizeRecipientName(employee.name ?? '')
-    if (!name) return
-
-    options.push({
-      value: `employee:${employee.id}`,
-      name,
-      employeeId: employee.id
-    })
-  })
-
-  customRecipients
-    .map((entry) => normalizeRecipientName(entry))
-    .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
-    .forEach((name) => {
-      const key = name.toLocaleLowerCase('de-DE')
-      if (seenCustomNames.has(key)) return
-      seenCustomNames.add(key)
-      options.push({
-        value: `custom:${name}`,
-        name
-      })
-    })
-
-  return options
-}
-
 function normalizeProjectStatus(status?: string): string {
   return String(status ?? '').trim().toLocaleLowerCase('de-DE')
 }
 
-function buildProjectOptions(projects: Project[]): RecipientOption[] {
-  const byId = new Map<string, RecipientOption>()
+type ProjectOption = { value: string; label: string }
+
+function buildProjectOptions(projects: Project[]): ProjectOption[] {
+  const byId = new Map<string, ProjectOption>()
 
   projects.forEach((project) => {
     const id = String((project as { _id?: unknown })._id ?? project.id ?? '').trim()
@@ -122,11 +84,11 @@ function buildProjectOptions(projects: Project[]): RecipientOption[] {
     const auftragsnummer = String(project.auftragsnummer ?? '').trim()
     byId.set(id, {
       value: id,
-      name: auftragsnummer ? `${name} (${auftragsnummer})` : name
+      label: auftragsnummer ? `${name} (${auftragsnummer})` : name
     })
   })
 
-  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+  return Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }))
 }
 
 type MobileView =
@@ -139,6 +101,7 @@ type MobileView =
   | 'wartung'
   | 'inventur'
   | 'produkte'
+  | 'lieferanten'
 
 type MaintenanceRow = {
   _id?: string
@@ -195,7 +158,27 @@ type InventoryFormState = {
 
 type InventoryEditForm = InventoryFormState
 
+type OpenOutgoingDeliveryNote = {
+  _id: string
+  nummer: string
+  datum?: string
+  empfaenger?: { name?: string }
+}
+
+type IncomingItem = {
+  id: string
+  artikelId: string
+  menge: number
+}
 type InventoryCreateForm = InventoryFormState
+
+function createIncomingItem(): IncomingItem {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    artikelId: '',
+    menge: 1
+  }
+}
 
 export default function LagerMobileApp() {
   const router = useRouter()
@@ -209,7 +192,8 @@ export default function LagerMobileApp() {
     bewegungen: 'Bewegungen (Historie)',
     wartung: 'Wartung',
     inventur: 'Inventur',
-    produkte: 'Kategorien und Artikel'
+    produkte: 'Kategorien und Artikel',
+    lieferanten: 'Lieferanten/Kontakte'
   } as Record<MobileView, string>)[view]
   const [articles, setArticles] = useState<Article[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -259,16 +243,21 @@ export default function LagerMobileApp() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
 
   const [menge, setMenge] = useState(1)
+  const [incomingItems, setIncomingItems] = useState<IncomingItem[]>([createIncomingItem()])
   const [empfaenger, setEmpfaenger] = useState('')
-  const [recipientEmployees, setRecipientEmployees] = useState<RecipientEmployee[]>([])
-  const [customRecipients, setCustomRecipients] = useState<string[]>([])
-  const [projectOptions, setProjectOptions] = useState<RecipientOption[]>([])
-  const [isProjectsLoading, setIsProjectsLoading] = useState(false)
-  const [isAddRecipientDialogOpen, setIsAddRecipientDialogOpen] = useState(false)
   const [lieferant, setLieferant] = useState('')
+  const [partnerEmployees, setPartnerEmployees] = useState<PartnerOption[]>([])
+  const [partnerSuppliers, setPartnerSuppliers] = useState<PartnerOption[]>([])
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([])
+  const [isProjectsLoading, setIsProjectsLoading] = useState(false)
+  const [isAddPartnerDialogOpen, setIsAddPartnerDialogOpen] = useState(false)
   const [projekt, setProjekt] = useState('')
   const [notiz, setNotiz] = useState('')
   const [lieferscheinNummer, setLieferscheinNummer] = useState('')
+  const [selectedIncomingDeliveryNoteId, setSelectedIncomingDeliveryNoteId] = useState('')
+  const [incomingManualLieferscheinNummer, setIncomingManualLieferscheinNummer] = useState('')
+  const [openOutgoingDeliveryNotes, setOpenOutgoingDeliveryNotes] = useState<OpenOutgoingDeliveryNote[]>([])
+  const [isLoadingIncomingDeliveryNotes, setIsLoadingIncomingDeliveryNotes] = useState(false)
   const [lieferscheinDate, setLieferscheinDate] = useState(new Date().toISOString().slice(0, 10))
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null)
 
@@ -281,17 +270,25 @@ export default function LagerMobileApp() {
     [articles]
   )
 
-  const recipientOptions = useMemo(
-    () => buildRecipientOptions(recipientEmployees, customRecipients),
-    [recipientEmployees, customRecipients]
+  const allPartnerOptions = useMemo(
+    () => [...partnerEmployees, ...partnerSuppliers],
+    [partnerEmployees, partnerSuppliers]
   )
-  const selectedRecipient = useMemo(
-    () => recipientOptions.find((option) => option.value === empfaenger) ?? null,
-    [recipientOptions, empfaenger]
+  const selectedOutgoingPartner = useMemo(
+    () => allPartnerOptions.find((option) => option.value === empfaenger) ?? null,
+    [allPartnerOptions, empfaenger]
+  )
+  const selectedSupplierPartner = useMemo(
+    () => allPartnerOptions.find((option) => option.value === lieferant) ?? null,
+    [allPartnerOptions, lieferant]
   )
   const selectedProject = useMemo(
     () => projectOptions.find((option) => option.value === projekt) ?? null,
     [projectOptions, projekt]
+  )
+  const selectedIncomingDeliveryNote = useMemo(
+    () => openOutgoingDeliveryNotes.find((note) => String(note._id) === selectedIncomingDeliveryNoteId) ?? null,
+    [openOutgoingDeliveryNotes, selectedIncomingDeliveryNoteId]
   )
 
   async function loadArticles() {
@@ -303,6 +300,7 @@ export default function LagerMobileApp() {
         id: getArticleId(article)
       }))
     )
+
   }
 
   async function loadCategories() {
@@ -316,19 +314,10 @@ export default function LagerMobileApp() {
     )
   }
 
-  async function loadRecipientData() {
-    const response = await LagerApi.recipients.list()
-
-    setRecipientEmployees(
-      (response.employees ?? [])
-        .map((employee) => ({
-          ...employee,
-          id: String(employee.id ?? ''),
-          name: String(employee.name ?? '').trim()
-        }))
-        .filter((employee) => Boolean(employee.id && employee.name))
-    )
-    setCustomRecipients(response.recipients ?? [])
+  async function loadPartnerData() {
+    const response = await LagerApi.partners.list()
+    setPartnerEmployees(response.employees ?? [])
+    setPartnerSuppliers(response.suppliers ?? [])
   }
 
   async function loadActiveProjects() {
@@ -801,12 +790,16 @@ export default function LagerMobileApp() {
     let cancelled = false
 
     async function loadOutgoingReferenceData() {
-      if (view !== 'ausgang') return
+      if (!['ausgang', 'eingang', 'lieferschein', 'lieferanten'].includes(view)) return
       try {
-        await Promise.all([loadRecipientData(), loadActiveProjects()])
+        if (view === 'ausgang') {
+          await Promise.all([loadPartnerData(), loadActiveProjects()])
+        } else {
+          await loadPartnerData()
+        }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Empfaenger und Projekte konnten nicht geladen werden'
+          const message = err instanceof Error ? err.message : 'Kontakte und Projekte konnten nicht geladen werden'
           setErrorMessage(message)
         }
       }
@@ -819,24 +812,68 @@ export default function LagerMobileApp() {
   }, [view])
 
   useEffect(() => {
-    if (empfaenger && !recipientOptions.some((option) => option.value === empfaenger)) {
+    if (empfaenger && !allPartnerOptions.some((option) => option.value === empfaenger)) {
       setEmpfaenger('')
     }
-  }, [empfaenger, recipientOptions])
+  }, [empfaenger, allPartnerOptions])
 
   useEffect(() => {
     if (projekt && !projectOptions.some((option) => option.value === projekt)) {
       setProjekt('')
     }
   }, [projekt, projectOptions])
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadIncomingDeliveryNotes() {
+      if (view !== 'eingang' || !selectedSupplierPartner?.label) {
+        setOpenOutgoingDeliveryNotes([])
+        setSelectedIncomingDeliveryNoteId('')
+        setIncomingManualLieferscheinNummer('')
+        return
+      }
+
+      setIsLoadingIncomingDeliveryNotes(true)
+      try {
+        const response = await LagerApi.deliveryNotes.listOpenOutgoing(selectedSupplierPartner.label)
+        if (cancelled) return
+        const notes = ((response as { deliveryNotes?: OpenOutgoingDeliveryNote[] }).deliveryNotes ?? [])
+        setOpenOutgoingDeliveryNotes(notes)
+        if (!notes.some((note) => String(note._id) === selectedIncomingDeliveryNoteId)) {
+          setSelectedIncomingDeliveryNoteId('')
+        }
+        if (notes.length > 0) {
+          setIncomingManualLieferscheinNummer('')
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setOpenOutgoingDeliveryNotes([])
+          setSelectedIncomingDeliveryNoteId('')
+          setIncomingManualLieferscheinNummer('')
+          setErrorMessage(err instanceof Error ? err.message : 'Offene Lieferscheine konnten nicht geladen werden')
+        }
+      } finally {
+        if (!cancelled) setIsLoadingIncomingDeliveryNotes(false)
+      }
+    }
+
+    loadIncomingDeliveryNotes()
+    return () => {
+      cancelled = true
+    }
+  }, [view, selectedSupplierPartner?.label])
 
   function clearActionForm() {
     setMenge(1)
+    setIncomingItems([createIncomingItem()])
     setEmpfaenger('')
     setLieferant('')
     setProjekt('')
     setNotiz('')
     setLieferscheinNummer('')
+    setSelectedIncomingDeliveryNoteId('')
+    setIncomingManualLieferscheinNummer('')
+    setOpenOutgoingDeliveryNotes([])
     setDeliveryFile(null)
   }
 
@@ -853,62 +890,107 @@ export default function LagerMobileApp() {
   function resolveArticleByScan(code: string) {
     const normalized = code.trim().toLowerCase()
     const found = articles.find((article) => {
-      const artikelnummer = article.artikelnummer?.toLowerCase() ?? ''
-      const barcode = article.barcode?.toLowerCase() ?? ''
-      return artikelnummer === normalized || barcode === normalized
+      const artikelnummer = article.artikelnummer?.trim().toLowerCase() ?? ''
+      const barcode = article.barcode?.trim().toLowerCase() ?? ''
+      return (barcode.length > 0 && (barcode === normalized || normalized.endsWith(barcode)))
+        || (artikelnummer.length > 0 && (artikelnummer === normalized || normalized.endsWith(artikelnummer)))
     })
     if (!found) {
       setErrorMessage(`Kein Artikel zu QR-Code "${code}" gefunden`)
       return
     }
-    setSelectedArticleId(getArticleId(found))
+
+    const foundArticleId = getArticleId(found)
+    if (view === 'eingang') {
+      setIncomingItems((prev) => {
+        const existingIndex = prev.findIndex((item) => item.artikelId === foundArticleId)
+        if (existingIndex >= 0) {
+          return prev.map((item, index) => (index === existingIndex ? { ...item, menge: item.menge + 1 } : item))
+        }
+
+        const firstEmptyIndex = prev.findIndex((item) => !item.artikelId)
+        if (firstEmptyIndex >= 0) {
+          return prev.map((item, index) => (index === firstEmptyIndex ? { ...item, artikelId: foundArticleId, menge: 1 } : item))
+        }
+
+        return [...prev, { id: createIncomingItem().id, artikelId: foundArticleId, menge: 1 }]
+      })
+      setStatusMessage(`Artikel hinzugefuegt: ${found.bezeichnung}`)
+      return
+    }
+
+    setSelectedArticleId(foundArticleId)
     setStatusMessage(`Artikel erkannt: ${found.bezeichnung}`)
   }
 
-  function handleRecipientCreated(nextRecipients: string[], createdName: string) {
-    setCustomRecipients(nextRecipients)
-
-    const customValue = `custom:${createdName}`
-    const addedRecipient = buildRecipientOptions(recipientEmployees, nextRecipients).find(
-      (option) => option.value === customValue
-    )
-
-    if (addedRecipient) {
-      setEmpfaenger(addedRecipient.value)
-    }
-
-    setStatusMessage(`Empfaenger "${createdName}" hinzugefuegt`)
+  async function handlePartnerSaved() {
+    await loadPartnerData()
+    setStatusMessage('Partner gespeichert')
   }
 
   async function createMovement(bewegungstyp: 'eingang' | 'ausgang') {
-    if (!selectedArticleId) return setErrorMessage('Bitte zuerst einen Artikel auswaehlen oder scannen')
-    if (menge <= 0) return setErrorMessage('Menge muss groesser als 0 sein')
-    if (bewegungstyp === 'ausgang' && selectedArticle && menge > (selectedArticle.bestand ?? 0)) {
-      return setErrorMessage('Menge groesser als verfuegbarer Bestand')
+    if (bewegungstyp === 'ausgang') {
+      if (!selectedArticleId) return setErrorMessage('Bitte zuerst einen Artikel auswaehlen oder scannen')
+      if (menge <= 0) return setErrorMessage('Menge muss groesser als 0 sein')
+      if (selectedArticle && menge > (selectedArticle.bestand ?? 0)) {
+        return setErrorMessage('Menge groesser als verfuegbarer Bestand')
+      }
     }
 
-    const recipientName = selectedRecipient?.name ?? ''
-    const recipientEmployeeId = selectedRecipient?.employeeId
+    if (bewegungstyp === 'eingang') {
+      if (!selectedSupplierPartner) {
+        return setErrorMessage('Bitte Lieferant waehlen')
+      }
+      if (!incomingItems.length || incomingItems.some((item) => !item.artikelId || item.menge <= 0)) {
+        return setErrorMessage('Bitte fuer jede Position Artikel und Menge > 0 angeben')
+      }
+    }
+
+    const outgoingLabel = selectedOutgoingPartner?.label ?? ''
+    const outgoingEmployeeId = selectedOutgoingPartner?.partnerType === 'employee' ? selectedOutgoingPartner.employeeId : undefined
+    const supplierLabel = selectedSupplierPartner?.label ?? ''
+    const selectedOrManualIncomingDelivery = selectedIncomingDeliveryNote?.nummer ?? incomingManualLieferscheinNummer.trim()
 
     const metaPieces = [
-      selectedProject?.name ? `Projekt: ${selectedProject.name}` : '',
-      recipientName ? `Empfaenger: ${recipientName}` : '',
-      lieferant ? `Lieferant: ${lieferant}` : '',
-      lieferscheinNummer ? `Lieferschein: ${lieferscheinNummer}` : '',
+      selectedProject?.label ? `Projekt: ${selectedProject.label}` : '',
+      outgoingLabel ? `Empfaenger: ${outgoingLabel}` : '',
+      supplierLabel ? `Lieferant: ${supplierLabel}` : '',
+      selectedOrManualIncomingDelivery ? `Lieferschein: ${selectedOrManualIncomingDelivery}` : '',
       notiz
     ].filter(Boolean)
 
     setIsSaving(true)
     setError('')
     try {
-      await LagerApi.movements.create({
-        artikelId: selectedArticleId,
-        bewegungstyp,
-        menge,
-        datum: new Date().toISOString(),
-        empfaenger: bewegungstyp === 'ausgang' ? recipientEmployeeId : undefined,
-        bemerkung: metaPieces.join(' | ')
-      })
+      if (bewegungstyp === 'eingang') {
+        const mergedIncomingItems = Array.from(
+          incomingItems.reduce((map, item) => {
+            map.set(item.artikelId, (map.get(item.artikelId) ?? 0) + item.menge)
+            return map
+          }, new Map<string, number>())
+        ).map(([artikelId, mergedMenge]) => ({ artikelId, menge: mergedMenge }))
+
+        for (const item of mergedIncomingItems) {
+          await LagerApi.movements.create({
+            artikelId: item.artikelId,
+            bewegungstyp,
+            menge: item.menge,
+            datum: new Date().toISOString(),
+            lieferscheinId: selectedIncomingDeliveryNoteId || undefined,
+            bemerkung: metaPieces.join(' | ')
+          })
+        }
+      } else {
+        await LagerApi.movements.create({
+          artikelId: selectedArticleId,
+          bewegungstyp,
+          menge,
+          datum: new Date().toISOString(),
+          empfaenger: outgoingEmployeeId,
+          bemerkung: metaPieces.join(' | ')
+        })
+      }
+
       setStatusMessage(bewegungstyp === 'eingang' ? 'Wareneingang gebucht' : 'Warenausgang gebucht')
       clearActionForm()
       await loadArticles()
@@ -931,7 +1013,7 @@ export default function LagerMobileApp() {
         typ: 'eingang',
         datum: new Date(lieferscheinDate).toISOString(),
         empfaenger: {
-          name: lieferant || 'Unbekannter Lieferant',
+          name: selectedSupplierPartner?.label || 'Unbekannter Lieferant',
           adresse: ''
         },
         positionen: [{
@@ -948,7 +1030,7 @@ export default function LagerMobileApp() {
       if (deliveryFile && deliveryId) {
         await LagerApi.deliveryNotes.uploadAttachment(deliveryId, {
           file: deliveryFile,
-          supplier: lieferant,
+          supplier: selectedSupplierPartner?.label ?? '',
           reference: lieferscheinNummer,
           noteDate: lieferscheinDate
         })
@@ -1148,6 +1230,10 @@ export default function LagerMobileApp() {
               <FolderTree className="h-5 w-5" />
               Produkte (Kategorien und Artikel)
             </Button>
+            <Button variant="outline" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={() => setView('lieferanten')}>
+              <Plus className="h-5 w-5" />
+              Lieferanten/Kontakte
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -1158,55 +1244,79 @@ export default function LagerMobileApp() {
             <BackButton />
             <ScanCard />
 
-            <div className="space-y-2">
-              <Label>Artikel</Label>
-              <Select value={selectedArticleId} onValueChange={setSelectedArticleId}>
-                <SelectTrigger className="h-12 rounded-xl">
-                  <SelectValue placeholder="Artikel waehlen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {articles.map((article) => (
-                    <SelectItem key={getArticleId(article)} value={getArticleId(article)}>
-                      {article.artikelnummer} - {article.bezeichnung}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="menge">Menge</Label>
-              <Input id="menge" type="number" min={1} className="h-12 rounded-xl text-base" value={menge} onChange={(event) => setMenge(parseInt(event.target.value, 10) || 1)} />
-            </div>
-
-            {view === 'eingang' && (
+            {view === 'eingang' ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="lieferant">Lieferant (optional)</Label>
-                  <Input id="lieferant" className="h-12 rounded-xl text-base" value={lieferant} onChange={(event) => setLieferant(event.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lieferscheinNummer">Lieferscheinnummer (optional)</Label>
-                  <Input id="lieferscheinNummer" className="h-12 rounded-xl text-base" value={lieferscheinNummer} onChange={(event) => setLieferscheinNummer(event.target.value)} />
-                </div>
-                <Button className="h-14 w-full text-base" disabled={isSaving || isLoading} onClick={() => createMovement('eingang')}>
-                  <Package2 className="mr-2 h-5 w-5" />
-                  {isSaving ? 'Buche...' : 'Wareneingang buchen'}
-                </Button>
-              </>
-            )}
+                  <div className="flex items-center justify-between">
+                    <Label>Positionen *</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => setIncomingItems((prev) => [...prev, createIncomingItem()])}
+                      disabled={isSaving || isLoading}
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      Position
+                    </Button>
+                  </div>
 
-            {view === 'ausgang' && (
-              <>
+                  <div className="space-y-2">
+                    {incomingItems.map((item, index) => (
+                      <div key={item.id} className="grid grid-cols-[1fr_84px_44px] gap-2">
+                        <ArticleSelect
+                          id={`eingang-artikel-${index + 1}`}
+                          value={item.artikelId}
+                          onValueChange={(value) => {
+                            setIncomingItems((prev) =>
+                              prev.map((entry) => (entry.id === item.id ? { ...entry, artikelId: value } : entry))
+                            )
+                          }}
+                          articles={articles}
+                          placeholder={`Artikel ${index + 1} waehlen`}
+                          searchPlaceholder="Artikel suchen..."
+                          triggerClassName="h-12 rounded-xl text-base"
+                          disabled={isSaving || isLoading}
+                        />
+                        <Input
+                          type="number"
+                          min={1}
+                          className="h-12 rounded-xl text-base"
+                          value={item.menge}
+                          onChange={(event) => {
+                            const nextMenge = parseInt(event.target.value, 10) || 1
+                            setIncomingItems((prev) =>
+                              prev.map((entry) => (entry.id === item.id ? { ...entry, menge: nextMenge } : entry))
+                            )
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-12 w-12 rounded-xl"
+                          disabled={incomingItems.length <= 1 || isSaving || isLoading}
+                          onClick={() => setIncomingItems((prev) => prev.filter((entry) => entry.id !== item.id))}
+                          aria-label={`Position ${index + 1} entfernen`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="empfaenger">Empfaenger (optional)</Label>
+                  <Label htmlFor="lieferant">Lieferant *</Label>
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
-                      <RecipientSelect
-                        id="empfaenger"
-                        value={empfaenger}
-                        onValueChange={setEmpfaenger}
-                        options={recipientOptions}
+                      <PartnerSelect
+                        id="lieferant"
+                        value={lieferant}
+                        onValueChange={setLieferant}
+                        employees={partnerEmployees}
+                        suppliers={partnerSuppliers}
                         triggerClassName="h-12 rounded-xl text-base"
                       />
                     </div>
@@ -1215,7 +1325,98 @@ export default function LagerMobileApp() {
                       variant="outline"
                       size="icon"
                       className="h-12 w-12 rounded-xl"
-                      onClick={() => setIsAddRecipientDialogOpen(true)}
+                      onClick={() => setIsAddPartnerDialogOpen(true)}
+                      disabled={isSaving || isLoading}
+                      aria-label="Lieferant hinzufuegen"
+                    >
+                      <Plus className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lieferscheinNummer">Lieferscheinnummer (optional)</Label>
+                  <Select
+                    value={selectedIncomingDeliveryNoteId || '__none'}
+                    onValueChange={(value) => setSelectedIncomingDeliveryNoteId(value === '__none' ? '' : value)}
+                    disabled={!selectedSupplierPartner || isLoadingIncomingDeliveryNotes}
+                  >
+                    <SelectTrigger id="lieferscheinNummer" className="h-12 rounded-xl text-base">
+                      <SelectValue
+                        placeholder={
+                          !selectedSupplierPartner
+                            ? 'Zuerst Lieferant/Mitarbeiter waehlen'
+                            : isLoadingIncomingDeliveryNotes
+                              ? 'Lade offene Lieferscheine...'
+                              : 'Offenen Lieferschein auswaehlen'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Kein Lieferschein</SelectItem>
+                      {openOutgoingDeliveryNotes.map((note) => (
+                        <SelectItem key={String(note._id)} value={String(note._id)}>
+                          {note.nummer} - {formatDate(note.datum)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedSupplierPartner && !isLoadingIncomingDeliveryNotes && openOutgoingDeliveryNotes.length === 0 && (
+                    <Input
+                      className="mt-2 h-12 rounded-xl text-base"
+                      value={incomingManualLieferscheinNummer}
+                      onChange={(event) => setIncomingManualLieferscheinNummer(event.target.value)}
+                      placeholder="Manuelle Lieferscheinnummer eingeben"
+                    />
+                  )}
+                </div>
+                <Button className="h-14 w-full text-base" disabled={isSaving || isLoading} onClick={() => createMovement('eingang')}>
+                  <Package2 className="mr-2 h-5 w-5" />
+                  {isSaving ? 'Buche...' : 'Wareneingang buchen'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Artikel</Label>
+                  <ArticleSelect
+                    id="bewegung-artikel"
+                    value={selectedArticleId}
+                    onValueChange={setSelectedArticleId}
+                    articles={articles}
+                    placeholder="Artikel waehlen"
+                    searchPlaceholder="Artikel suchen..."
+                    triggerClassName="h-12 rounded-xl text-base"
+                    disabled={isSaving || isLoading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="menge">Menge</Label>
+                  <Input id="menge" type="number" min={1} className="h-12 rounded-xl text-base" value={menge} onChange={(event) => setMenge(parseInt(event.target.value, 10) || 1)} />
+                </div>
+              </>
+            )}
+            {view === 'ausgang' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="empfaenger">Empfaenger (optional)</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <PartnerSelect
+                        id="empfaenger"
+                        value={empfaenger}
+                        onValueChange={setEmpfaenger}
+                        employees={partnerEmployees}
+                        suppliers={partnerSuppliers}
+                        triggerClassName="h-12 rounded-xl text-base"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12 rounded-xl"
+                      onClick={() => setIsAddPartnerDialogOpen(true)}
                       disabled={isSaving || isLoading}
                       aria-label="Empfaenger hinzufuegen"
                     >
@@ -1225,17 +1426,18 @@ export default function LagerMobileApp() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="projekt">Projekt/Baustelle (optional)</Label>
-                  <RecipientSelect
-                    id="projekt"
-                    value={projekt}
-                    onValueChange={setProjekt}
-                    options={projectOptions}
-                    placeholder="Projekt/Baustelle waehlen"
-                    searchPlaceholder="Projekt/Baustelle suchen..."
-                    emptyLabel={isProjectsLoading ? 'Projekte werden geladen...' : 'Keine aktiven Projekte vorhanden'}
-                    triggerClassName="h-12 rounded-xl text-base"
-                    disabled={isSaving || isProjectsLoading}
-                  />
+                  <Select value={projekt} onValueChange={setProjekt} disabled={isSaving || isProjectsLoading}>
+                    <SelectTrigger className="h-12 rounded-xl text-base">
+                      <SelectValue placeholder="Projekt/Baustelle waehlen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button className="h-14 w-full text-base" disabled={isSaving || isLoading} onClick={() => createMovement('ausgang')}>
                   <Package2 className="mr-2 h-5 w-5" />
@@ -1252,7 +1454,14 @@ export default function LagerMobileApp() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lsLieferant">Lieferant</Label>
-                  <Input id="lsLieferant" className="h-12 rounded-xl text-base" value={lieferant} onChange={(event) => setLieferant(event.target.value)} />
+                  <PartnerSelect
+                    id="lsLieferant"
+                    value={lieferant}
+                    onValueChange={setLieferant}
+                    employees={partnerEmployees}
+                    suppliers={partnerSuppliers}
+                    triggerClassName="h-12 rounded-xl text-base"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lsRef">Referenz / Lieferscheinnummer</Label>
@@ -1749,6 +1958,14 @@ export default function LagerMobileApp() {
         </Card>
       )}
 
+      {view === 'lieferanten' && (
+        <Card className="rounded-2xl">
+          <CardContent className="space-y-4 pt-4">
+            <BackButton />
+            <LagerPartnerView onRefresh={loadPartnerData} />
+          </CardContent>
+        </Card>
+      )}
       {editingArticle && (
         <EditArticleDialog
           article={editingArticle}
@@ -1961,10 +2178,9 @@ export default function LagerMobileApp() {
           </div>
         </div>
       )}
-      <AddRecipientDialog
-        open={isAddRecipientDialogOpen}
-        onOpenChange={setIsAddRecipientDialogOpen}
-        onCreated={handleRecipientCreated}
+      <AddPartnerDialog
+        open={isAddPartnerDialogOpen}
+        onOpenChange={setIsAddPartnerDialogOpen}        onSaved={handlePartnerSaved}
       />
 
       <QrScannerSheet
@@ -1985,4 +2201,46 @@ export default function LagerMobileApp() {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
