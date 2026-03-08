@@ -49,6 +49,7 @@ import AddRecipientDialog from '@/components/lager/AddRecipientDialog'
 import RecipientSelect, { type RecipientOption } from '@/components/lager/RecipientSelect'
 import QrScannerSheet from './QrScannerSheet'
 import { ArticleThumbnail } from '@/components/lager/ArticleThumbnail'
+import ArticleDetailsDialog from '@/components/lager/ArticleDetailsDialog'
 
 function getArticleId(article: Article): string {
   const raw = (article as { _id?: unknown })._id ?? article.id
@@ -245,6 +246,8 @@ export default function LagerMobileApp() {
 
   const [editArticleOpen, setEditArticleOpen] = useState(false)
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
+  const [articleDetailsOpen, setArticleDetailsOpen] = useState(false)
+  const [detailArticle, setDetailArticle] = useState<Article | null>(null)
   const [addMaintenanceOpen, setAddMaintenanceOpen] = useState(false)
   const [performMaintenanceId, setPerformMaintenanceId] = useState<string | null>(null)
   const [editCategoryOpen, setEditCategoryOpen] = useState(false)
@@ -1291,14 +1294,17 @@ export default function LagerMobileApp() {
                         <Badge variant="secondary">{article.bestand ?? 0}</Badge>
                       </div>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{article.artikelnummer} {article.lagerort ? `- ${article.lagerort}` : ''}</p>
-                      <div className="mt-3 flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => { setEditingArticle(article); setEditArticleOpen(true) }}>
-                          <Pencil className="mr-1 h-4 w-4" />Bearbeiten
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => deleteArticle(article)}>
-                          <Trash2 className="mr-1 h-4 w-4" />Loeschen
-                        </Button>
-                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => { setDetailArticle(article); setArticleDetailsOpen(true) }}>
+                            <QrCode className="mr-1 h-4 w-4" />Details / QR
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingArticle(article); setEditArticleOpen(true) }}>
+                            <Pencil className="mr-1 h-4 w-4" />Bearbeiten
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => deleteArticle(article)}>
+                            <Trash2 className="mr-1 h-4 w-4" />Loeschen
+                          </Button>
+                        </div>
                     </div>
                   ))}
               </div>
@@ -1718,7 +1724,10 @@ export default function LagerMobileApp() {
                           </div>
                           <Badge variant="outline">{article.kategorie || 'Ohne Kategorie'}</Badge>
                         </div>
-                        <div className="mt-3 flex gap-2">
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => { setDetailArticle(article); setArticleDetailsOpen(true) }}>
+                            <QrCode className="mr-1 h-4 w-4" />Details / QR
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => { setEditingArticle(article); setEditArticleOpen(true) }}>
                             <Pencil className="mr-1 h-4 w-4" />Bearbeiten
                           </Button>
@@ -1745,6 +1754,14 @@ export default function LagerMobileApp() {
         />
       )}
 
+      <ArticleDetailsDialog
+        open={articleDetailsOpen}
+        onOpenChange={(open) => {
+          setArticleDetailsOpen(open)
+          if (!open) setDetailArticle(null)
+        }}
+        article={detailArticle}
+      />
       <AddMaintenanceDialog open={addMaintenanceOpen} onOpenChange={setAddMaintenanceOpen} articles={articles} categories={categories} onSuccess={() => { setStatusMessage('Wartung angelegt'); loadMaintenance() }} />
 
       <PerformMaintenanceDialog
@@ -1963,3 +1980,4 @@ export default function LagerMobileApp() {
     </div>
   )
 }
+

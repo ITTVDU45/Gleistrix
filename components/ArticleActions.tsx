@@ -3,12 +3,11 @@
 import React, { useState } from 'react'
 import { Button } from './ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { MoreHorizontal, Edit, Archive, QrCode, FileDown } from 'lucide-react'
-import type { Article } from '@/types/main'
+import type { Article, Category } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 import EditArticleDialog from './EditArticleDialog'
-import type { Category } from '@/types/main'
+import ArticleDetailsDialog from '@/components/lager/ArticleDetailsDialog'
 
 interface ArticleActionsProps {
   article: Article
@@ -18,10 +17,10 @@ interface ArticleActionsProps {
 
 export default function ArticleActions({ article, onRefresh, categories = [] }: ArticleActionsProps) {
   const [editOpen, setEditOpen] = useState(false)
-  const [barcodeOpen, setBarcodeOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [popoverOpen, setPopoverOpen] = useState(false)
-  const id = article.id ?? (article as any)._id?.toString?.()
+  const id = article.id ?? (article as { _id?: { toString?: () => string } })._id?.toString?.()
 
   const handleArchive = async () => {
     if (!id) return
@@ -37,8 +36,6 @@ export default function ArticleActions({ article, onRefresh, categories = [] }: 
     }
   }
 
-  const barcode = (article as any).barcode ?? article.artikelnummer ?? '–'
-
   return (
     <>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -47,7 +44,7 @@ export default function ArticleActions({ article, onRefresh, categories = [] }: 
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-48 p-1" align="end">
+        <PopoverContent className="w-52 p-1" align="end">
           <Button
             variant="ghost"
             className="w-full justify-start gap-2"
@@ -66,11 +63,11 @@ export default function ArticleActions({ article, onRefresh, categories = [] }: 
             size="sm"
             onClick={() => {
               setPopoverOpen(false)
-              setBarcodeOpen(true)
+              setDetailsOpen(true)
             }}
           >
             <QrCode className="h-4 w-4" />
-            Barcode / QR anzeigen
+            Produktdetails / QR
           </Button>
           {id && (
             <Button
@@ -95,7 +92,7 @@ export default function ArticleActions({ article, onRefresh, categories = [] }: 
               disabled={archiving}
             >
               <Archive className="h-4 w-4" />
-              {archiving ? 'Archivieren…' : 'Archivieren'}
+              {archiving ? 'Archivieren...' : 'Archivieren'}
             </Button>
           )}
         </PopoverContent>
@@ -112,22 +109,11 @@ export default function ArticleActions({ article, onRefresh, categories = [] }: 
         }}
       />
 
-      <Dialog open={barcodeOpen} onOpenChange={setBarcodeOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Barcode / QR – {article.bezeichnung}</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Barcode / Artikel-ID</p>
-            <p className="font-mono text-lg break-all rounded-lg bg-slate-100 dark:bg-slate-700 p-3">
-              {barcode}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-              Scannen Sie diesen Code zur Schnellerfassung (z. B. Wareneingang, Ausgabe).
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ArticleDetailsDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        article={article}
+      />
     </>
   )
 }

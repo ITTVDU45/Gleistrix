@@ -26,6 +26,7 @@ export default function QrScannerSheet({ open, onOpenChange, onScanSuccess, clos
       setError('')
       setIsStarting(true)
       try {
+        // Standard scanner library in this app: html5-qrcode
         const scannerModule = await import('html5-qrcode')
         if (cancelled) return
 
