@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,14 +12,55 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import type { Article } from '@/types/main'
+import { Plus } from 'lucide-react'
+import type { Article, Employee } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
+import AddRecipientDialog from '@/components/lager/AddRecipientDialog'
+import RecipientSelect, { type RecipientOption } from '@/components/lager/RecipientSelect'
 
 interface WarenausgangDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   articles: Article[]
   onSuccess: () => void
+}
+
+
+function normalizeRecipientName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ')
+}
+
+function buildRecipientOptions(employees: Employee[], customRecipients: string[]): RecipientOption[] {
+  const options: RecipientOption[] = []
+  const seenCustomNames = new Set<string>()
+
+  const sortedEmployees = [...employees].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'de', { sensitivity: 'base' }))
+  sortedEmployees.forEach((employee) => {
+    const name = normalizeRecipientName(employee.name ?? '')
+    if (!name) return
+
+    options.push({
+      value: `employee:${employee.id}`,
+      name,
+      employeeId: employee.id
+    })
+  })
+
+  customRecipients
+    .map((entry) => normalizeRecipientName(entry))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
+    .forEach((name) => {
+      const key = name.toLocaleLowerCase('de-DE')
+      if (seenCustomNames.has(key)) return
+      seenCustomNames.add(key)
+      options.push({
+        value: `custom:${name}`,
+        name
+      })
+    })
+
+  return options
 }
 
 export default function WarenausgangDialog({
@@ -32,23 +73,93 @@ export default function WarenausgangDialog({
   const [menge, setMenge] = useState(1)
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10))
   const [empfaenger, setEmpfaenger] = useState('')
+  const [recipientEmployees, setRecipientEmployees] = useState<Employee[]>([])
+  const [customRecipients, setCustomRecipients] = useState<string[]>([])
+  const [isAddRecipientDialogOpen, setIsAddRecipientDialogOpen] = useState(false)
   const [bemerkung, setBemerkung] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const selectedArticle = articles.find((a) => ((a as any)._id?.toString?.() ?? a.id) === artikelId)
+  const selectedArticle = articles.find((a) => ((a as { _id?: unknown })._id?.toString?.() ?? a.id) === artikelId)
   const maxMenge = selectedArticle ? (selectedArticle.bestand ?? 0) : 0
+  const recipientOptions = useMemo(
+    () => buildRecipientOptions(recipientEmployees, customRecipients),
+    [recipientEmployees, customRecipients]
+  )
+  const selectedRecipient = useMemo(
+    () => recipientOptions.find((option) => option.value === empfaenger) ?? null,
+    [recipientOptions, empfaenger]
+  )
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+
+    async function loadRecipientData() {
+      try {
+        const response = await LagerApi.recipients.list()
+
+        if (cancelled) return
+        setRecipientEmployees(
+          (response.employees ?? [])
+            .map((employee) => ({
+              ...employee,
+              id: String(employee.id ?? ''),
+              name: String(employee.name ?? '').trim()
+            }))
+            .filter((employee) => Boolean(employee.id && employee.name))
+        )
+        setCustomRecipients(response.recipients ?? [])
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Empfaenger konnten nicht geladen werden')
+        }
+      }
+    }
+
+    loadRecipientData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (empfaenger && !recipientOptions.some((option) => option.value === empfaenger)) {
+      setEmpfaenger('')
+    }
+  }, [empfaenger, recipientOptions])
+
+  const handleRecipientCreated = (nextRecipients: string[], createdName: string) => {
+    setCustomRecipients(nextRecipients)
+
+    const customValue = `custom:${createdName}`
+    const addedRecipient = buildRecipientOptions(recipientEmployees, nextRecipients).find(
+      (option) => option.value === customValue
+    )
+
+    if (addedRecipient) {
+      setEmpfaenger(addedRecipient.value)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!artikelId) {
-      setError('Bitte Artikel wählen.')
+      setError('Bitte Artikel waehlen.')
       return
     }
     if (menge > maxMenge) {
       setError(`Bestand reicht nicht aus (max. ${maxMenge}).`)
       return
     }
+
+    const recipientName = selectedRecipient?.name ?? ''
+    const recipientEmployeeId = selectedRecipient?.employeeId
+    const movementRemark = recipientName
+      ? `Empfaenger: ${recipientName}${bemerkung ? ` - ${bemerkung}` : ''}`
+      : bemerkung
+
     setIsSubmitting(true)
     setError('')
     try {
@@ -57,9 +168,10 @@ export default function WarenausgangDialog({
         bewegungstyp: 'ausgang',
         menge,
         datum: new Date(datum).toISOString(),
-        bemerkung: empfaenger ? `Empfänger: ${empfaenger}${bemerkung ? ` – ${bemerkung}` : ''}` : bemerkung
+        empfaenger: recipientEmployeeId,
+        bemerkung: movementRemark
       })
-      if ((res as any)?.success !== false) {
+      if ((res as { success?: boolean })?.success !== false) {
         setArtikelId('')
         setMenge(1)
         setEmpfaenger('')
@@ -67,7 +179,7 @@ export default function WarenausgangDialog({
         onOpenChange(false)
         onSuccess()
       } else {
-        setError((res as any)?.message ?? 'Fehler beim Warenausgang')
+        setError((res as { message?: string })?.message ?? 'Fehler beim Warenausgang')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Fehler beim Warenausgang')
@@ -92,12 +204,12 @@ export default function WarenausgangDialog({
             <Label>Artikel *</Label>
             <Select value={artikelId} onValueChange={setArtikelId} required>
               <SelectTrigger className="rounded-xl h-10">
-                <SelectValue placeholder="Artikel wählen" />
+                <SelectValue placeholder="Artikel waehlen" />
               </SelectTrigger>
               <SelectContent>
                 {articles.filter((a) => (a.bestand ?? 0) > 0).map((a) => (
-                  <SelectItem key={a.id ?? (a as any)._id} value={(a as any)._id?.toString?.() ?? a.id ?? ''}>
-                    {a.artikelnummer} – {a.bezeichnung} (Bestand: {a.bestand ?? 0})
+                  <SelectItem key={a.id ?? (a as { _id?: unknown })._id} value={(a as { _id?: unknown })._id?.toString?.() ?? a.id ?? ''}>
+                    {a.artikelnummer} - {a.bezeichnung} (Bestand: {a.bestand ?? 0})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -131,14 +243,29 @@ export default function WarenausgangDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="wa-empfaenger">Empfänger / Grund</Label>
-            <Input
-              id="wa-empfaenger"
-              value={empfaenger}
-              onChange={(e) => setEmpfaenger(e.target.value)}
-              placeholder="optional"
-              className="rounded-xl h-10"
-            />
+            <Label htmlFor="wa-empfaenger">Empfaenger (optional)</Label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <RecipientSelect
+                  id="wa-empfaenger"
+                  value={empfaenger}
+                  onValueChange={setEmpfaenger}
+                  options={recipientOptions}
+                  triggerClassName="rounded-xl h-10"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 rounded-xl"
+                onClick={() => setIsAddRecipientDialogOpen(true)}
+                disabled={isSubmitting}
+                aria-label="Empfaenger hinzufuegen"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="wa-bemerkung">Bemerkung</Label>
@@ -155,10 +282,16 @@ export default function WarenausgangDialog({
               Abbrechen
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Wird gespeichert…' : 'Speichern'}
+              {isSubmitting ? 'Wird gespeichert...' : 'Speichern'}
             </Button>
           </div>
         </form>
+
+        <AddRecipientDialog
+          open={isAddRecipientDialogOpen}
+          onOpenChange={setIsAddRecipientDialogOpen}
+          onCreated={handleRecipientCreated}
+        />
       </DialogContent>
     </Dialog>
   )

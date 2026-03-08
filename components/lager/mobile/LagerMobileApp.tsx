@@ -33,16 +33,20 @@ import {
   Pencil,
   Trash2,
   Plus,
-  Tag
+  Tag,
+  X
 } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
-import type { Article, Category, StockMovement } from '@/types/main'
+import { ProjectsApi } from '@/lib/api/projects'
+import type { Article, Category, Employee, Project, StockMovement } from '@/types/main'
 import AddArticleDialog from '@/components/AddArticleDialog'
 import EditArticleDialog from '@/components/EditArticleDialog'
 import AddCategoryDialog from '@/components/AddCategoryDialog'
 import EditCategoryDialog from '@/components/EditCategoryDialog'
 import AddMaintenanceDialog from '@/components/lager/AddMaintenanceDialog'
 import PerformMaintenanceDialog from '@/components/lager/PerformMaintenanceDialog'
+import AddRecipientDialog from '@/components/lager/AddRecipientDialog'
+import RecipientSelect, { type RecipientOption } from '@/components/lager/RecipientSelect'
 import QrScannerSheet from './QrScannerSheet'
 import { ArticleThumbnail } from '@/components/lager/ArticleThumbnail'
 
@@ -54,6 +58,69 @@ function getArticleId(article: Article): string {
 function getCategoryId(category: Category): string {
   const raw = (category as { _id?: unknown })._id ?? category.id
   return raw != null ? String(raw) : ''
+}
+
+
+function normalizeRecipientName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ')
+}
+
+function buildRecipientOptions(employees: Employee[], customRecipients: string[]): RecipientOption[] {
+  const options: RecipientOption[] = []
+  const seenCustomNames = new Set<string>()
+
+  const sortedEmployees = [...employees].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'de', { sensitivity: 'base' }))
+  sortedEmployees.forEach((employee) => {
+    const name = normalizeRecipientName(employee.name ?? '')
+    if (!name) return
+
+    options.push({
+      value: `employee:${employee.id}`,
+      name,
+      employeeId: employee.id
+    })
+  })
+
+  customRecipients
+    .map((entry) => normalizeRecipientName(entry))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }))
+    .forEach((name) => {
+      const key = name.toLocaleLowerCase('de-DE')
+      if (seenCustomNames.has(key)) return
+      seenCustomNames.add(key)
+      options.push({
+        value: `custom:${name}`,
+        name
+      })
+    })
+
+  return options
+}
+
+function normalizeProjectStatus(status?: string): string {
+  return String(status ?? '').trim().toLocaleLowerCase('de-DE')
+}
+
+function buildProjectOptions(projects: Project[]): RecipientOption[] {
+  const byId = new Map<string, RecipientOption>()
+
+  projects.forEach((project) => {
+    const id = String((project as { _id?: unknown })._id ?? project.id ?? '').trim()
+    if (!id) return
+    if (normalizeProjectStatus(project.status) !== 'aktiv') return
+
+    const name = String(project.name ?? '').trim()
+    if (!name) return
+
+    const auftragsnummer = String(project.auftragsnummer ?? '').trim()
+    byId.set(id, {
+      value: id,
+      name: auftragsnummer ? `${name} (${auftragsnummer})` : name
+    })
+  })
+
+  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
 }
 
 type MobileView =
@@ -127,6 +194,17 @@ type InventoryCreateForm = InventoryFormState
 export default function LagerMobileApp() {
   const router = useRouter()
   const [view, setView] = useState<MobileView>('home')
+  const currentViewTitle = ({
+    home: 'Startseite',
+    eingang: 'Wareneingang',
+    ausgang: 'Warenausgang',
+    lieferschein: 'Lieferschein erfassen',
+    bestand: 'Bestand',
+    bewegungen: 'Bewegungen (Historie)',
+    wartung: 'Wartung',
+    inventur: 'Inventur',
+    produkte: 'Kategorien und Artikel'
+  } as Record<MobileView, string>)[view]
   const [articles, setArticles] = useState<Article[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedArticleId, setSelectedArticleId] = useState('')
@@ -174,6 +252,11 @@ export default function LagerMobileApp() {
 
   const [menge, setMenge] = useState(1)
   const [empfaenger, setEmpfaenger] = useState('')
+  const [recipientEmployees, setRecipientEmployees] = useState<Employee[]>([])
+  const [customRecipients, setCustomRecipients] = useState<string[]>([])
+  const [projectOptions, setProjectOptions] = useState<RecipientOption[]>([])
+  const [isProjectsLoading, setIsProjectsLoading] = useState(false)
+  const [isAddRecipientDialogOpen, setIsAddRecipientDialogOpen] = useState(false)
   const [lieferant, setLieferant] = useState('')
   const [projekt, setProjekt] = useState('')
   const [notiz, setNotiz] = useState('')
@@ -188,6 +271,19 @@ export default function LagerMobileApp() {
   const activeArticles = useMemo(
     () => articles.filter((article) => (article.status ?? 'aktiv') === 'aktiv'),
     [articles]
+  )
+
+  const recipientOptions = useMemo(
+    () => buildRecipientOptions(recipientEmployees, customRecipients),
+    [recipientEmployees, customRecipients]
+  )
+  const selectedRecipient = useMemo(
+    () => recipientOptions.find((option) => option.value === empfaenger) ?? null,
+    [recipientOptions, empfaenger]
+  )
+  const selectedProject = useMemo(
+    () => projectOptions.find((option) => option.value === projekt) ?? null,
+    [projectOptions, projekt]
   )
 
   async function loadArticles() {
@@ -210,6 +306,48 @@ export default function LagerMobileApp() {
         id: getCategoryId(category)
       }))
     )
+  }
+
+  async function loadRecipientData() {
+    const response = await LagerApi.recipients.list()
+
+    setRecipientEmployees(
+      (response.employees ?? [])
+        .map((employee) => ({
+          ...employee,
+          id: String(employee.id ?? ''),
+          name: String(employee.name ?? '').trim()
+        }))
+        .filter((employee) => Boolean(employee.id && employee.name))
+    )
+    setCustomRecipients(response.recipients ?? [])
+  }
+
+  async function loadActiveProjects() {
+    setIsProjectsLoading(true)
+    try {
+      const limit = 200
+      let page = 0
+      let total = Number.POSITIVE_INFINITY
+      const allProjects: Project[] = []
+
+      while (allProjects.length < total) {
+        const response = await ProjectsApi.list(page, limit)
+        if (!response?.success) {
+          throw new Error('Projekte konnten nicht geladen werden')
+        }
+
+        const batch = response.projects ?? []
+        allProjects.push(...batch)
+        total = typeof response.meta?.total === 'number' ? response.meta.total : batch.length
+        if (batch.length < limit) break
+        page += 1
+      }
+
+      setProjectOptions(buildProjectOptions(allProjects))
+    } finally {
+      setIsProjectsLoading(false)
+    }
   }
 
   async function refreshMasterData() {
@@ -651,6 +789,39 @@ export default function LagerMobileApp() {
     }
   }, [view])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadOutgoingReferenceData() {
+      if (view !== 'ausgang') return
+      try {
+        await Promise.all([loadRecipientData(), loadActiveProjects()])
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : 'Empfaenger und Projekte konnten nicht geladen werden'
+          setErrorMessage(message)
+        }
+      }
+    }
+
+    loadOutgoingReferenceData()
+    return () => {
+      cancelled = true
+    }
+  }, [view])
+
+  useEffect(() => {
+    if (empfaenger && !recipientOptions.some((option) => option.value === empfaenger)) {
+      setEmpfaenger('')
+    }
+  }, [empfaenger, recipientOptions])
+
+  useEffect(() => {
+    if (projekt && !projectOptions.some((option) => option.value === projekt)) {
+      setProjekt('')
+    }
+  }, [projekt, projectOptions])
+
   function clearActionForm() {
     setMenge(1)
     setEmpfaenger('')
@@ -686,6 +857,21 @@ export default function LagerMobileApp() {
     setStatusMessage(`Artikel erkannt: ${found.bezeichnung}`)
   }
 
+  function handleRecipientCreated(nextRecipients: string[], createdName: string) {
+    setCustomRecipients(nextRecipients)
+
+    const customValue = `custom:${createdName}`
+    const addedRecipient = buildRecipientOptions(recipientEmployees, nextRecipients).find(
+      (option) => option.value === customValue
+    )
+
+    if (addedRecipient) {
+      setEmpfaenger(addedRecipient.value)
+    }
+
+    setStatusMessage(`Empfaenger "${createdName}" hinzugefuegt`)
+  }
+
   async function createMovement(bewegungstyp: 'eingang' | 'ausgang') {
     if (!selectedArticleId) return setErrorMessage('Bitte zuerst einen Artikel auswaehlen oder scannen')
     if (menge <= 0) return setErrorMessage('Menge muss groesser als 0 sein')
@@ -693,9 +879,12 @@ export default function LagerMobileApp() {
       return setErrorMessage('Menge groesser als verfuegbarer Bestand')
     }
 
+    const recipientName = selectedRecipient?.name ?? ''
+    const recipientEmployeeId = selectedRecipient?.employeeId
+
     const metaPieces = [
-      projekt ? `Projekt: ${projekt}` : '',
-      empfaenger ? `Empfaenger: ${empfaenger}` : '',
+      selectedProject?.name ? `Projekt: ${selectedProject.name}` : '',
+      recipientName ? `Empfaenger: ${recipientName}` : '',
       lieferant ? `Lieferant: ${lieferant}` : '',
       lieferscheinNummer ? `Lieferschein: ${lieferscheinNummer}` : '',
       notiz
@@ -709,6 +898,7 @@ export default function LagerMobileApp() {
         bewegungstyp,
         menge,
         datum: new Date().toISOString(),
+        empfaenger: bewegungstyp === 'ausgang' ? recipientEmployeeId : undefined,
         bemerkung: metaPieces.join(' | ')
       })
       setStatusMessage(bewegungstyp === 'eingang' ? 'Wareneingang gebucht' : 'Warenausgang gebucht')
@@ -878,7 +1068,7 @@ export default function LagerMobileApp() {
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <h1 className="truncate text-2xl font-semibold text-slate-900 dark:text-white">Lager App</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">Scan-first Workflow</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{currentViewTitle}</p>
         </div>
         <Button variant="ghost" size="sm" className="h-11 shrink-0 text-slate-600 dark:text-slate-400" onClick={handleLogout}>
           <LogOut className="mr-1 h-5 w-5" />
@@ -1002,11 +1192,42 @@ export default function LagerMobileApp() {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="empfaenger">Empfaenger (optional)</Label>
-                  <Input id="empfaenger" className="h-12 rounded-xl text-base" value={empfaenger} onChange={(event) => setEmpfaenger(event.target.value)} />
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <RecipientSelect
+                        id="empfaenger"
+                        value={empfaenger}
+                        onValueChange={setEmpfaenger}
+                        options={recipientOptions}
+                        triggerClassName="h-12 rounded-xl text-base"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12 rounded-xl"
+                      onClick={() => setIsAddRecipientDialogOpen(true)}
+                      disabled={isSaving || isLoading}
+                      aria-label="Empfaenger hinzufuegen"
+                    >
+                      <Plus className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="projekt">Projekt/Baustelle (optional)</Label>
-                  <Input id="projekt" className="h-12 rounded-xl text-base" value={projekt} onChange={(event) => setProjekt(event.target.value)} />
+                  <RecipientSelect
+                    id="projekt"
+                    value={projekt}
+                    onValueChange={setProjekt}
+                    options={projectOptions}
+                    placeholder="Projekt/Baustelle waehlen"
+                    searchPlaceholder="Projekt/Baustelle suchen..."
+                    emptyLabel={isProjectsLoading ? 'Projekte werden geladen...' : 'Keine aktiven Projekte vorhanden'}
+                    triggerClassName="h-12 rounded-xl text-base"
+                    disabled={isSaving || isProjectsLoading}
+                  />
                 </div>
                 <Button className="h-14 w-full text-base" disabled={isSaving || isLoading} onClick={() => createMovement('ausgang')}>
                   <Package2 className="mr-2 h-5 w-5" />
@@ -1543,7 +1764,19 @@ export default function LagerMobileApp() {
       {inventoryCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="flex h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Neue Inventur</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Neue Inventur</h3>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => { setInventoryCreateOpen(false); setInventoryCreateForm(createEmptyInventoryCreateForm()) }}
+                aria-label="Inventur-Dialog schliessen"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
             <div className="mt-3 flex-1 space-y-3 overflow-y-auto pr-1">
               <div className="space-y-2">
                 <Label>Name</Label>
@@ -1706,6 +1939,12 @@ export default function LagerMobileApp() {
           </div>
         </div>
       )}
+      <AddRecipientDialog
+        open={isAddRecipientDialogOpen}
+        onOpenChange={setIsAddRecipientDialogOpen}
+        onCreated={handleRecipientCreated}
+      />
+
       <QrScannerSheet
         open={isScannerOpen}
         closeOnScan={!inventoryScanMode}
@@ -1724,65 +1963,3 @@ export default function LagerMobileApp() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

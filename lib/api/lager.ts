@@ -101,6 +101,12 @@ export const LagerApi = {
     }) =>
       postJSON('/api/lager/movements', data as Record<string, unknown>, 'lager:movement:create')
   },
+  recipients: {
+    list: () =>
+      getJSON<{ success: boolean; recipients: string[]; employees: Array<{ id: string; name: string }> }>('/api/lager/recipients'),
+    create: (data: { name: string }) =>
+      postJSON('/api/lager/recipients', data, 'lager:recipient:create')
+  },
   assignments: {
     list: (params?: { personId?: string; artikelId?: string; status?: string }) => {
       const search = new URLSearchParams()
@@ -267,5 +273,3 @@ export const LagerApi = {
       postJSON(`/api/lager/inventory/${id}/complete`, {}, 'lager:inventory:complete')
   }
 }
-
-
