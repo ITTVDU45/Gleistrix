@@ -36,7 +36,7 @@ export async function GET(
     const stichtagStr = stichtag ? new Date(stichtag).toISOString().slice(0, 10) : 'Inventur'
     const safeFilename = stichtagStr.replace(/-/g, '')
     const buffer = await createInventoryProtocolPDF(doc as unknown as Parameters<typeof createInventoryProtocolPDF>[0])
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

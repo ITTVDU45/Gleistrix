@@ -38,7 +38,7 @@ import {
 } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
 import { ProjectsApi } from '@/lib/api/projects'
-import type { Article, Category, Employee, Project, StockMovement } from '@/types/main'
+import type { Article, Category, Project, StockMovement } from '@/types/main'
 import AddArticleDialog from '@/components/AddArticleDialog'
 import EditArticleDialog from '@/components/EditArticleDialog'
 import AddCategoryDialog from '@/components/AddCategoryDialog'
@@ -62,11 +62,16 @@ function getCategoryId(category: Category): string {
 }
 
 
+type RecipientEmployee = {
+  id: string
+  name: string
+}
+
 function normalizeRecipientName(name: string): string {
   return name.trim().replace(/\s+/g, ' ')
 }
 
-function buildRecipientOptions(employees: Employee[], customRecipients: string[]): RecipientOption[] {
+function buildRecipientOptions(employees: RecipientEmployee[], customRecipients: string[]): RecipientOption[] {
   const options: RecipientOption[] = []
   const seenCustomNames = new Set<string>()
 
@@ -255,7 +260,7 @@ export default function LagerMobileApp() {
 
   const [menge, setMenge] = useState(1)
   const [empfaenger, setEmpfaenger] = useState('')
-  const [recipientEmployees, setRecipientEmployees] = useState<Employee[]>([])
+  const [recipientEmployees, setRecipientEmployees] = useState<RecipientEmployee[]>([])
   const [customRecipients, setCustomRecipients] = useState<string[]>([])
   const [projectOptions, setProjectOptions] = useState<RecipientOption[]>([])
   const [isProjectsLoading, setIsProjectsLoading] = useState(false)

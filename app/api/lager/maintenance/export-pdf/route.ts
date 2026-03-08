@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     const buffer = await createMaintenanceReportPDF(entries)
     const dateStr = new Date().toISOString().slice(0, 10)
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

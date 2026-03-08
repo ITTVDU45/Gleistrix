@@ -28,7 +28,7 @@ export async function GET(
     const nummer = (doc as { nummer?: string }).nummer ?? 'Lieferschein'
     const safeFilename = nummer.replace(/[^a-zA-Z0-9-_]/g, '_')
     const buffer = await createDeliveryNotePDF(doc as unknown as Parameters<typeof createDeliveryNotePDF>[0])
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

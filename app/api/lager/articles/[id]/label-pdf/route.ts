@@ -31,7 +31,7 @@ export async function GET(
     }
     const buffer = await createBarcodeLabelsPDF([label])
     const safeName = (doc.artikelnummer ?? 'Artikel').replace(/[^a-zA-Z0-9-_]/g, '_')
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

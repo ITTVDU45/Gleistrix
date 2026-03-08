@@ -13,10 +13,15 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Plus } from 'lucide-react'
-import type { Article, Employee } from '@/types/main'
+import type { Article } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 import AddRecipientDialog from '@/components/lager/AddRecipientDialog'
 import RecipientSelect, { type RecipientOption } from '@/components/lager/RecipientSelect'
+
+type RecipientEmployee = {
+  id: string
+  name: string
+}
 
 interface WarenausgangDialogProps {
   open: boolean
@@ -30,7 +35,7 @@ function normalizeRecipientName(name: string): string {
   return name.trim().replace(/\s+/g, ' ')
 }
 
-function buildRecipientOptions(employees: Employee[], customRecipients: string[]): RecipientOption[] {
+function buildRecipientOptions(employees: RecipientEmployee[], customRecipients: string[]): RecipientOption[] {
   const options: RecipientOption[] = []
   const seenCustomNames = new Set<string>()
 
@@ -73,7 +78,7 @@ export default function WarenausgangDialog({
   const [menge, setMenge] = useState(1)
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10))
   const [empfaenger, setEmpfaenger] = useState('')
-  const [recipientEmployees, setRecipientEmployees] = useState<Employee[]>([])
+  const [recipientEmployees, setRecipientEmployees] = useState<RecipientEmployee[]>([])
   const [customRecipients, setCustomRecipients] = useState<string[]>([])
   const [isAddRecipientDialogOpen, setIsAddRecipientDialogOpen] = useState(false)
   const [bemerkung, setBemerkung] = useState('')
@@ -208,7 +213,7 @@ export default function WarenausgangDialog({
               </SelectTrigger>
               <SelectContent>
                 {articles.filter((a) => (a.bestand ?? 0) > 0).map((a) => (
-                  <SelectItem key={a.id ?? (a as { _id?: unknown })._id} value={(a as { _id?: unknown })._id?.toString?.() ?? a.id ?? ''}>
+                  <SelectItem key={String((a as { _id?: unknown })._id ?? a.id ?? '')} value={(a as { _id?: unknown })._id?.toString?.() ?? a.id ?? ''}>
                     {a.artikelnummer} - {a.bezeichnung} (Bestand: {a.bestand ?? 0})
                   </SelectItem>
                 ))}

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       }
     })
     const buffer = await createBarcodeLabelsPDF(labels)
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

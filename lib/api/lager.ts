@@ -105,7 +105,7 @@ export const LagerApi = {
     list: () =>
       getJSON<{ success: boolean; recipients: string[]; employees: Array<{ id: string; name: string }> }>('/api/lager/recipients'),
     create: (data: { name: string }) =>
-      postJSON('/api/lager/recipients', data, 'lager:recipient:create')
+      postJSON<{ success: boolean; recipients: string[]; created?: string }>('/api/lager/recipients', data, 'lager:recipient:create')
   },
   assignments: {
     list: (params?: { personId?: string; artikelId?: string; status?: string }) => {
