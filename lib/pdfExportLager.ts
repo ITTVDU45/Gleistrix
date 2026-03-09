@@ -39,6 +39,35 @@ function formatDate(d: Date | string): string {
   }
 }
 
+function addDeliverySignatureSection(pdf: any, startY: number, typ: string, margin: number) {
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const pageHeight = pdf.internal.pageSize.getHeight()
+  const colGap = 12
+  const colWidth = (pageWidth - margin * 2 - colGap) / 2
+  const counterpartLabel = typ === 'eingang' ? 'Lieferant' : 'Empfaenger'
+
+  let y = startY
+  if (y > pageHeight - 55) {
+    pdf.addPage()
+    y = 28
+  }
+
+  const leftX = margin
+  const rightX = margin + colWidth + colGap
+
+  pdf.setFontSize(10)
+  pdf.setFont('helvetica', 'bold')
+  pdf.text('Unterschrift Herausgeber', leftX, y)
+  pdf.text(`Unterschrift ${counterpartLabel}`, rightX, y)
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.line(leftX, y + 14, leftX + colWidth, y + 14)
+  pdf.line(rightX, y + 14, rightX + colWidth, y + 14)
+  pdf.text('Datum: ____________________', leftX, y + 22)
+  pdf.text('Datum: ____________________', rightX, y + 22)
+}
+
+
 export async function createDeliveryNotePDF(doc: DeliveryNoteDoc): Promise<Buffer> {
   const pdf: any = new (jsPDF as any)({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const margin = 20
@@ -70,7 +99,7 @@ export async function createDeliveryNotePDF(doc: DeliveryNoteDoc): Promise<Buffe
   pdf.text(`Typ: ${doc.typ === 'ausgang' ? 'Ausgang' : 'Eingang'}`, margin, y)
   y += 6
   const empName = doc.empfaenger?.name ?? '-'
-  pdf.text(`Empfänger: ${empName}`, margin, y)
+  pdf.text(`Empfaenger: ${empName}`, margin, y)
   if (doc.empfaenger?.adresse) {
     y += 6
     pdf.text(`Adresse: ${doc.empfaenger.adresse}`, margin, y)
@@ -99,6 +128,10 @@ export async function createDeliveryNotePDF(doc: DeliveryNoteDoc): Promise<Buffe
       margin: { left: margin, right: margin }
     })
   }
+
+  const tableEndY = (pdf as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY
+  const signatureStartY = (typeof tableEndY === 'number' ? tableEndY : y) + 14
+  addDeliverySignatureSection(pdf, signatureStartY, doc.typ, margin)
 
   const buf = Buffer.from(pdf.output('arraybuffer'))
   return buf
@@ -203,18 +236,18 @@ export async function createMaintenanceReportPDF(entries: MaintenanceReportEntry
 
   const rows = entries.map((e) => {
     const art = e.artikelId as { bezeichnung?: string; artikelnummer?: string } | undefined
-    const artikel = art?.bezeichnung ?? art?.artikelnummer ?? '–'
+    const artikel = art?.bezeichnung ?? art?.artikelnummer ?? 'Ã¢â‚¬â€œ'
     const faellig = formatDate(e.faelligkeitsdatum ?? '')
-    const durchf = e.durchfuehrungsdatum ? formatDate(e.durchfuehrungsdatum) : '–'
-    const status = e.status ?? '–'
+    const durchf = e.durchfuehrungsdatum ? formatDate(e.durchfuehrungsdatum) : 'Ã¢â‚¬â€œ'
+    const status = e.status ?? 'Ã¢â‚¬â€œ'
     const ergebnis = (e.ergebnis ?? '').slice(0, 30)
-    return [artikel, e.wartungsart ?? '–', faellig, durchf, status, ergebnis]
+    return [artikel, e.wartungsart ?? 'Ã¢â‚¬â€œ', faellig, durchf, status, ergebnis]
   })
 
   if (rows.length > 0) {
     autoTable(pdf, {
       startY: y,
-      head: [['Artikel', 'Wartungsart', 'Fällig am', 'Durchgeführt am', 'Status', 'Ergebnis']],
+      head: [['Artikel', 'Wartungsart', 'FÃƒÂ¤llig am', 'DurchgefÃƒÂ¼hrt am', 'Status', 'Ergebnis']],
       body: rows,
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 3 },

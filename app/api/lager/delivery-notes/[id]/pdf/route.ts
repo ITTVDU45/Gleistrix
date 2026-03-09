@@ -17,7 +17,7 @@ export async function GET(
     }
     const { id } = await params
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, message: 'Ungültige ID' }, { status: 400 })
+      return NextResponse.json({ success: false, message: 'Ungueltige ID' }, { status: 400 })
     }
     const doc = await DeliveryNote.findById(id)
       .populate('positionen.artikelId', 'bezeichnung artikelnummer')
@@ -32,7 +32,9 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Lieferschein-${safeFilename}.pdf"`
+        'Content-Disposition': 'attachment; filename="Lieferschein-' + safeFilename + '.pdf"',
+        'Cache-Control': 'no-store, max-age=0',
+        Pragma: 'no-cache'
       }
     })
   } catch (error) {
