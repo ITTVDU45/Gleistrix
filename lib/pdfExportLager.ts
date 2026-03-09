@@ -101,16 +101,28 @@ export async function createDeliveryNotePDF(doc: DeliveryNoteDoc): Promise<Buffe
   try {
     const { readFileSync, existsSync } = await import('fs')
     const { join } = await import('path')
-    const preferredLogoPath = join(process.cwd(), 'public', 'mwd-logo.png')
-    const fallbackLogoPath = join(process.cwd(), 'public', 'Gleistrix Logo (500 x 300 px).png')
-    const logoPath = existsSync(preferredLogoPath) ? preferredLogoPath : fallbackLogoPath
-    if (existsSync(logoPath)) {
-      const img = readFileSync(logoPath)
-      const base64 = `data:image/png;base64,${img.toString('base64')}`
-      const logoWidth = 70
-      const logoHeight = 24
-      const logoX = (pageWidth - logoWidth) / 2
-      pdf.addImage(base64, 'PNG', logoX, y, logoWidth, logoHeight)
+    const logoCandidates = [
+      { path: join(process.cwd(), 'public', 'mwd-logo.png'), format: 'PNG' as const },
+      { path: join(process.cwd(), 'public', 'Gleistrix Logo (500 x 300 px).png'), format: 'PNG' as const },
+      { path: join(process.cwd(), 'public', 'mwd-logo.jpg'), format: 'JPEG' as const },
+      { path: join(process.cwd(), 'public', 'mwd-logo.jpeg'), format: 'JPEG' as const }
+    ]
+
+    const logoWidth = 70
+    const logoHeight = 24
+    const logoX = (pageWidth - logoWidth) / 2
+
+    for (const candidate of logoCandidates) {
+      if (!existsSync(candidate.path)) continue
+      try {
+        const img = readFileSync(candidate.path)
+        const mime = candidate.format === 'PNG' ? 'image/png' : 'image/jpeg'
+        const base64 = 'data:' + mime + ';base64,' + img.toString('base64')
+        pdf.addImage(base64, candidate.format, logoX, y, logoWidth, logoHeight)
+        break
+      } catch {
+        // try next available logo candidate
+      }
     }
   } catch {
     // ignore
