@@ -40,8 +40,9 @@ function formatDate(d: Date | string): string {
 }
 
 function addDeliverySignatureSection(pdf: any, startY: number, typ: string, margin: number) {
-  const pageWidth = pdf.internal.pageSize.getWidth()
-  const pageHeight = pdf.internal.pageSize.getHeight()
+  const pageSize = pdf?.internal?.pageSize
+  const pageWidth = typeof pageSize?.getWidth === 'function' ? pageSize.getWidth() : Number(pageSize?.width ?? 210)
+  const pageHeight = typeof pageSize?.getHeight === 'function' ? pageSize.getHeight() : Number(pageSize?.height ?? 297)
   const colGap = 12
   const colWidth = (pageWidth - margin * 2 - colGap) / 2
   const counterpartLabel = typ === 'eingang' ? 'Lieferant' : 'Empfaenger'
@@ -236,18 +237,18 @@ export async function createMaintenanceReportPDF(entries: MaintenanceReportEntry
 
   const rows = entries.map((e) => {
     const art = e.artikelId as { bezeichnung?: string; artikelnummer?: string } | undefined
-    const artikel = art?.bezeichnung ?? art?.artikelnummer ?? 'Ã¢â‚¬â€œ'
+    const artikel = art?.bezeichnung ?? art?.artikelnummer ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“'
     const faellig = formatDate(e.faelligkeitsdatum ?? '')
-    const durchf = e.durchfuehrungsdatum ? formatDate(e.durchfuehrungsdatum) : 'Ã¢â‚¬â€œ'
-    const status = e.status ?? 'Ã¢â‚¬â€œ'
+    const durchf = e.durchfuehrungsdatum ? formatDate(e.durchfuehrungsdatum) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“'
+    const status = e.status ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“'
     const ergebnis = (e.ergebnis ?? '').slice(0, 30)
-    return [artikel, e.wartungsart ?? 'Ã¢â‚¬â€œ', faellig, durchf, status, ergebnis]
+    return [artikel, e.wartungsart ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“', faellig, durchf, status, ergebnis]
   })
 
   if (rows.length > 0) {
     autoTable(pdf, {
       startY: y,
-      head: [['Artikel', 'Wartungsart', 'FÃƒÂ¤llig am', 'DurchgefÃƒÂ¼hrt am', 'Status', 'Ergebnis']],
+      head: [['Artikel', 'Wartungsart', 'FÃƒÆ’Ã‚Â¤llig am', 'DurchgefÃƒÆ’Ã‚Â¼hrt am', 'Status', 'Ergebnis']],
       body: rows,
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 3 },
