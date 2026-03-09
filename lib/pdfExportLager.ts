@@ -72,21 +72,28 @@ function addDeliverySignatureSection(pdf: any, startY: number, typ: string, marg
 export async function createDeliveryNotePDF(doc: DeliveryNoteDoc): Promise<Buffer> {
   const pdf: any = new (jsPDF as any)({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const margin = 20
+  const pageSize = pdf?.internal?.pageSize
+  const pageWidth = typeof pageSize?.getWidth === 'function' ? pageSize.getWidth() : Number(pageSize?.width ?? 210)
   let y = 20
 
   try {
     const { readFileSync, existsSync } = await import('fs')
     const { join } = await import('path')
-    const logoPath = join(process.cwd(), 'public', 'mwd-logo.png')
+    const preferredLogoPath = join(process.cwd(), 'public', 'mwd-logo.png')
+    const fallbackLogoPath = join(process.cwd(), 'public', 'Gleistrix Logo (500 x 300 px).png')
+    const logoPath = existsSync(preferredLogoPath) ? preferredLogoPath : fallbackLogoPath
     if (existsSync(logoPath)) {
       const img = readFileSync(logoPath)
       const base64 = `data:image/png;base64,${img.toString('base64')}`
-      pdf.addImage(base64, 'PNG', margin, y, 60, 30)
+      const logoWidth = 70
+      const logoHeight = 24
+      const logoX = (pageWidth - logoWidth) / 2
+      pdf.addImage(base64, 'PNG', logoX, y, logoWidth, logoHeight)
     }
   } catch {
     // ignore
   }
-  y += 38
+  y += 34
 
   pdf.setFontSize(18)
   pdf.text('Lieferschein', margin, y)
@@ -237,18 +244,18 @@ export async function createMaintenanceReportPDF(entries: MaintenanceReportEntry
 
   const rows = entries.map((e) => {
     const art = e.artikelId as { bezeichnung?: string; artikelnummer?: string } | undefined
-    const artikel = art?.bezeichnung ?? art?.artikelnummer ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“'
+    const artikel = art?.bezeichnung ?? art?.artikelnummer ?? 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ'
     const faellig = formatDate(e.faelligkeitsdatum ?? '')
-    const durchf = e.durchfuehrungsdatum ? formatDate(e.durchfuehrungsdatum) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“'
-    const status = e.status ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“'
+    const durchf = e.durchfuehrungsdatum ? formatDate(e.durchfuehrungsdatum) : 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ'
+    const status = e.status ?? 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ'
     const ergebnis = (e.ergebnis ?? '').slice(0, 30)
-    return [artikel, e.wartungsart ?? 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“', faellig, durchf, status, ergebnis]
+    return [artikel, e.wartungsart ?? 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ', faellig, durchf, status, ergebnis]
   })
 
   if (rows.length > 0) {
     autoTable(pdf, {
       startY: y,
-      head: [['Artikel', 'Wartungsart', 'FÃƒÆ’Ã‚Â¤llig am', 'DurchgefÃƒÆ’Ã‚Â¼hrt am', 'Status', 'Ergebnis']],
+      head: [['Artikel', 'Wartungsart', 'FÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤llig am', 'DurchgefÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼hrt am', 'Status', 'Ergebnis']],
       body: rows,
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 3 },
