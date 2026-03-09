@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import QRCode from 'qrcode'
 
 export type DeliveryNoteDoc = {
   nummer: string
@@ -39,7 +40,20 @@ function formatDate(d: Date | string): string {
   }
 }
 
-function addDeliverySignatureSection(pdf: any, startY: number, typ: string, margin: number) {
+function buildDeliveryQrPayload(doc: DeliveryNoteDoc): string {
+  const rawId = (doc as { _id?: unknown })._id
+  const deliveryNoteId = rawId == null
+    ? ''
+    : typeof rawId === 'string'
+      ? rawId
+      : typeof (rawId as { toString?: () => string }).toString === 'function'
+        ? (rawId as { toString: () => string }).toString()
+        : ''
+
+  return `GLEISTRIX-DELIVERY-NOTE|${deliveryNoteId}|${doc.typ}|${doc.nummer ?? ''}`
+}
+
+function addDeliverySignatureSection(pdf: any, startY: number, typ: string, margin: number, qrDataUrl?: string) {
   const pageSize = pdf?.internal?.pageSize
   const pageWidth = typeof pageSize?.getWidth === 'function' ? pageSize.getWidth() : Number(pageSize?.width ?? 210)
   const pageHeight = typeof pageSize?.getHeight === 'function' ? pageSize.getHeight() : Number(pageSize?.height ?? 297)
@@ -66,8 +80,16 @@ function addDeliverySignatureSection(pdf: any, startY: number, typ: string, marg
   pdf.line(rightX, y + 14, rightX + colWidth, y + 14)
   pdf.text('Datum: ____________________', leftX, y + 22)
   pdf.text('Datum: ____________________', rightX, y + 22)
-}
 
+  if (qrDataUrl) {
+    const qrSize = 28
+    const qrX = pageWidth - margin - qrSize
+    const qrY = pageHeight - margin - qrSize
+    pdf.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize)
+    pdf.setFontSize(8)
+    pdf.text('Lieferschein QR', qrX, qrY - 2)
+  }
+}
 
 export async function createDeliveryNotePDF(doc: DeliveryNoteDoc): Promise<Buffer> {
   const pdf: any = new (jsPDF as any)({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -137,9 +159,21 @@ export async function createDeliveryNotePDF(doc: DeliveryNoteDoc): Promise<Buffe
     })
   }
 
+  let qrDataUrl = ''
+  try {
+    const qrPayload = buildDeliveryQrPayload(doc)
+    qrDataUrl = await QRCode.toDataURL(qrPayload, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 220
+    })
+  } catch {
+    // ignore QR generation errors and keep PDF export functional
+  }
+
   const tableEndY = (pdf as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY
   const signatureStartY = (typeof tableEndY === 'number' ? tableEndY : y) + 14
-  addDeliverySignatureSection(pdf, signatureStartY, doc.typ, margin)
+  addDeliverySignatureSection(pdf, signatureStartY, doc.typ, margin, qrDataUrl || undefined)
 
   const buf = Buffer.from(pdf.output('arraybuffer'))
   return buf
@@ -244,18 +278,18 @@ export async function createMaintenanceReportPDF(entries: MaintenanceReportEntry
 
   const rows = entries.map((e) => {
     const art = e.artikelId as { bezeichnung?: string; artikelnummer?: string } | undefined
-    const artikel = art?.bezeichnung ?? art?.artikelnummer ?? 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ'
+    const artikel = art?.bezeichnung ?? art?.artikelnummer ?? '-'
     const faellig = formatDate(e.faelligkeitsdatum ?? '')
-    const durchf = e.durchfuehrungsdatum ? formatDate(e.durchfuehrungsdatum) : 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ'
-    const status = e.status ?? 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ'
+    const durchf = e.durchfuehrungsdatum ? formatDate(e.durchfuehrungsdatum) : '-'
+    const status = e.status ?? '-'
     const ergebnis = (e.ergebnis ?? '').slice(0, 30)
-    return [artikel, e.wartungsart ?? 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ', faellig, durchf, status, ergebnis]
+    return [artikel, e.wartungsart ?? '-', faellig, durchf, status, ergebnis]
   })
 
   if (rows.length > 0) {
     autoTable(pdf, {
       startY: y,
-      head: [['Artikel', 'Wartungsart', 'FÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤llig am', 'DurchgefÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼hrt am', 'Status', 'Ergebnis']],
+      head: [['Artikel', 'Wartungsart', 'Faellig am', 'Durchgefuehrt am', 'Status', 'Ergebnis']],
       body: rows,
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 3 },

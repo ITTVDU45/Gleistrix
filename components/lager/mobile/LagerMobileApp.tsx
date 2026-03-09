@@ -168,6 +168,12 @@ type OpenOutgoingDeliveryNote = {
   empfaenger?: { name?: string }
 }
 
+type DeliveryNotePosition = {
+  artikelId?: { _id?: string; id?: string; bezeichnung?: string; artikelnummer?: string } | string
+  bezeichnung?: string
+  menge?: number
+}
+
 type DeliveryNoteRow = {
   _id: string
   nummer: string
@@ -175,6 +181,13 @@ type DeliveryNoteRow = {
   datum?: string
   status?: 'entwurf' | 'abgeschlossen'
   empfaenger?: { name?: string; adresse?: string }
+  positionen?: DeliveryNotePosition[]
+}
+
+type DeliveryNoteQrPayload = {
+  deliveryNoteId: string
+  typ: 'eingang' | 'ausgang'
+  nummer?: string
 }
 
 type DeliveryNoteEditForm = {
@@ -296,6 +309,10 @@ export default function LagerMobileApp() {
     empfaengerName: '',
     empfaengerAdresse: ''
   })
+  const [scannedDeliveryQr, setScannedDeliveryQr] = useState<DeliveryNoteQrPayload | null>(null)
+  const [isDeliveryQrActionOpen, setIsDeliveryQrActionOpen] = useState(false)
+  const [isPrefillFromDeliveryLoading, setIsPrefillFromDeliveryLoading] = useState(false)
+
 
   const selectedArticle = useMemo(
     () => articles.find((a) => getArticleId(a) === selectedArticleId),
@@ -946,7 +963,65 @@ export default function LagerMobileApp() {
     setSuccess('')
   }
 
+  function parseDeliveryNoteQrPayload(rawCode: string): DeliveryNoteQrPayload | null {
+    const raw = rawCode.trim()
+    if (!raw) return null
+
+    if (raw.startsWith('GLEISTRIX-DELIVERY-NOTE|')) {
+      const parts = raw.split('|')
+      const deliveryNoteId = String(parts[1] ?? '').trim()
+      const typRaw = String(parts[2] ?? '').trim()
+      const nummer = String(parts[3] ?? '').trim()
+      const typ = typRaw === 'eingang' || typRaw === 'ausgang' ? typRaw : ''
+      if (deliveryNoteId && typ) return { deliveryNoteId, typ, nummer: nummer || undefined }
+      return null
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as { deliveryNoteId?: unknown; id?: unknown; typ?: unknown; nummer?: unknown }
+      const deliveryNoteId = String(parsed.deliveryNoteId ?? parsed.id ?? '').trim()
+      const typRaw = String(parsed.typ ?? '').trim()
+      const typ = typRaw === 'eingang' || typRaw === 'ausgang' ? typRaw : ''
+      if (deliveryNoteId && typ) {
+        return {
+          deliveryNoteId,
+          typ,
+          nummer: typeof parsed.nummer === 'string' ? parsed.nummer : undefined
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return null
+  }
+
+  function resolveDeliveryPositionArticleId(position: DeliveryNotePosition): string {
+    const artikelId = position.artikelId
+    if (!artikelId) return ''
+    if (typeof artikelId === 'string') return artikelId
+    const raw = artikelId._id ?? artikelId.id
+    return raw ? String(raw) : ''
+  }
+
+  function findPartnerByLabel(options: PartnerOption[], label: string): PartnerOption | null {
+    const normalized = label.trim().toLocaleLowerCase('de-DE')
+    if (!normalized) return null
+    return options.find((option) => option.label.trim().toLocaleLowerCase('de-DE') === normalized) ?? null
+  }
   function resolveArticleByScan(code: string) {
+    const deliveryQr = parseDeliveryNoteQrPayload(code)
+    if (deliveryQr) {
+      if (deliveryQr.typ !== 'eingang') {
+        setStatusMessage('Lieferschein-QR erkannt. Dieser QR ist nicht fuer Wareneingang vorgesehen.')
+        return
+      }
+      setScannedDeliveryQr(deliveryQr)
+      setIsDeliveryQrActionOpen(true)
+      setStatusMessage('Lieferschein erkannt: ' + (deliveryQr.nummer ?? deliveryQr.deliveryNoteId))
+      return
+    }
+
     const normalized = code.trim().toLowerCase()
     const found = articles.find((article) => {
       const artikelnummer = article.artikelnummer?.trim().toLowerCase() ?? ''
@@ -985,12 +1060,78 @@ export default function LagerMobileApp() {
     setSelectedArticleId(foundArticleId)
     setStatusMessage(`Artikel erkannt: ${found.bezeichnung}`)
   }
-
   async function handlePartnerSaved() {
     await loadPartnerData()
     setStatusMessage('Partner gespeichert')
   }
 
+  async function openIncomingFromScannedDelivery() {
+    if (!scannedDeliveryQr?.deliveryNoteId) return
+
+    setIsDeliveryQrActionOpen(false)
+    setIsPrefillFromDeliveryLoading(true)
+    setError('')
+
+    try {
+      const [deliveryResponse, partnerResponse] = await Promise.all([
+        LagerApi.deliveryNotes.get(scannedDeliveryQr.deliveryNoteId),
+        LagerApi.partners.list()
+      ])
+
+      const note = (deliveryResponse as { success?: boolean; data?: DeliveryNoteRow })?.data
+      if (!(deliveryResponse as { success?: boolean })?.success || !note) {
+        throw new Error('Lieferschein konnte nicht geladen werden')
+      }
+
+      const employees = partnerResponse.employees ?? []
+      const suppliers = partnerResponse.suppliers ?? []
+      setPartnerEmployees(employees)
+      setPartnerSuppliers(suppliers)
+
+      const supplierName = String(note.empfaenger?.name ?? '').trim()
+      const supplierMatch = findPartnerByLabel([...employees, ...suppliers], supplierName)
+
+      const mappedItems: IncomingItem[] = []
+      let missingArticles = 0
+      for (const position of note.positionen ?? []) {
+        const artikelId = resolveDeliveryPositionArticleId(position)
+        if (!artikelId || !articles.some((article) => getArticleId(article) === artikelId)) {
+          missingArticles += 1
+          continue
+        }
+        const qty = Number(position.menge ?? 1)
+        mappedItems.push({
+          id: createIncomingItem().id,
+          artikelId,
+          menge: Number.isFinite(qty) && qty > 0 ? qty : 1
+        })
+      }
+
+      clearActionForm()
+      setView('eingang')
+      setIncomingEntryMode('manual')
+      setOutgoingEntryMode('select')
+      setSelectedArticleId('')
+      setLieferant(supplierMatch?.value ?? '')
+      setIncomingItems(mappedItems.length > 0 ? mappedItems : [createIncomingItem()])
+      setScannedDeliveryQr(null)
+
+      if (mappedItems.length === 0) {
+        setErrorMessage('Lieferschein geladen, aber keine passenden Artikel fuer den Wareneingang gefunden')
+        return
+      }
+
+      const hints: string[] = []
+      if (!supplierMatch && supplierName) hints.push('Lieferant bitte manuell waehlen')
+      if (missingArticles > 0) hints.push(String(missingArticles) + ' Position(en) nicht gefunden')
+      const hintText = hints.length ? ' (' + hints.join(', ') + ')' : ''
+      setStatusMessage('Wareneingang aus Lieferschein vorbefuellt' + hintText)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Lieferschein konnte nicht uebernommen werden')
+    } finally {
+      setIsPrefillFromDeliveryLoading(false)
+    }
+  }
   async function createMovement(bewegungstyp: 'eingang' | 'ausgang') {
     if (bewegungstyp === 'ausgang') {
       if (!selectedArticleId) return setErrorMessage('Bitte zuerst einen Artikel auswaehlen oder scannen')
@@ -2419,6 +2560,27 @@ export default function LagerMobileApp() {
               <Button variant="outline" onClick={() => setInventoryCompleteConfirmOpen(false)} disabled={isInventoryCompleting}>Abbrechen</Button>
               <Button variant="destructive" onClick={completeInventory} disabled={isInventoryCompleting}>
                 {isInventoryCompleting ? 'Schliesse ab...' : 'Ja, Inventur abschliessen'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isDeliveryQrActionOpen && scannedDeliveryQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Lieferschein erkannt</h3>
+              <Button variant="ghost" size="sm" onClick={() => { setIsDeliveryQrActionOpen(false); setScannedDeliveryQr(null) }} disabled={isPrefillFromDeliveryLoading}>
+                Schliessen
+              </Button>
+            </div>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              {(scannedDeliveryQr.nummer ? 'Nummer: ' + scannedDeliveryQr.nummer + ' - ' : '') + 'Typ: ' + (scannedDeliveryQr.typ === 'eingang' ? 'Wareneingang' : 'Warenausgang')}
+            </p>
+            <div className="mt-4 grid gap-2">
+              <Button className="h-12 justify-start gap-2" onClick={openIncomingFromScannedDelivery} disabled={isPrefillFromDeliveryLoading || scannedDeliveryQr.typ !== 'eingang'}>
+                <ArrowDownToLine className="h-4 w-4" />
+                {isPrefillFromDeliveryLoading ? 'Lade Wareneingang...' : 'Wareneingang'}
               </Button>
             </div>
           </div>
