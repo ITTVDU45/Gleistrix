@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { StockMovement } from '@/lib/models/StockMovement'
 import { Article } from '@/lib/models/Article'
+import { DeliveryNote } from '@/lib/models/DeliveryNote'
 import '@/lib/models/User'
 import '@/lib/models/Employee'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 import { requireAuth } from '@/lib/security/requireAuth'
+import { getNextDeliveryNoteNumber } from '@/lib/utils/deliveryNoteNumber'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -21,10 +23,14 @@ export async function GET(request: NextRequest) {
     const bewegungstyp = searchParams.get('bewegungstyp') ?? undefined
     const datumVon = searchParams.get('datumVon') ?? undefined
     const datumBis = searchParams.get('datumBis') ?? undefined
+    const lieferscheinId = searchParams.get('lieferscheinId') ?? undefined
 
     const filter: Record<string, unknown> = {}
     if (artikelId && mongoose.Types.ObjectId.isValid(artikelId)) filter.artikelId = new mongoose.Types.ObjectId(artikelId)
     if (bewegungstyp) filter.bewegungstyp = bewegungstyp
+    if (lieferscheinId && mongoose.Types.ObjectId.isValid(lieferscheinId)) {
+      filter.lieferscheinId = new mongoose.Types.ObjectId(lieferscheinId)
+    }
     if (datumVon || datumBis) {
       filter.datum = {}
       if (datumVon) (filter.datum as Record<string, Date>).$gte = new Date(datumVon)
@@ -102,6 +108,26 @@ export async function POST(request: NextRequest) {
     }
     if (body.lieferscheinId && mongoose.Types.ObjectId.isValid(body.lieferscheinId)) {
       movementPayload.lieferscheinId = new mongoose.Types.ObjectId(body.lieferscheinId)
+    } else if (body.bewegungstyp === 'eingang' || body.bewegungstyp === 'ausgang') {
+      // Fallback: jede Ein-/Ausgangsbuchung bekommt einen Lieferschein, falls keiner mitgegeben wurde.
+      const nummer = await getNextDeliveryNoteNumber()
+      const generatedNote = await DeliveryNote.create({
+        typ: body.bewegungstyp,
+        nummer,
+        datum,
+        empfaenger: {
+          name: body.bewegungstyp === 'eingang' ? 'Wareneingang' : 'Warenausgang',
+          adresse: ''
+        },
+        positionen: [{
+          artikelId: new mongoose.Types.ObjectId(artikelId),
+          bezeichnung: article.bezeichnung ?? article.artikelnummer ?? 'Artikel',
+          menge: body.menge
+        }],
+        verantwortlich: currentUser?._id ?? undefined,
+        status: 'abgeschlossen'
+      })
+      movementPayload.lieferscheinId = generatedNote._id
     }
 
     if (body.bewegungstyp === 'eingang') {

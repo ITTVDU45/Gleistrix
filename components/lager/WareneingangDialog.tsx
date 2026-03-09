@@ -194,13 +194,33 @@ export default function WareneingangDialog({
     setIsSubmitting(true)
     setError('')
     try {
+      const deliveryResponse = await LagerApi.deliveryNotes.create({
+        typ: 'eingang',
+        datum: new Date(datum).toISOString(),
+        empfaenger: {
+          name: selectedSupplier.label,
+          adresse: ''
+        },
+        positionen: mergedItems.map((item) => {
+          const article = articles.find((a) => (((a as { _id?: unknown })._id?.toString?.() ?? a.id) === item.artikelId))
+          return {
+            artikelId: item.artikelId,
+            bezeichnung: article?.bezeichnung ?? article?.artikelnummer ?? 'Artikel',
+            menge: item.menge
+          }
+        })
+      })
+      const rawId = (deliveryResponse as { data?: { _id?: unknown; id?: string } })?.data?._id
+        ?? (deliveryResponse as { data?: { _id?: string; id?: string } })?.data?.id
+      const generatedDeliveryId = rawId != null ? String(rawId) : undefined
+
       for (const item of mergedItems) {
         const res = await LagerApi.movements.create({
           artikelId: item.artikelId,
           bewegungstyp: 'eingang',
           menge: item.menge,
           datum: new Date(datum).toISOString(),
-          lieferscheinId: selectedLieferscheinId || undefined,
+          lieferscheinId: generatedDeliveryId || selectedLieferscheinId || undefined,
           bemerkung: movementRemark
         })
         if ((res as { success?: boolean })?.success === false) {

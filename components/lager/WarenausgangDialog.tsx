@@ -109,12 +109,30 @@ export default function WarenausgangDialog({
     setIsSubmitting(true)
     setError('')
     try {
+      const deliveryResponse = await LagerApi.deliveryNotes.create({
+        typ: 'ausgang',
+        datum: new Date(datum).toISOString(),
+        empfaenger: {
+          name: partnerLabel || 'Unbekannter Empfaenger',
+          adresse: ''
+        },
+        positionen: [{
+          artikelId,
+          bezeichnung: selectedArticle?.bezeichnung ?? selectedArticle?.artikelnummer ?? 'Artikel',
+          menge
+        }]
+      })
+      const rawId = (deliveryResponse as { data?: { _id?: unknown; id?: string } })?.data?._id
+        ?? (deliveryResponse as { data?: { _id?: string; id?: string } })?.data?.id
+      const deliveryId = rawId != null ? String(rawId) : undefined
+
       const res = await LagerApi.movements.create({
         artikelId,
         bewegungstyp: 'ausgang',
         menge,
         datum: new Date(datum).toISOString(),
         empfaenger: partnerEmployeeId,
+        lieferscheinId: deliveryId,
         bemerkung: movementRemark
       })
       if ((res as { success?: boolean })?.success !== false) {

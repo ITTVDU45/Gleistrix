@@ -81,12 +81,13 @@ export const LagerApi = {
       delJSON(`/api/lager/categories/${id}`, 'lager:category:delete')
   },
   movements: {
-    list: (params?: { artikelId?: string; bewegungstyp?: string; datumVon?: string; datumBis?: string }) => {
+    list: (params?: { artikelId?: string; bewegungstyp?: string; datumVon?: string; datumBis?: string; lieferscheinId?: string }) => {
       const search = new URLSearchParams()
       if (params?.artikelId) search.set('artikelId', params.artikelId)
       if (params?.bewegungstyp) search.set('bewegungstyp', params.bewegungstyp)
       if (params?.datumVon) search.set('datumVon', params.datumVon)
       if (params?.datumBis) search.set('datumBis', params.datumBis)
+      if (params?.lieferscheinId) search.set('lieferscheinId', params.lieferscheinId)
       const q = search.toString()
       return getJSON<{ success: boolean; movements: StockMovement[] }>(`/api/lager/movements${q ? `?${q}` : ''}`)
     },
@@ -196,8 +197,26 @@ export const LagerApi = {
       delJSON(`/api/lager/maintenance/${id}`, 'lager:maintenance:delete')
   },
   deliveryNotes: {
-    list: () =>
-      getJSON<{ success: boolean; deliveryNotes: unknown[] }>('/api/lager/delivery-notes'),
+    list: (params?: {
+      typ?: 'eingang' | 'ausgang'
+      status?: 'entwurf' | 'abgeschlossen'
+      search?: string
+      dateFrom?: string
+      dateTo?: string
+      page?: number
+      limit?: number
+    }) => {
+      const search = new URLSearchParams()
+      if (params?.typ) search.set('typ', params.typ)
+      if (params?.status) search.set('status', params.status)
+      if (params?.search) search.set('search', params.search)
+      if (params?.dateFrom) search.set('dateFrom', params.dateFrom)
+      if (params?.dateTo) search.set('dateTo', params.dateTo)
+      if (typeof params?.page === 'number') search.set('page', String(params.page))
+      if (typeof params?.limit === 'number') search.set('limit', String(params.limit))
+      const q = search.toString()
+      return getJSON<{ success: boolean; deliveryNotes: unknown[]; page?: number; limit?: number }>(`/api/lager/delivery-notes${q ? `?${q}` : ''}`)
+    },
     listOpenOutgoing: (recipientName?: string) => {
       const search = new URLSearchParams()
       if (recipientName) search.set('recipient', recipientName)
@@ -206,6 +225,12 @@ export const LagerApi = {
     },
     get: (id: string) =>
       getJSON<{ success: boolean; data: unknown }>(`/api/lager/delivery-notes/${id}`),
+    update: (id: string, data: {
+      datum?: string | Date
+      status?: 'entwurf' | 'abgeschlossen'
+      empfaenger?: { name?: string; adresse?: string }
+    }) =>
+      putJSON(`/api/lager/delivery-notes/${id}`, data as Record<string, unknown>, 'lager:delivery-note:update'),
     create: (data: {
       typ: 'eingang' | 'ausgang'
       datum: string | Date

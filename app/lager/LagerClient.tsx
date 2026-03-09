@@ -38,6 +38,8 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isLagerOnly = userRole === 'lager'
+  const [activeTab, setActiveTab] = useState(isLagerOnly ? 'inventur' : 'artikel')
+  const [bewegungLieferscheinId, setBewegungLieferscheinId] = useState('')
 
   const loadData = async () => {
     try {
@@ -83,6 +85,11 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
       }).catch(() => {})
     }
   }, [])
+
+  function handleOpenMovementsFromDelivery(lieferscheinId: string) {
+    setBewegungLieferscheinId(lieferscheinId)
+    setActiveTab('bewegungen')
+  }
 
   if (error) {
     return (
@@ -147,7 +154,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
         </div>
       )}
 
-      <Tabs defaultValue={isLagerOnly ? 'inventur' : 'artikel'} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-slate-100 dark:bg-slate-700 rounded-xl">
           {!isLagerOnly && (
             <>
@@ -173,7 +180,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
               </TabsTrigger>
               <TabsTrigger value="lieferscheine" className="gap-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-600">
                 <FileText className="h-4 w-4" />
-                Lieferscheine
+                Lieferscheine ansehen
               </TabsTrigger>
             </>
           )}
@@ -207,7 +214,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
         )}
         {!isLagerOnly && (
           <TabsContent value="bewegungen" className="mt-4">
-            <LagerBewegungenView articles={articles} onRefresh={loadData} />
+            <LagerBewegungenView articles={articles} onRefresh={loadData} initialLieferscheinId={bewegungLieferscheinId} />
           </TabsContent>
         )}
         {!isLagerOnly && (
@@ -222,7 +229,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
         )}
         {!isLagerOnly && (
           <TabsContent value="lieferscheine" className="mt-4">
-            <LagerLieferscheineView onRefresh={loadData} />
+            <LagerLieferscheineView onRefresh={loadData} onOpenMovements={handleOpenMovementsFromDelivery} />
           </TabsContent>
         )}
         <TabsContent value="inventur" className="mt-4">

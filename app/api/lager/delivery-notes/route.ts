@@ -12,11 +12,39 @@ export async function GET(request: NextRequest) {
     await dbConnect()
     const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
-    const list = await DeliveryNote.find({})
+
+    const { searchParams } = new URL(request.url)
+    const typ = searchParams.get('typ') ?? ''
+    const status = searchParams.get('status') ?? ''
+    const search = (searchParams.get('search') ?? '').trim()
+    const dateFrom = searchParams.get('dateFrom') ?? ''
+    const dateTo = searchParams.get('dateTo') ?? ''
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
+    const limit = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') ?? '200', 10) || 200))
+
+    const filter: Record<string, unknown> = {}
+    if (typ === 'eingang' || typ === 'ausgang') filter.typ = typ
+    if (status === 'entwurf' || status === 'abgeschlossen') filter.status = status
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(escaped, 'i')
+      filter.$or = [{ nummer: regex }, { 'empfaenger.name': regex }]
+    }
+    if (dateFrom || dateTo) {
+      const datumFilter: Record<string, Date> = {}
+      if (dateFrom) datumFilter.$gte = new Date(dateFrom)
+      if (dateTo) datumFilter.$lte = new Date(dateTo)
+      filter.datum = datumFilter
+    }
+
+    const skip = (page - 1) * limit
+    const list = await DeliveryNote.find(filter)
       .sort({ datum: -1, nummer: -1 })
-      .limit(200)
+      .skip(skip)
+      .limit(limit)
       .lean()
-    return NextResponse.json({ success: true, deliveryNotes: list })
+
+    return NextResponse.json({ success: true, deliveryNotes: list, page, limit })
   } catch (error) {
     console.error('Fehler beim Laden der Lieferscheine:', error)
     return NextResponse.json(
@@ -31,7 +59,7 @@ export async function POST(request: NextRequest) {
     await dbConnect()
     const csrf = request.headers.get('x-csrf-intent')
     if (process.env.NODE_ENV === 'production' && csrf !== 'lager:delivery-note:create') {
-      return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 })
+      return NextResponse.json({ success: false, message: 'Ungueltige Anforderung' }, { status: 400 })
     }
     const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })

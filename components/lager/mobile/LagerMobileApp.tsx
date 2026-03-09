@@ -22,6 +22,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   FileText,
+  FileDown,
   Package2,
   ChevronLeft,
   LogOut,
@@ -103,6 +104,8 @@ type MobileView =
   | 'produkte'
   | 'lieferanten'
 
+type MovementEntryMode = 'select' | 'qr' | 'manual'
+
 type MaintenanceRow = {
   _id?: string
   artikelId?: { bezeichnung?: string; artikelnummer?: string } | string
@@ -165,6 +168,22 @@ type OpenOutgoingDeliveryNote = {
   empfaenger?: { name?: string }
 }
 
+type DeliveryNoteRow = {
+  _id: string
+  nummer: string
+  typ: 'eingang' | 'ausgang'
+  datum?: string
+  status?: 'entwurf' | 'abgeschlossen'
+  empfaenger?: { name?: string; adresse?: string }
+}
+
+type DeliveryNoteEditForm = {
+  datum: string
+  status: 'entwurf' | 'abgeschlossen'
+  empfaengerName: string
+  empfaengerAdresse: string
+}
+
 type IncomingItem = {
   id: string
   artikelId: string
@@ -187,7 +206,7 @@ export default function LagerMobileApp() {
     home: 'Startseite',
     eingang: 'Wareneingang',
     ausgang: 'Warenausgang',
-    lieferschein: 'Lieferschein erfassen',
+    lieferschein: 'Lieferscheine ansehen',
     bestand: 'Bestand',
     bewegungen: 'Bewegungen (Historie)',
     wartung: 'Wartung',
@@ -244,6 +263,8 @@ export default function LagerMobileApp() {
 
   const [menge, setMenge] = useState(1)
   const [incomingItems, setIncomingItems] = useState<IncomingItem[]>([createIncomingItem()])
+  const [incomingEntryMode, setIncomingEntryMode] = useState<MovementEntryMode>('select')
+  const [outgoingEntryMode, setOutgoingEntryMode] = useState<MovementEntryMode>('select')
   const [empfaenger, setEmpfaenger] = useState('')
   const [lieferant, setLieferant] = useState('')
   const [partnerEmployees, setPartnerEmployees] = useState<PartnerOption[]>([])
@@ -260,6 +281,21 @@ export default function LagerMobileApp() {
   const [isLoadingIncomingDeliveryNotes, setIsLoadingIncomingDeliveryNotes] = useState(false)
   const [lieferscheinDate, setLieferscheinDate] = useState(new Date().toISOString().slice(0, 10))
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null)
+  const [movementLieferscheinFilter, setMovementLieferscheinFilter] = useState('')
+  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteRow[]>([])
+  const [isDeliveryNotesLoading, setIsDeliveryNotesLoading] = useState(false)
+  const [deliveryNoteTypeFilter, setDeliveryNoteTypeFilter] = useState<'alle' | 'eingang' | 'ausgang'>('alle')
+  const [deliveryNoteStatusFilter, setDeliveryNoteStatusFilter] = useState<'alle' | 'entwurf' | 'abgeschlossen'>('alle')
+  const [deliveryNoteSearch, setDeliveryNoteSearch] = useState('')
+  const [deliveryNoteDateFrom, setDeliveryNoteDateFrom] = useState('')
+  const [deliveryNoteDateTo, setDeliveryNoteDateTo] = useState('')
+  const [editingDeliveryNoteId, setEditingDeliveryNoteId] = useState('')
+  const [deliveryNoteEditForm, setDeliveryNoteEditForm] = useState<DeliveryNoteEditForm>({
+    datum: new Date().toISOString().slice(0, 10),
+    status: 'abgeschlossen',
+    empfaengerName: '',
+    empfaengerAdresse: ''
+  })
 
   const selectedArticle = useMemo(
     () => articles.find((a) => getArticleId(a) === selectedArticleId),
@@ -360,7 +396,9 @@ export default function LagerMobileApp() {
   }
 
   async function loadMovements() {
-    const response = await LagerApi.movements.list()
+    const response = await LagerApi.movements.list({
+      lieferscheinId: movementLieferscheinFilter || undefined
+    })
     if (!response?.success || !response.movements) throw new Error('Bewegungen konnten nicht geladen werden')
     const sorted = [...response.movements].sort(
       (a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime()
@@ -380,6 +418,26 @@ export default function LagerMobileApp() {
     const rows = (response as { success?: boolean; inventory?: InventoryRow[] })?.inventory ?? []
     if (!(response as { success?: boolean })?.success) throw new Error('Inventuren konnten nicht geladen werden')
     setInventoryList(rows)
+  }
+
+  async function loadDeliveryNotes() {
+    setIsDeliveryNotesLoading(true)
+    try {
+      const response = await LagerApi.deliveryNotes.list({
+        typ: deliveryNoteTypeFilter === 'alle' ? undefined : deliveryNoteTypeFilter,
+        status: deliveryNoteStatusFilter === 'alle' ? undefined : deliveryNoteStatusFilter,
+        search: deliveryNoteSearch.trim() || undefined,
+        dateFrom: deliveryNoteDateFrom || undefined,
+        dateTo: deliveryNoteDateTo || undefined,
+        limit: 300
+      })
+      const rows = (response as { success?: boolean; deliveryNotes?: DeliveryNoteRow[] })?.deliveryNotes ?? []
+      if (!(response as { success?: boolean })?.success) throw new Error('Lieferscheine konnten nicht geladen werden')
+      const sorted = [...rows].sort((a, b) => new Date(b.datum ?? '').getTime() - new Date(a.datum ?? '').getTime())
+      setDeliveryNotes(sorted)
+    } finally {
+      setIsDeliveryNotesLoading(false)
+    }
   }
 
   function resolveInventoryArticleId(artikelId: InventoryPosition['artikelId']): string {
@@ -763,13 +821,14 @@ export default function LagerMobileApp() {
     let cancelled = false
 
     async function loadViewData() {
-      if (!['bewegungen', 'wartung', 'inventur'].includes(view)) return
+      if (!['bewegungen', 'wartung', 'inventur', 'lieferschein'].includes(view)) return
 
       setIsDetailLoading(true)
       try {
         if (view === 'bewegungen') await loadMovements()
         if (view === 'wartung') await loadMaintenance()
         if (view === 'inventur') await loadInventory()
+        if (view === 'lieferschein') await loadDeliveryNotes()
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : 'Daten konnten nicht geladen werden'
@@ -784,7 +843,7 @@ export default function LagerMobileApp() {
     return () => {
       cancelled = true
     }
-  }, [view])
+  }, [view, movementLieferscheinFilter, deliveryNoteTypeFilter, deliveryNoteStatusFilter, deliveryNoteDateFrom, deliveryNoteDateTo, deliveryNoteSearch])
 
   useEffect(() => {
     let cancelled = false
@@ -902,6 +961,7 @@ export default function LagerMobileApp() {
 
     const foundArticleId = getArticleId(found)
     if (view === 'eingang') {
+      setIncomingEntryMode('qr')
       setIncomingItems((prev) => {
         const existingIndex = prev.findIndex((item) => item.artikelId === foundArticleId)
         if (existingIndex >= 0) {
@@ -917,6 +977,9 @@ export default function LagerMobileApp() {
       })
       setStatusMessage(`Artikel hinzugefuegt: ${found.bezeichnung}`)
       return
+    }
+    if (view === 'ausgang') {
+      setOutgoingEntryMode('qr')
     }
 
     setSelectedArticleId(foundArticleId)
@@ -970,23 +1033,58 @@ export default function LagerMobileApp() {
           }, new Map<string, number>())
         ).map(([artikelId, mergedMenge]) => ({ artikelId, menge: mergedMenge }))
 
+        const deliveryResponse = await LagerApi.deliveryNotes.create({
+          typ: 'eingang',
+          datum: new Date().toISOString(),
+          empfaenger: {
+            name: selectedSupplierPartner?.label || 'Unbekannter Lieferant',
+            adresse: ''
+          },
+          positionen: mergedIncomingItems.map((item) => ({
+            artikelId: item.artikelId,
+            bezeichnung: articles.find((article) => getArticleId(article) === item.artikelId)?.bezeichnung ?? 'Artikel',
+            menge: item.menge
+          }))
+        })
+        const rawId = (deliveryResponse as { data?: { _id?: unknown; id?: string } })?.data?._id
+          ?? (deliveryResponse as { data?: { _id?: string; id?: string } })?.data?.id
+        const generatedDeliveryId = rawId != null ? String(rawId) : undefined
+
         for (const item of mergedIncomingItems) {
           await LagerApi.movements.create({
             artikelId: item.artikelId,
             bewegungstyp,
             menge: item.menge,
             datum: new Date().toISOString(),
-            lieferscheinId: selectedIncomingDeliveryNoteId || undefined,
+            lieferscheinId: generatedDeliveryId || selectedIncomingDeliveryNoteId || undefined,
             bemerkung: metaPieces.join(' | ')
           })
         }
       } else {
+        const deliveryResponse = await LagerApi.deliveryNotes.create({
+          typ: 'ausgang',
+          datum: new Date().toISOString(),
+          empfaenger: {
+            name: outgoingLabel || 'Unbekannter Empfaenger',
+            adresse: ''
+          },
+          positionen: [{
+            artikelId: selectedArticleId,
+            bezeichnung: selectedArticle?.bezeichnung ?? selectedArticle?.artikelnummer ?? 'Artikel',
+            menge
+          }]
+        })
+        const rawId = (deliveryResponse as { data?: { _id?: unknown; id?: string } })?.data?._id
+          ?? (deliveryResponse as { data?: { _id?: string; id?: string } })?.data?.id
+        const generatedDeliveryId = rawId != null ? String(rawId) : undefined
+
         await LagerApi.movements.create({
           artikelId: selectedArticleId,
           bewegungstyp,
           menge,
           datum: new Date().toISOString(),
           empfaenger: outgoingEmployeeId,
+          lieferscheinId: generatedDeliveryId,
           bemerkung: metaPieces.join(' | ')
         })
       }
@@ -1041,6 +1139,46 @@ export default function LagerMobileApp() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Lieferschein konnte nicht gespeichert werden'
       setErrorMessage(message)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  function startEditDeliveryNote(note: DeliveryNoteRow) {
+    setEditingDeliveryNoteId(note._id)
+    setDeliveryNoteEditForm({
+      datum: toDateInput(note.datum) || new Date().toISOString().slice(0, 10),
+      status: note.status ?? 'abgeschlossen',
+      empfaengerName: note.empfaenger?.name ?? '',
+      empfaengerAdresse: note.empfaenger?.adresse ?? ''
+    })
+  }
+
+  function cancelEditDeliveryNote() {
+    setEditingDeliveryNoteId('')
+  }
+
+  function downloadDeliveryNotePdf(noteId: string) {
+    window.open('/api/lager/delivery-notes/' + noteId + '/pdf', '_blank', 'noopener,noreferrer')
+  }
+
+  async function saveDeliveryNoteUpdate(noteId: string) {
+    setIsSaving(true)
+    setError('')
+    try {
+      await LagerApi.deliveryNotes.update(noteId, {
+        datum: new Date(deliveryNoteEditForm.datum).toISOString(),
+        status: deliveryNoteEditForm.status,
+        empfaenger: {
+          name: deliveryNoteEditForm.empfaengerName.trim(),
+          adresse: deliveryNoteEditForm.empfaengerAdresse.trim()
+        }
+      })
+      setStatusMessage('Lieferschein aktualisiert')
+      setEditingDeliveryNoteId('')
+      await loadDeliveryNotes()
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Lieferschein konnte nicht aktualisiert werden')
     } finally {
       setIsSaving(false)
     }
@@ -1120,6 +1258,10 @@ export default function LagerMobileApp() {
         variant="ghost"
         className="h-12 px-2 text-slate-700 dark:text-slate-200"
         onClick={() => {
+          clearActionForm()
+          setSelectedArticleId('')
+          setIncomingEntryMode('select')
+          setOutgoingEntryMode('select')
           setView('home')
           setError('')
           setSuccess('')
@@ -1131,6 +1273,50 @@ export default function LagerMobileApp() {
         <ChevronLeft className="mr-1 h-5 w-5" />
         Zurueck
       </Button>
+    )
+  }
+
+  function MovementModeCards() {
+    const isIncoming = view === 'eingang'
+    const title = isIncoming ? 'Wareneingang erfassen' : 'Warenausgang erfassen'
+
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-slate-600 dark:text-slate-400">{title}: Bitte zuerst Modus waehlen</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-16 justify-start gap-2 rounded-xl"
+            onClick={() => {
+              if (isIncoming) {
+                setIncomingEntryMode('qr')
+              } else {
+                setOutgoingEntryMode('qr')
+              }
+              setIsScannerOpen(true)
+            }}
+          >
+            <QrCode className="h-5 w-5" />
+            QR-Code scannen
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-16 justify-start gap-2 rounded-xl"
+            onClick={() => {
+              if (isIncoming) {
+                setIncomingEntryMode('manual')
+              } else {
+                setOutgoingEntryMode('manual')
+              }
+            }}
+          >
+            <Pencil className="h-5 w-5" />
+            Manuell eintragen
+          </Button>
+        </div>
+      </div>
     )
   }
 
@@ -1147,11 +1333,28 @@ export default function LagerMobileApp() {
     )
   }
 
+  function openIncomingView() {
+    clearActionForm()
+    setSelectedArticleId('')
+    setIncomingEntryMode('select')
+    setView('eingang')
+  }
+
+  function openOutgoingView() {
+    clearActionForm()
+    setSelectedArticleId('')
+    setOutgoingEntryMode('select')
+    setView('ausgang')
+  }
+
   async function handleLogout() {
     await signOut({ redirect: false })
     router.push('/login')
     router.refresh()
   }
+
+  const showMovementModeCards = (view === 'eingang' && incomingEntryMode === 'select') || (view === 'ausgang' && outgoingEntryMode === 'select')
+  const showScanCard = (view === 'eingang' && incomingEntryMode === 'qr') || (view === 'ausgang' && outgoingEntryMode === 'qr')
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-1 pb-8 pt-2">
@@ -1198,17 +1401,17 @@ export default function LagerMobileApp() {
               <QrCode className="h-5 w-5" />
               QR-Code scannen
             </Button>
-            <Button variant="secondary" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={() => setView('eingang')}>
+            <Button variant="secondary" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={openIncomingView}>
               <ArrowDownToLine className="h-5 w-5" />
               Wareneingang
             </Button>
-            <Button variant="secondary" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={() => setView('ausgang')}>
+            <Button variant="secondary" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={openOutgoingView}>
               <ArrowUpFromLine className="h-5 w-5" />
               Warenausgang
             </Button>
             <Button variant="outline" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={() => setView('lieferschein')}>
               <FileText className="h-5 w-5" />
-              Lieferschein erfassen
+              Lieferscheine ansehen
             </Button>
             <Button variant="outline" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={() => setView('bestand')}>
               <LayoutGrid className="h-5 w-5" />
@@ -1238,11 +1441,15 @@ export default function LagerMobileApp() {
         </Card>
       )}
 
-      {(view === 'eingang' || view === 'ausgang' || view === 'lieferschein') && (
+      {(view === 'eingang' || view === 'ausgang') && (
         <Card className="rounded-2xl">
           <CardContent className="space-y-4 pt-4">
             <BackButton />
-            <ScanCard />
+            {showMovementModeCards ? (
+              <MovementModeCards />
+            ) : (
+              <>
+                {showScanCard && <ScanCard />}
 
             {view === 'eingang' ? (
               <>
@@ -1446,41 +1653,75 @@ export default function LagerMobileApp() {
               </>
             )}
 
-            {view === 'lieferschein' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="lieferscheinDate">Datum</Label>
-                  <Input id="lieferscheinDate" type="date" className="h-12 rounded-xl text-base" value={lieferscheinDate} onChange={(event) => setLieferscheinDate(event.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lsLieferant">Lieferant</Label>
-                  <PartnerSelect
-                    id="lsLieferant"
-                    value={lieferant}
-                    onValueChange={setLieferant}
-                    employees={partnerEmployees}
-                    suppliers={partnerSuppliers}
-                    triggerClassName="h-12 rounded-xl text-base"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lsRef">Referenz / Lieferscheinnummer</Label>
-                  <Input id="lsRef" className="h-12 rounded-xl text-base" value={lieferscheinNummer} onChange={(event) => setLieferscheinNummer(event.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lsUpload">Foto / Datei</Label>
-                  <Input id="lsUpload" type="file" accept="image/*,.pdf" capture="environment" className="h-12 rounded-xl text-base" onChange={(event) => setDeliveryFile(event.target.files?.[0] ?? null)} />
-                </div>
-                <Button className="h-14 w-full text-base" disabled={isSaving || isLoading} onClick={createDeliveryNote}>
-                  <FileText className="mr-2 h-5 w-5" />
-                  {isSaving ? 'Speichere...' : 'Lieferschein speichern'}
-                </Button>
               </>
             )}
+          </CardContent>
+        </Card>
+      )}
 
+      {view === 'lieferschein' && (
+        <Card className="rounded-2xl">
+          <CardContent className="space-y-4 pt-4">
+            <BackButton />
             <div className="space-y-2">
-              <Label htmlFor="notiz">Notiz (optional)</Label>
-              <Input id="notiz" className="h-12 rounded-xl text-base" value={notiz} onChange={(event) => setNotiz(event.target.value)} />
+              <Label>Lieferscheine ansehen</Label>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+                <Input className="h-10 rounded-xl" value={deliveryNoteSearch} onChange={(event) => setDeliveryNoteSearch(event.target.value)} placeholder="Suche: Nummer oder Empfaenger" />
+                <Select value={deliveryNoteTypeFilter} onValueChange={(value) => setDeliveryNoteTypeFilter(value as 'alle' | 'eingang' | 'ausgang')}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Typ" /></SelectTrigger>
+                  <SelectContent><SelectItem value="alle">Alle Typen</SelectItem><SelectItem value="eingang">Eingang</SelectItem><SelectItem value="ausgang">Ausgang</SelectItem></SelectContent>
+                </Select>
+                <Select value={deliveryNoteStatusFilter} onValueChange={(value) => setDeliveryNoteStatusFilter(value as 'alle' | 'entwurf' | 'abgeschlossen')}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent><SelectItem value="alle">Alle Status</SelectItem><SelectItem value="entwurf">Entwurf</SelectItem><SelectItem value="abgeschlossen">Abgeschlossen</SelectItem></SelectContent>
+                </Select>
+                <Input type="date" className="h-10 rounded-xl" value={deliveryNoteDateFrom} onChange={(event) => setDeliveryNoteDateFrom(event.target.value)} />
+                <Input type="date" className="h-10 rounded-xl" value={deliveryNoteDateTo} onChange={(event) => setDeliveryNoteDateTo(event.target.value)} />
+              </div>
+              {isDeliveryNotesLoading ? (
+                <p className="text-sm text-slate-500">Lade Lieferscheine...</p>
+              ) : deliveryNotes.length === 0 ? (
+                <p className="text-sm text-slate-500">Keine Lieferscheine vorhanden.</p>
+              ) : (
+                <div className="space-y-2">
+                  {deliveryNotes.map((note) => (
+                    <div key={note._id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-white">{note.nummer}</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">{formatDate(note.datum)}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={note.typ === 'ausgang' ? 'default' : 'secondary'}>{note.typ === 'ausgang' ? 'Ausgang' : 'Eingang'}</Badge>
+                          <Button type="button" size="sm" variant="outline" onClick={() => downloadDeliveryNotePdf(note._id)}>
+                            <FileDown className="mr-1 h-4 w-4" />PDF
+                          </Button>
+                          <Button type="button" size="sm" variant="outline" onClick={() => startEditDeliveryNote(note)}>
+                            Details
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">Empfaenger: {note.empfaenger?.name || '-'}</p>
+
+                      {editingDeliveryNoteId === note._id && (
+                        <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+                          <p className="text-sm"><strong>Status:</strong> {note.status ?? '-'}</p>
+                          <p className="text-sm"><strong>Empfaenger:</strong> {note.empfaenger?.name ?? '-'}</p>
+                          <p className="text-sm"><strong>Adresse:</strong> {note.empfaenger?.adresse ?? '-'}</p>
+                          <div className="flex gap-2">
+                            <Button type="button" className="h-10" onClick={() => { setMovementLieferscheinFilter(note._id); setView('bewegungen') }}>
+                              In Bewegungshistorie oeffnen
+                            </Button>
+                            <Button type="button" variant="outline" className="h-10" onClick={cancelEditDeliveryNote}>
+                              Schliessen
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1532,6 +1773,11 @@ export default function LagerMobileApp() {
           <CardContent className="space-y-4 pt-4">
             <BackButton />
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Bewegungen (Historie)</h2>
+            {movementLieferscheinFilter && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setMovementLieferscheinFilter('')}>
+                Lieferschein-Filter aktiv (x)
+              </Button>
+            )}
             {isDetailLoading ? (
               <p className="text-sm text-slate-500">Lade Bewegungen...</p>
             ) : movements.length === 0 ? (

@@ -12,14 +12,20 @@ import { LagerApi } from '@/lib/api/lager'
 interface LagerBewegungenViewProps {
   articles: Article[]
   onRefresh: () => void
+  initialLieferscheinId?: string
 }
 
-export default function LagerBewegungenView({ articles, onRefresh }: LagerBewegungenViewProps) {
+export default function LagerBewegungenView({ articles, onRefresh, initialLieferscheinId = '' }: LagerBewegungenViewProps) {
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [loading, setLoading] = useState(true)
   const [datumVon, setDatumVon] = useState('')
   const [datumBis, setDatumBis] = useState('')
   const [typFilter, setTypFilter] = useState('')
+  const [lieferscheinFilter, setLieferscheinFilter] = useState(initialLieferscheinId)
+
+  useEffect(() => {
+    setLieferscheinFilter(initialLieferscheinId)
+  }, [initialLieferscheinId])
 
   useEffect(() => {
     let cancelled = false
@@ -29,7 +35,8 @@ export default function LagerBewegungenView({ articles, onRefresh }: LagerBewegu
         const res = await LagerApi.movements.list({
           datumVon: datumVon || undefined,
           datumBis: datumBis || undefined,
-          bewegungstyp: typFilter || undefined
+          bewegungstyp: typFilter || undefined,
+          lieferscheinId: lieferscheinFilter || undefined
         })
         if (!cancelled && res?.success && Array.isArray((res as { movements?: unknown }).movements)) {
           setMovements((res as { movements: StockMovement[] }).movements)
@@ -40,18 +47,18 @@ export default function LagerBewegungenView({ articles, onRefresh }: LagerBewegu
     }
     load()
     return () => { cancelled = true }
-  }, [datumVon, datumBis, typFilter, onRefresh])
+  }, [datumVon, datumBis, typFilter, lieferscheinFilter, onRefresh])
 
   const formatDatum = (d: string | Date | undefined) => {
-    if (!d) return '–'
+    if (!d) return '-'
     const date = typeof d === 'string' ? new Date(d) : d
     return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
   const getArtikelBezeichnung = (m: StockMovement) => {
     const pop = (m as any).artikelId_populated ?? (m as any).artikelId
-    if (pop && typeof pop === 'object' && 'bezeichnung' in pop) return (pop as { bezeichnung?: string }).bezeichnung ?? (pop as { artikelnummer?: string }).artikelnummer ?? '–'
-    return '–'
+    if (pop && typeof pop === 'object' && 'bezeichnung' in pop) return (pop as { bezeichnung?: string }).bezeichnung ?? (pop as { artikelnummer?: string }).artikelnummer ?? '-'
+    return '-'
   }
 
   return (
@@ -61,7 +68,7 @@ export default function LagerBewegungenView({ articles, onRefresh }: LagerBewegu
           <div>
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Bewegungshistorie</h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              Alle Warenein- und -ausgänge chronologisch
+              Alle Warenein- und -ausgaenge chronologisch
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -90,6 +97,16 @@ export default function LagerBewegungenView({ articles, onRefresh }: LagerBewegu
               <option value="korrektur">Korrektur</option>
               <option value="inventur">Inventur</option>
             </select>
+            {lieferscheinFilter && (
+              <button
+                type="button"
+                onClick={() => setLieferscheinFilter('')}
+                className="h-9 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 text-sm"
+                title={`Lieferschein-Filter: ${lieferscheinFilter}`}
+              >
+                LS: {lieferscheinFilter.slice(-6)} x
+              </button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -117,7 +134,7 @@ export default function LagerBewegungenView({ articles, onRefresh }: LagerBewegu
                     <TableCell className="dark:text-white">{getArtikelBezeichnung(m)}</TableCell>
                     <TableCell className="dark:text-slate-300">{m.bewegungstyp}</TableCell>
                     <TableCell className="text-right font-medium dark:text-white">{m.menge}</TableCell>
-                    <TableCell className="dark:text-slate-300 max-w-[200px] truncate">{m.bemerkung || '–'}</TableCell>
+                    <TableCell className="dark:text-slate-300 max-w-[200px] truncate">{m.bemerkung || '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -127,7 +144,7 @@ export default function LagerBewegungenView({ articles, onRefresh }: LagerBewegu
           <div className="text-center py-12">
             <Package className="h-12 w-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
             <p className="text-slate-600 dark:text-slate-400">Keine Bewegungen gefunden</p>
-            <p className="text-sm text-slate-500 mt-1">Passen Sie die Filter an oder erfassen Sie Warenein-/-ausgänge.</p>
+            <p className="text-sm text-slate-500 mt-1">Passen Sie die Filter an oder erfassen Sie Warenein-/-ausgaenge.</p>
           </div>
         )}
       </CardContent>
