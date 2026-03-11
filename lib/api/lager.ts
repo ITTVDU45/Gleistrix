@@ -99,6 +99,7 @@ export const LagerApi = {
       empfaenger?: string | null
       lieferscheinId?: string | null
       bemerkung?: string
+      evidencePhotos?: Array<{ dataUrl: string; filename?: string; capturedAt?: string | Date }>
     }) =>
       postJSON('/api/lager/movements', data as Record<string, unknown>, 'lager:movement:create')
   },
@@ -158,6 +159,7 @@ export const LagerApi = {
       ausgabedatum: string | Date
       geplanteRueckgabe?: string | Date | null
       bemerkung?: string
+      evidencePhotos?: Array<{ dataUrl: string; filename?: string; capturedAt?: string | Date }>
       createDeliveryNote?: boolean
     }) =>
       postJSON('/api/lager/assignments', data as Record<string, unknown>, 'lager:assignments:create'),
@@ -166,6 +168,7 @@ export const LagerApi = {
       ausgabedatum: string | Date
       geplanteRueckgabe?: string | Date | null
       bemerkung?: string
+      evidencePhotos?: Array<{ dataUrl: string; filename?: string; capturedAt?: string | Date }>
       createDeliveryNote?: boolean
       positionen: { artikelId: string; menge: number }[]
     }) =>

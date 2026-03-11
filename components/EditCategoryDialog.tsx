@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -8,27 +8,58 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Pencil } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
 import type { Category } from '@/types/main'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from './ui/select'
 
 interface EditCategoryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   category: Category | null
+  categories?: Category[]
   onSuccess?: () => void
+}
+
+function toId(value: unknown): string {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') {
+    const record = value as { $oid?: unknown; _id?: unknown; toString?: () => string }
+    if (typeof record.$oid === 'string') return record.$oid
+    if (typeof record._id === 'string') return record._id
+    if (typeof record.toString === 'function') {
+      const str = record.toString()
+      if (str && str !== '[object Object]') return str
+    }
+  }
+  return ''
 }
 
 function getCategoryId(cat: Category | null): string | undefined {
   if (!cat) return undefined
-  return (cat as { _id?: string })._id?.toString?.() ?? cat.id
+  return toId((cat as { _id?: unknown })._id) || toId(cat.id)
+}
+
+function getParentId(cat: Category | null): string {
+  const parentId = toId(cat?.parentId)
+  if (!parentId || parentId === 'none' || parentId === 'null') return 'none'
+  return parentId
 }
 
 export default function EditCategoryDialog({
   open,
   onOpenChange,
   category,
+  categories = [],
   onSuccess
 }: EditCategoryDialogProps) {
   const [name, setName] = useState('')
   const [beschreibung, setBeschreibung] = useState('')
+  const [parentId, setParentId] = useState('none')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -36,9 +67,27 @@ export default function EditCategoryDialog({
     if (open && category) {
       setName(category.name ?? '')
       setBeschreibung(category.beschreibung ?? '')
+      setParentId(getParentId(category))
       setError('')
     }
   }, [open, category])
+
+  const selectableParents = useMemo(() => {
+    const currentId = getCategoryId(category)
+    const allCategoryIds = new Set(
+      categories
+        .map((cat) => getCategoryId(cat) ?? '')
+        .filter((id) => !!id)
+    )
+
+    return categories
+      .filter((cat) => {
+        const pid = getParentId(cat)
+        return pid === 'none' || !allCategoryIds.has(pid)
+      })
+      .filter((cat) => getCategoryId(cat) !== currentId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  }, [categories, category])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,6 +102,7 @@ export default function EditCategoryDialog({
     try {
       const res = await LagerApi.categories.update(id, {
         name: name.trim(),
+        parentId: parentId === 'none' ? null : parentId,
         beschreibung: beschreibung.trim() || undefined
       })
       if ((res as { success?: boolean }).success) {
@@ -97,6 +147,26 @@ export default function EditCategoryDialog({
             />
           </div>
           <div className="space-y-2">
+            <Label>Oberkategorie</Label>
+            <Select value={parentId} onValueChange={setParentId}>
+              <SelectTrigger className="rounded-xl h-10">
+                <SelectValue placeholder="Keine Oberkategorie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Keine Oberkategorie</SelectItem>
+                {selectableParents.map((cat) => {
+                  const catId = getCategoryId(cat)
+                  if (!catId) return null
+                  return (
+                    <SelectItem key={catId} value={catId}>
+                      {cat.name}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="edit-cat-desc">Beschreibung</Label>
             <Input
               id="edit-cat-desc"
@@ -111,7 +181,7 @@ export default function EditCategoryDialog({
               Abbrechen
             </Button>
             <Button type="submit" disabled={isSubmitting || !id}>
-              {isSubmitting ? 'Wird gespeichert…' : 'Speichern'}
+              {isSubmitting ? 'Wird gespeichert...' : 'Speichern'}
             </Button>
           </div>
         </form>

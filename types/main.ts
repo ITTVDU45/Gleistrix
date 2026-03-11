@@ -1,6 +1,6 @@
 // ===== GRUNDLEGENDE TYPEN =====
 export type ProjectStatus = 'aktiv' | 'pausiert' | 'abgeschlossen' | 'fertiggestellt' | 'geleistet' | 'kein Status'
-export type MitarbeiterFunktion = 'SIPO' | 'HFE' | 'Monteur/bediener' | 'Sakra' | 'BüP' | 'HiBa' | 'SAS' | 'Bahnerder'
+export type MitarbeiterFunktion = 'SIPO' | 'HFE' | 'Monteur/bediener' | 'Sakra' | 'BÃ¼P' | 'BüP' | 'B�P' | 'HiBa' | 'SAS' | 'Bahnerder'
 export type SnackbarSeverity = 'success' | 'error' | 'warning' | 'info'
 
 // ===== API RESPONSE TYPEN =====
@@ -71,14 +71,14 @@ export interface TimeEntry {
   extra: number
   nachtzulage: string
   sonntag: number
-  sonntagsstunden?: number  // Explizites Feld für Sonntagsstunden
+  sonntagsstunden?: number  // Explizites Feld fÃ¼r Sonntagsstunden
   feiertag: number
   bemerkung: string
-  // Neue Felder für automatische Pausenberechnung
+  // Neue Felder fÃ¼r automatische Pausenberechnung
   breakSegments?: BreakSegment[]
   breakTotalMinutes?: number
   overrideBreaks?: boolean
-  // Berechnete Zuschläge in Minuten
+  // Berechnete ZuschlÃ¤ge in Minuten
   nightMinutes?: number
   sundayMinutes?: number
   holidayMinutes?: number
@@ -354,6 +354,7 @@ export interface StockMovement {
   empfaenger?: string
   lieferscheinId?: string
   bemerkung?: string
+  evidencePhotos?: Array<{ dataUrl: string; filename?: string; capturedAt?: string | Date }>
   artikelId_populated?: { bezeichnung?: string; artikelnummer?: string }
   createdAt?: string
   updatedAt?: string
@@ -376,3 +377,5 @@ export interface ArticleAssignment {
   createdAt?: string
   updatedAt?: string
 } 
+
+

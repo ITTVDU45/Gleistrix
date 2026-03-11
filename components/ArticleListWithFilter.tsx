@@ -31,6 +31,13 @@ const STATUS_OPTIONS: { value: ArticleStatus | 'all'; label: string }[] = [
   { value: 'gesperrt', label: 'Gesperrt' }
 ]
 
+function getCategoryDisplay(article: Article): string {
+  const top = (article.kategorie ?? '').trim()
+  const sub = (article.unterkategorie ?? '').trim()
+  if (top && sub) return `${top} > ${sub}`
+  return top || '-'
+}
+
 export default function ArticleListWithFilter({
   articles,
   categories,
@@ -44,7 +51,7 @@ export default function ArticleListWithFilter({
   const filtered = useMemo(() => {
     let list = [...articles]
     if (kategorieFilter && kategorieFilter !== 'all') {
-      list = list.filter((a) => a.kategorie === kategorieFilter)
+      list = list.filter((a) => getCategoryDisplay(a) === kategorieFilter)
     }
     if (typFilter && typFilter !== 'all') {
       list = list.filter((a) => a.typ === typFilter)
@@ -58,7 +65,7 @@ export default function ArticleListWithFilter({
         (a) =>
           a.bezeichnung?.toLowerCase().includes(q) ||
           a.artikelnummer?.toLowerCase().includes(q) ||
-          (a as any).barcode?.toLowerCase().includes(q)
+          (a as { barcode?: string }).barcode?.toLowerCase().includes(q)
       )
     }
     return list
@@ -75,7 +82,7 @@ export default function ArticleListWithFilter({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <AddArticleDialog categories={categories} onSuccess={onRefresh} />
+            <AddArticleDialog categories={categories} onSuccess={onRefresh} onCategoriesChange={onRefresh} />
             <Input
               placeholder="Suchen (Bezeichnung, Nr., Barcode)"
               value={search}
@@ -83,16 +90,18 @@ export default function ArticleListWithFilter({
               className="max-w-[220px] rounded-xl h-9"
             />
             <Select value={kategorieFilter} onValueChange={setKategorieFilter}>
-              <SelectTrigger className="w-[160px] rounded-xl h-9">
+              <SelectTrigger className="w-[220px] rounded-xl h-9">
                 <SelectValue placeholder="Kategorie" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle Kategorien</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.id ?? (c as any)._id ?? c.name} value={c.name}>
-                    {c.name}
-                  </SelectItem>
-                ))}
+                {Array.from(new Set(articles.map((a) => getCategoryDisplay(a)).filter((v) => v && v !== '-')))
+                  .sort((a, b) => a.localeCompare(b, 'de'))
+                  .map((categoryLabel) => (
+                    <SelectItem key={categoryLabel} value={categoryLabel}>
+                      {categoryLabel}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <Select value={typFilter} onValueChange={setTypFilter}>
@@ -160,7 +169,7 @@ export default function ArticleListWithFilter({
               <TableBody>
                 {filtered.map((article, idx) => {
                   const rowKey =
-                    article.id ?? (article as any)._id?.toString?.() ?? `art-${idx}`
+                    article.id ?? (article as { _id?: string })._id?.toString?.() ?? `art-${idx}`
                   return (
                     <TableRow
                       key={rowKey}
@@ -168,7 +177,7 @@ export default function ArticleListWithFilter({
                     >
                       <TableCell className="w-[52px]">
                         <ArticleThumbnail
-                          articleId={article.id ?? (article as any)._id?.toString?.() ?? ''}
+                          articleId={article.id ?? (article as { _id?: string })._id?.toString?.() ?? ''}
                           images={article.images}
                         />
                       </TableCell>
@@ -179,12 +188,12 @@ export default function ArticleListWithFilter({
                         {article.bezeichnung}
                       </TableCell>
                       <TableCell className="dark:text-slate-300">
-                        {article.kategorie}
+                        {getCategoryDisplay(article)}
                       </TableCell>
                       <TableCell className="dark:text-slate-300">{article.typ}</TableCell>
                       <TableCell className="dark:text-slate-300">{article.bestand ?? 0}</TableCell>
                       <TableCell className="dark:text-slate-300">
-                        {article.lagerort || '–'}
+                        {article.lagerort || '-'}
                       </TableCell>
                       <TableCell>
                         <Badge

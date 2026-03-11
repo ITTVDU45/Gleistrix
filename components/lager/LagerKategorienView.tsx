@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -15,15 +15,33 @@ interface LagerKategorienViewProps {
   onRefresh: () => void
 }
 
+function getCategoryId(cat: Category): string {
+  return (cat as { _id?: string })._id?.toString?.() ?? cat.id ?? ''
+}
+
+function getParentId(cat: Category): string {
+  if (!cat.parentId) return ''
+  return typeof cat.parentId === 'string' ? cat.parentId : String(cat.parentId)
+}
+
 export default function LagerKategorienView({ categories, onRefresh }: LagerKategorienViewProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editCategory, setEditCategory] = useState<Category | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    categories.forEach((cat) => {
+      const id = getCategoryId(cat)
+      if (id) map.set(id, cat.name)
+    })
+    return map
+  }, [categories])
+
   const handleDelete = async (cat: Category) => {
-    const id = (cat as { _id?: string })._id?.toString?.() ?? cat.id
+    const id = getCategoryId(cat)
     if (!id) return
-    if (!confirm(`Kategorie „${cat.name}“ wirklich löschen?`)) return
+    if (!confirm(`Kategorie "${cat.name}" wirklich loeschen?`)) return
     setError(null)
     setDeletingId(id)
     try {
@@ -31,10 +49,10 @@ export default function LagerKategorienView({ categories, onRefresh }: LagerKate
       if ((res as { success?: boolean }).success) {
         onRefresh()
       } else {
-        setError((res as { message?: string }).message ?? 'Löschen fehlgeschlagen')
+        setError((res as { message?: string }).message ?? 'Loeschen fehlgeschlagen')
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Fehler beim Löschen')
+      setError(err instanceof Error ? err.message : 'Fehler beim Loeschen')
     } finally {
       setDeletingId(null)
     }
@@ -50,13 +68,14 @@ export default function LagerKategorienView({ categories, onRefresh }: LagerKate
               Kategorien anlegen und verwalten
             </p>
           </div>
-          <AddCategoryDialog onSuccess={onRefresh} />
+          <AddCategoryDialog categories={categories} onSuccess={onRefresh} />
         </div>
       </CardHeader>
       <EditCategoryDialog
         open={editCategory !== null}
         onOpenChange={(open) => !open && setEditCategory(null)}
         category={editCategory}
+        categories={categories}
         onSuccess={() => {
           setEditCategory(null)
           onRefresh()
@@ -75,18 +94,21 @@ export default function LagerKategorienView({ categories, onRefresh }: LagerKate
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Oberkategorie</TableHead>
                 <TableHead>Beschreibung</TableHead>
                 <TableHead className="w-[120px]">Aktion</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {categories.map((cat) => {
-                const id = (cat as { _id?: string })._id?.toString?.() ?? cat.id
+                const id = getCategoryId(cat)
+                const parentName = categoryNameById.get(getParentId(cat)) ?? '-'
                 return (
-                  <TableRow key={id ?? cat.name}>
+                  <TableRow key={id || cat.name}>
                     <TableCell className="font-medium">{cat.name}</TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400">{parentName}</TableCell>
                     <TableCell className="text-slate-600 dark:text-slate-400">
-                      {cat.beschreibung ?? '–'}
+                      {cat.beschreibung || '-'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -105,7 +127,7 @@ export default function LagerKategorienView({ categories, onRefresh }: LagerKate
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                           onClick={() => handleDelete(cat)}
                           disabled={deletingId === id}
-                          aria-label={`Kategorie ${cat.name} löschen`}
+                          aria-label={`Kategorie ${cat.name} loeschen`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

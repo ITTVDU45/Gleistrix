@@ -110,8 +110,8 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
         </div>
         {!isLagerOnly && (
           <div className="flex items-center gap-2">
-            <AddCategoryDialog onSuccess={loadData} />
-            <AddArticleDialog categories={categories} onSuccess={loadData} />
+            <AddCategoryDialog categories={categories} onSuccess={loadData} />
+            <AddArticleDialog categories={categories} onSuccess={loadData} onCategoriesChange={loadData} />
           </div>
         )}
       </div>
@@ -249,6 +249,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
     </div>
   )
 }
+
 
 
 

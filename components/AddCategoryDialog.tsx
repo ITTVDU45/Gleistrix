@@ -1,23 +1,121 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
 import { FolderPlus } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from './ui/select'
+import type { Category } from '@/types/main'
 
 interface AddCategoryDialogProps {
-  onSuccess?: () => void
+  onSuccess?: (createdCategory?: Category) => void
+  categories?: Category[]
+  trigger?: React.ReactNode
+  defaultParentId?: string | null
 }
 
-export default function AddCategoryDialog({ onSuccess }: AddCategoryDialogProps) {
+function toId(value: unknown): string {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') {
+    const record = value as { $oid?: unknown; _id?: unknown; toString?: () => string }
+    if (typeof record.$oid === 'string') return record.$oid
+    if (typeof record._id === 'string') return record._id
+    if (typeof record.toString === 'function') {
+      const str = record.toString()
+      if (str && str !== '[object Object]') return str
+    }
+  }
+  return ''
+}
+
+function getCategoryId(category: Category): string {
+  return toId((category as { _id?: unknown })._id) || toId(category.id)
+}
+
+function getParentId(category: Category): string {
+  const parentId = toId(category.parentId)
+  if (!parentId || parentId === 'none' || parentId === 'null') return ''
+  return parentId
+}
+
+export default function AddCategoryDialog({
+  onSuccess,
+  categories,
+  trigger,
+  defaultParentId = null
+}: AddCategoryDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [beschreibung, setBeschreibung] = useState('')
+  const [parentId, setParentId] = useState<string>(defaultParentId ?? 'none')
+  const [availableCategories, setAvailableCategories] = useState<Category[]>(categories ?? [])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    if (categories) {
+      setAvailableCategories(categories)
+      return
+    }
+
+    let cancelled = false
+    setIsLoadingCategories(true)
+
+    LagerApi.categories
+      .list()
+      .then((res) => {
+        if (!cancelled && res?.success && Array.isArray(res.categories)) {
+          const normalized = res.categories.map((c) => ({
+            ...c,
+            id: getCategoryId(c)
+          }))
+          setAvailableCategories(normalized)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableCategories([])
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingCategories(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, categories])
+
+  useEffect(() => {
+    if (!open) {
+      setParentId(defaultParentId ?? 'none')
+    }
+  }, [defaultParentId, open])
+
+  const topLevelCategories = useMemo(() => {
+    const allCategoryIds = new Set(
+      availableCategories
+        .map((category) => getCategoryId(category))
+        .filter((id) => !!id)
+    )
+
+    return availableCategories
+      .filter((category) => {
+        const pid = getParentId(category)
+        return !pid || !allCategoryIds.has(pid)
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  }, [availableCategories])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,20 +123,26 @@ export default function AddCategoryDialog({ onSuccess }: AddCategoryDialogProps)
       setError('Name ist Pflicht.')
       return
     }
+
     setIsSubmitting(true)
     setError('')
+
     try {
       const res = await LagerApi.categories.create({
         name: name.trim(),
+        parentId: parentId === 'none' ? null : parentId,
         beschreibung: beschreibung.trim() || undefined
       })
-      if ((res as any)?.success !== false) {
+
+      if ((res as { success?: boolean }).success !== false) {
+        const createdCategory = (res as { data?: Category }).data
         setName('')
         setBeschreibung('')
+        setParentId(defaultParentId ?? 'none')
         setOpen(false)
-        onSuccess?.()
+        onSuccess?.(createdCategory)
       } else {
-        setError((res as any)?.message ?? 'Fehler beim Anlegen der Kategorie')
+        setError((res as { message?: string }).message ?? 'Fehler beim Anlegen der Kategorie')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Fehler beim Anlegen der Kategorie')
@@ -50,10 +154,12 @@ export default function AddCategoryDialog({ onSuccess }: AddCategoryDialogProps)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 rounded-xl">
-          <FolderPlus className="h-4 w-4" />
-          Kategorie anlegen
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" size="sm" className="gap-2 rounded-xl">
+            <FolderPlus className="h-4 w-4" />
+            Kategorie anlegen
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md rounded-2xl">
         <DialogHeader>
@@ -80,6 +186,26 @@ export default function AddCategoryDialog({ onSuccess }: AddCategoryDialogProps)
             />
           </div>
           <div className="space-y-2">
+            <Label>Oberkategorie</Label>
+            <Select value={parentId} onValueChange={setParentId} disabled={isLoadingCategories}>
+              <SelectTrigger className="rounded-xl h-10">
+                <SelectValue placeholder="Keine Oberkategorie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Keine Oberkategorie</SelectItem>
+                {topLevelCategories.map((category) => {
+                  const categoryId = getCategoryId(category)
+                  if (!categoryId) return null
+                  return (
+                    <SelectItem key={categoryId} value={categoryId}>
+                      {category.name}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="cat-desc">Beschreibung</Label>
             <Input
               id="cat-desc"
@@ -94,7 +220,7 @@ export default function AddCategoryDialog({ onSuccess }: AddCategoryDialogProps)
               Abbrechen
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Wird gespeichert…' : 'Speichern'}
+              {isSubmitting ? 'Wird gespeichert...' : 'Speichern'}
             </Button>
           </div>
         </form>

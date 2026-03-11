@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     await dbConnect()
     const csrf = request.headers.get('x-csrf-intent')
     if (process.env.NODE_ENV === 'production' && csrf !== 'lager:movement:create') {
-      return NextResponse.json({ success: false, message: 'Ungültige Anforderung' }, { status: 400 })
+      return NextResponse.json({ success: false, message: 'UngÃ¼ltige Anforderung' }, { status: 400 })
     }
     const auth = await requireAuth(request, ['lager', 'user', 'admin', 'superadmin'])
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
@@ -71,7 +71,12 @@ export async function POST(request: NextRequest) {
       datum: z.union([z.string(), z.date()]),
       empfaenger: z.string().optional().nullable(),
       lieferscheinId: z.string().optional().nullable(),
-      bemerkung: z.string().optional().or(z.literal(''))
+      bemerkung: z.string().optional().or(z.literal('')),
+      evidencePhotos: z.array(z.object({
+        dataUrl: z.string().min(20).max(5_000_000),
+        filename: z.string().max(200).optional(),
+        capturedAt: z.union([z.string(), z.date()]).optional()
+      })).max(15).optional()
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())
@@ -84,7 +89,7 @@ export async function POST(request: NextRequest) {
     const body = parseResult.data
     const artikelId = body.artikelId
     if (!mongoose.Types.ObjectId.isValid(artikelId)) {
-      return NextResponse.json({ success: false, message: 'Ungültige Artikel-ID' }, { status: 400 })
+      return NextResponse.json({ success: false, message: 'UngÃ¼ltige Artikel-ID' }, { status: 400 })
     }
 
     const article = await Article.findById(artikelId)
@@ -102,6 +107,14 @@ export async function POST(request: NextRequest) {
       datum,
       verantwortlich: currentUser?._id ?? undefined,
       bemerkung: body.bemerkung ?? ''
+    }
+
+    if (Array.isArray(body.evidencePhotos) && body.evidencePhotos.length > 0) {
+      movementPayload.evidencePhotos = body.evidencePhotos.map((photo) => ({
+        dataUrl: photo.dataUrl,
+        filename: photo.filename ?? '',
+        capturedAt: photo.capturedAt ? new Date(photo.capturedAt) : new Date()
+      }))
     }
     if (body.empfaenger && mongoose.Types.ObjectId.isValid(body.empfaenger)) {
       movementPayload.empfaenger = new mongoose.Types.ObjectId(body.empfaenger)
@@ -161,7 +174,7 @@ export async function POST(request: NextRequest) {
           },
           details: {
             entityId: movement._id,
-            description: `Bewegung: ${body.bewegungstyp} Menge ${body.menge} für Artikel ${article.bezeichnung}`,
+            description: `Bewegung: ${body.bewegungstyp} Menge ${body.menge} fÃ¼r Artikel ${article.bezeichnung}`,
             after: { bewegungstyp: body.bewegungstyp, menge: body.menge }
           }
         })

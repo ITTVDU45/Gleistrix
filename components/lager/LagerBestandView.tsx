@@ -16,6 +16,13 @@ interface LagerBestandViewProps {
   onRefresh: () => void
 }
 
+function getCategoryDisplay(article: Article): string {
+  const top = (article.kategorie ?? '').trim()
+  const sub = (article.unterkategorie ?? '').trim()
+  if (top && sub) return `${top} > ${sub}`
+  return top || '-'
+}
+
 export default function LagerBestandView({ articles, categories, onRefresh }: LagerBestandViewProps) {
   const [wareneingangOpen, setWareneingangOpen] = useState(false)
   const [warenausgangOpen, setWarenausgangOpen] = useState(false)
@@ -87,7 +94,7 @@ export default function LagerBestandView({ articles, categories, onRefresh }: La
                     >
                       <TableCell className="font-medium dark:text-white">{a.artikelnummer}</TableCell>
                       <TableCell className="dark:text-slate-300">{a.bezeichnung}</TableCell>
-                      <TableCell className="dark:text-slate-300">{a.kategorie}</TableCell>
+                      <TableCell className="dark:text-slate-300">{getCategoryDisplay(a)}</TableCell>
                       <TableCell className="dark:text-slate-300">{a.lagerort || '–'}</TableCell>
                       <TableCell className="text-right font-medium dark:text-white">{a.bestand ?? 0}</TableCell>
                       <TableCell className="text-right dark:text-slate-300">{a.mindestbestand ?? 0}</TableCell>
@@ -128,3 +135,5 @@ export default function LagerBestandView({ articles, categories, onRefresh }: La
     </>
   )
 }
+
+

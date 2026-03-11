@@ -202,6 +202,13 @@ type IncomingItem = {
   artikelId: string
   menge: number
 }
+
+type EvidencePhoto = {
+  dataUrl: string
+  filename: string
+  capturedAt: string
+}
+
 type InventoryCreateForm = InventoryFormState
 
 function createIncomingItem(): IncomingItem {
@@ -276,6 +283,8 @@ export default function LagerMobileApp() {
 
   const [menge, setMenge] = useState(1)
   const [incomingItems, setIncomingItems] = useState<IncomingItem[]>([createIncomingItem()])
+  const [incomingItemPhotos, setIncomingItemPhotos] = useState<Record<string, EvidencePhoto>>({})
+  const [outgoingPhoto, setOutgoingPhoto] = useState<EvidencePhoto | null>(null)
   const [incomingEntryMode, setIncomingEntryMode] = useState<MovementEntryMode>('select')
   const [outgoingEntryMode, setOutgoingEntryMode] = useState<MovementEntryMode>('select')
   const [empfaenger, setEmpfaenger] = useState('')
@@ -312,6 +321,7 @@ export default function LagerMobileApp() {
   const [scannedDeliveryQr, setScannedDeliveryQr] = useState<DeliveryNoteQrPayload | null>(null)
   const [isDeliveryQrActionOpen, setIsDeliveryQrActionOpen] = useState(false)
   const [isPrefillFromDeliveryLoading, setIsPrefillFromDeliveryLoading] = useState(false)
+  const [movementDetail, setMovementDetail] = useState<StockMovement | null>(null)
 
 
   const selectedArticle = useMemo(
@@ -939,9 +949,53 @@ export default function LagerMobileApp() {
     }
   }, [view, selectedSupplierPartner?.label])
 
+  async function fileToDataUrl(file: File): Promise<string> {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result ?? ''))
+      reader.onerror = () => reject(new Error('Foto konnte nicht gelesen werden'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function handleIncomingItemPhotoChange(itemId: string, file: File | null) {
+    if (!file) {
+      setIncomingItemPhotos((prev) => {
+        const next = { ...prev }
+        delete next[itemId]
+        return next
+      })
+      return
+    }
+    const dataUrl = await fileToDataUrl(file)
+    setIncomingItemPhotos((prev) => ({
+      ...prev,
+      [itemId]: {
+        dataUrl,
+        filename: file.name || 'produktfoto.jpg',
+        capturedAt: new Date().toISOString()
+      }
+    }))
+  }
+
+  async function handleOutgoingPhotoChange(file: File | null) {
+    if (!file) {
+      setOutgoingPhoto(null)
+      return
+    }
+    const dataUrl = await fileToDataUrl(file)
+    setOutgoingPhoto({
+      dataUrl,
+      filename: file.name || 'produktfoto.jpg',
+      capturedAt: new Date().toISOString()
+    })
+  }
+
   function clearActionForm() {
     setMenge(1)
     setIncomingItems([createIncomingItem()])
+    setIncomingItemPhotos({})
+    setOutgoingPhoto(null)
     setEmpfaenger('')
     setLieferant('')
     setProjekt('')
@@ -951,6 +1005,7 @@ export default function LagerMobileApp() {
     setIncomingManualLieferscheinNummer('')
     setOpenOutgoingDeliveryNotes([])
     setDeliveryFile(null)
+    setMovementDetail(null)
   }
 
   function setStatusMessage(message: string) {
@@ -1038,11 +1093,6 @@ export default function LagerMobileApp() {
     if (view === 'eingang') {
       setIncomingEntryMode('qr')
       setIncomingItems((prev) => {
-        const existingIndex = prev.findIndex((item) => item.artikelId === foundArticleId)
-        if (existingIndex >= 0) {
-          return prev.map((item, index) => (index === existingIndex ? { ...item, menge: item.menge + 1 } : item))
-        }
-
         const firstEmptyIndex = prev.findIndex((item) => !item.artikelId)
         if (firstEmptyIndex >= 0) {
           return prev.map((item, index) => (index === firstEmptyIndex ? { ...item, artikelId: foundArticleId, menge: 1 } : item))
@@ -1139,6 +1189,9 @@ export default function LagerMobileApp() {
       if (selectedArticle && menge > (selectedArticle.bestand ?? 0)) {
         return setErrorMessage('Menge groesser als verfuegbarer Bestand')
       }
+      if (!outgoingPhoto) {
+        return setErrorMessage('Bitte Produktfoto fuer den Warenausgang erfassen')
+      }
     }
 
     if (bewegungstyp === 'eingang') {
@@ -1147,6 +1200,11 @@ export default function LagerMobileApp() {
       }
       if (!incomingItems.length || incomingItems.some((item) => !item.artikelId || item.menge <= 0)) {
         return setErrorMessage('Bitte fuer jede Position Artikel und Menge > 0 angeben')
+      }
+
+      const missingItemPhoto = incomingItems.find((item) => !incomingItemPhotos[item.id])
+      if (missingItemPhoto) {
+        return setErrorMessage('Bitte fuer jede Position ein Produktfoto erfassen')
       }
     }
 
@@ -1167,12 +1225,11 @@ export default function LagerMobileApp() {
     setError('')
     try {
       if (bewegungstyp === 'eingang') {
-        const mergedIncomingItems = Array.from(
-          incomingItems.reduce((map, item) => {
-            map.set(item.artikelId, (map.get(item.artikelId) ?? 0) + item.menge)
-            return map
-          }, new Map<string, number>())
-        ).map(([artikelId, mergedMenge]) => ({ artikelId, menge: mergedMenge }))
+        const incomingPositions = incomingItems.map((item) => ({
+          artikelId: item.artikelId,
+          bezeichnung: articles.find((article) => getArticleId(article) === item.artikelId)?.bezeichnung ?? 'Artikel',
+          menge: item.menge
+        }))
 
         const deliveryResponse = await LagerApi.deliveryNotes.create({
           typ: 'eingang',
@@ -1181,24 +1238,22 @@ export default function LagerMobileApp() {
             name: selectedSupplierPartner?.label || 'Unbekannter Lieferant',
             adresse: ''
           },
-          positionen: mergedIncomingItems.map((item) => ({
-            artikelId: item.artikelId,
-            bezeichnung: articles.find((article) => getArticleId(article) === item.artikelId)?.bezeichnung ?? 'Artikel',
-            menge: item.menge
-          }))
+          positionen: incomingPositions
         })
         const rawId = (deliveryResponse as { data?: { _id?: unknown; id?: string } })?.data?._id
           ?? (deliveryResponse as { data?: { _id?: string; id?: string } })?.data?.id
         const generatedDeliveryId = rawId != null ? String(rawId) : undefined
 
-        for (const item of mergedIncomingItems) {
+        for (const item of incomingItems) {
+          const itemPhoto = incomingItemPhotos[item.id]
           await LagerApi.movements.create({
             artikelId: item.artikelId,
             bewegungstyp,
             menge: item.menge,
             datum: new Date().toISOString(),
             lieferscheinId: generatedDeliveryId || selectedIncomingDeliveryNoteId || undefined,
-            bemerkung: metaPieces.join(' | ')
+            bemerkung: metaPieces.join(' | '),
+            evidencePhotos: itemPhoto ? [itemPhoto] : undefined
           })
         }
       } else {
@@ -1226,13 +1281,17 @@ export default function LagerMobileApp() {
           datum: new Date().toISOString(),
           empfaenger: outgoingEmployeeId,
           lieferscheinId: generatedDeliveryId,
-          bemerkung: metaPieces.join(' | ')
+          bemerkung: metaPieces.join(' | '),
+          evidencePhotos: outgoingPhoto ? [outgoingPhoto] : undefined
         })
       }
 
       setStatusMessage(bewegungstyp === 'eingang' ? 'Wareneingang gebucht' : 'Warenausgang gebucht')
       clearActionForm()
       await loadArticles()
+      if (view === 'bewegungen') {
+        await loadMovements()
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Buchung fehlgeschlagen'
       setErrorMessage(message)
@@ -1612,44 +1671,77 @@ export default function LagerMobileApp() {
 
                   <div className="space-y-2">
                     {incomingItems.map((item, index) => (
-                      <div key={item.id} className="grid grid-cols-[1fr_84px_44px] gap-2">
-                        <ArticleSelect
-                          id={`eingang-artikel-${index + 1}`}
-                          value={item.artikelId}
-                          onValueChange={(value) => {
-                            setIncomingItems((prev) =>
-                              prev.map((entry) => (entry.id === item.id ? { ...entry, artikelId: value } : entry))
-                            )
-                          }}
-                          articles={articles}
-                          placeholder={`Artikel ${index + 1} waehlen`}
-                          searchPlaceholder="Artikel suchen..."
-                          triggerClassName="h-12 rounded-xl text-base"
-                          disabled={isSaving || isLoading}
-                        />
-                        <Input
-                          type="number"
-                          min={1}
-                          className="h-12 rounded-xl text-base"
-                          value={item.menge}
-                          onChange={(event) => {
-                            const nextMenge = parseInt(event.target.value, 10) || 1
-                            setIncomingItems((prev) =>
-                              prev.map((entry) => (entry.id === item.id ? { ...entry, menge: nextMenge } : entry))
-                            )
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-12 w-12 rounded-xl"
-                          disabled={incomingItems.length <= 1 || isSaving || isLoading}
-                          onClick={() => setIncomingItems((prev) => prev.filter((entry) => entry.id !== item.id))}
-                          aria-label={`Position ${index + 1} entfernen`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <div key={item.id} className="space-y-2 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+                        <div className="grid grid-cols-[1fr_84px_44px] gap-2">
+                          <ArticleSelect
+                            id={`eingang-artikel-${index + 1}`}
+                            value={item.artikelId}
+                            onValueChange={(value) => {
+                              setIncomingItems((prev) =>
+                                prev.map((entry) => (entry.id === item.id ? { ...entry, artikelId: value } : entry))
+                              )
+                              setIncomingItemPhotos((prev) => {
+                                const next = { ...prev }
+                                delete next[item.id]
+                                return next
+                              })
+                            }}
+                            articles={articles}
+                            placeholder={`Artikel ${index + 1} waehlen`}
+                            searchPlaceholder="Artikel suchen..."
+                            triggerClassName="h-12 rounded-xl text-base"
+                            disabled={isSaving || isLoading}
+                          />
+                          <Input
+                            type="number"
+                            min={1}
+                            className="h-12 rounded-xl text-base"
+                            value={item.menge}
+                            onChange={(event) => {
+                              const nextMenge = parseInt(event.target.value, 10) || 1
+                              setIncomingItems((prev) =>
+                                prev.map((entry) => (entry.id === item.id ? { ...entry, menge: nextMenge } : entry))
+                              )
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-12 w-12 rounded-xl"
+                            disabled={incomingItems.length <= 1 || isSaving || isLoading}
+                            onClick={() => {
+                              setIncomingItems((prev) => prev.filter((entry) => entry.id !== item.id))
+                              setIncomingItemPhotos((prev) => {
+                                const next = { ...prev }
+                                delete next[item.id]
+                                return next
+                              })
+                            }}
+                            aria-label={`Position ${index + 1} entfernen`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Produktfoto *</Label>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="h-10 rounded-xl text-sm"
+                            onChange={async (event) => {
+                              try {
+                                await handleIncomingItemPhotoChange(item.id, event.target.files?.[0] ?? null)
+                              } catch (err) {
+                                setErrorMessage(err instanceof Error ? err.message : 'Foto konnte nicht verarbeitet werden')
+                              }
+                            }}
+                          />
+                          {incomingItemPhotos[item.id]?.dataUrl && (
+                            <p className="text-xs text-slate-500">Foto erfasst: {incomingItemPhotos[item.id]?.filename || 'produkt.jpg'}</p>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1786,6 +1878,25 @@ export default function LagerMobileApp() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Produktfoto *</Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="h-10 rounded-xl text-sm"
+                    onChange={async (event) => {
+                      try {
+                        await handleOutgoingPhotoChange(event.target.files?.[0] ?? null)
+                      } catch (err) {
+                        setErrorMessage(err instanceof Error ? err.message : 'Foto konnte nicht verarbeitet werden')
+                      }
+                    }}
+                  />
+                  {outgoingPhoto?.dataUrl && (
+                    <p className="text-xs text-slate-500">Foto erfasst: {outgoingPhoto.filename || 'produkt.jpg'}</p>
+                  )}
                 </div>
                 <Button className="h-14 w-full text-base" disabled={isSaving || isLoading} onClick={() => createMovement('ausgang')}>
                   <Package2 className="mr-2 h-5 w-5" />
@@ -1932,8 +2043,54 @@ export default function LagerMobileApp() {
                       <Badge variant={movement.bewegungstyp === 'eingang' ? 'default' : 'secondary'}>{movement.bewegungstyp} {movement.menge}</Badge>
                     </div>
                     <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{formatDate(movement.datum)}</p>
+                    <div className="mt-3">
+                      <Button size="sm" variant="outline" onClick={() => setMovementDetail(movement)}>
+                        Details
+                      </Button>
+                    </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {movementDetail && (
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Bewegungsdetails</p>
+                    <p className="text-xs text-slate-500">{(movementDetail as { artikelId_populated?: { bezeichnung?: string } }).artikelId_populated?.bezeichnung ?? 'Artikel'}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => setMovementDetail(null)}>
+                    <X className="mr-1 h-4 w-4" />Schliessen
+                  </Button>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                  <p><strong>Typ:</strong> {movementDetail.bewegungstyp}</p>
+                  <p><strong>Menge:</strong> {movementDetail.menge}</p>
+                  <p><strong>Datum:</strong> {formatDateTime(movementDetail.datum)}</p>
+                  <p><strong>Lieferschein:</strong> {movementDetail.lieferscheinId ? String(movementDetail.lieferscheinId) : '-'}</p>
+                </div>
+
+                {movementDetail.bemerkung && (
+                  <p className="mt-2 text-sm text-slate-700 dark:text-slate-300"><strong>Notiz:</strong> {movementDetail.bemerkung}</p>
+                )}
+
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">Produktfotos</p>
+                  {Array.isArray(movementDetail.evidencePhotos) && movementDetail.evidencePhotos.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {movementDetail.evidencePhotos.map((photo, index) => (
+                        <div key={`${movementDetail._id ?? movementDetail.id ?? 'movement'}-photo-${index}`} className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                          <img src={photo.dataUrl} alt={`Produktfoto ${index + 1}`} className="h-28 w-full object-cover" />
+                          <p className="truncate px-2 py-1 text-[11px] text-slate-500">{photo.filename || `Foto ${index + 1}`}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">Keine Produktfotos hinterlegt.</p>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -2609,6 +2766,20 @@ export default function LagerMobileApp() {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

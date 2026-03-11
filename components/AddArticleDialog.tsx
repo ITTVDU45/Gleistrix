@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -21,6 +21,7 @@ import {
 import { Plus, Package, ImagePlus } from 'lucide-react'
 import type { Article, Category, ArticleTyp, ArticleZustand } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
+import AddCategoryDialog from './AddCategoryDialog'
 
 const TYP_OPTIONS: ArticleTyp[] = [
   'Werkzeug',
@@ -35,13 +36,48 @@ const ZUSTAND_OPTIONS: ArticleZustand[] = ['neu', 'gut', 'gebraucht', 'defekt']
 interface AddArticleDialogProps {
   categories: Category[]
   onSuccess?: () => void
+  onCategoriesChange?: () => Promise<void> | void
 }
 
-export default function AddArticleDialog({ categories, onSuccess }: AddArticleDialogProps) {
+interface CategoryOption {
+  id: string
+  topId: string
+  topName: string
+  subName: string
+  label: string
+}
+
+function toId(value: unknown): string {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') {
+    const record = value as { $oid?: unknown; _id?: unknown; toString?: () => string }
+    if (typeof record.$oid === 'string') return record.$oid
+    if (typeof record._id === 'string') return record._id
+    if (typeof record.toString === 'function') {
+      const str = record.toString()
+      if (str && str !== '[object Object]') return str
+    }
+  }
+  return ''
+}
+
+function getCategoryId(category: Category): string {
+  return toId((category as { _id?: unknown })._id) || toId(category.id)
+}
+
+function getParentId(category: Category): string {
+  return toId(category.parentId)
+}
+
+export default function AddArticleDialog({ categories, onSuccess, onCategoriesChange }: AddArticleDialogProps) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [pendingImages, setPendingImages] = useState<File[]>([])
+  const [selectedCategoryId, setSelectedCategoryId] = useState('')
+  const [selectedTopCategoryId, setSelectedTopCategoryId] = useState('')
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState('')
   const [form, setForm] = useState<Partial<Article>>({
     artikelnummer: '',
     bezeichnung: '',
@@ -56,29 +92,100 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
     status: 'aktiv'
   })
 
+  const topLevelCategories = useMemo(
+    () =>
+      categories
+        .filter((category) => !getParentId(category))
+        .sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    [categories]
+  )
+
+  const subCategories = useMemo(
+    () =>
+      categories
+        .filter((category) => getParentId(category) === selectedTopCategoryId)
+        .sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    [categories, selectedTopCategoryId]
+  )
+
+  const categoryOptions = useMemo(() => {
+    const options: CategoryOption[] = []
+    const childrenByParent = new Map<string, Category[]>()
+
+    for (const category of categories) {
+      const parentId = getParentId(category)
+      if (!parentId) continue
+      const bucket = childrenByParent.get(parentId) ?? []
+      bucket.push(category)
+      childrenByParent.set(parentId, bucket)
+    }
+
+    for (const top of topLevelCategories) {
+      const topId = getCategoryId(top)
+      if (!topId) continue
+
+      options.push({
+        id: topId,
+        topId,
+        topName: top.name,
+        subName: '',
+        label: top.name
+      })
+
+      const children = (childrenByParent.get(topId) ?? []).sort((a, b) => a.name.localeCompare(b.name, 'de'))
+      for (const child of children) {
+        const childId = getCategoryId(child)
+        if (!childId) continue
+        options.push({
+          id: childId,
+          topId,
+          topName: top.name,
+          subName: child.name,
+          label: `${top.name} > ${child.name}`
+        })
+      }
+    }
+
+    return options
+  }, [categories, topLevelCategories])
+
+  useEffect(() => {
+    if (!selectedCategoryId) return
+    const selectedExists = categoryOptions.some((option) => option.id === selectedCategoryId)
+    if (!selectedExists) {
+      setSelectedCategoryId('')
+      setSelectedTopCategoryId('')
+      setSelectedSubCategoryId('')
+      setForm((prev) => ({ ...prev, kategorie: '', unterkategorie: '' }))
+    }
+  }, [categoryOptions, selectedCategoryId])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.artikelnummer?.trim() || !form.bezeichnung?.trim() || !form.kategorie?.trim()) {
       setError('Artikelnummer, Bezeichnung und Kategorie sind Pflichtfelder.')
       return
     }
+
     setIsSubmitting(true)
     setError('')
+
     try {
       const res = await LagerApi.articles.create({
         ...form,
         artikelnummer: form.artikelnummer!,
         bezeichnung: form.bezeichnung!,
         kategorie: form.kategorie!,
+        unterkategorie: form.unterkategorie ?? '',
         typ: form.typ ?? 'Werkzeug',
         bestand: form.bestand ?? 0,
         mindestbestand: form.mindestbestand ?? 0,
         zustand: form.zustand ?? 'gut',
         status: form.status ?? 'aktiv'
       })
-      if ((res as any)?.success !== false) {
+      if ((res as { success?: boolean }).success !== false) {
         const newArticle = (res as { data?: { _id?: string; id?: string } })?.data
-        const newId = newArticle?._id?.toString?.() ?? (newArticle as any)?.id
+        const newId = newArticle?._id?.toString?.() ?? (newArticle as { id?: string } | undefined)?.id
         if (newId && pendingImages.length > 0) {
           for (const file of pendingImages) {
             if (file.type.startsWith('image/')) {
@@ -87,6 +194,9 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
           }
         }
         setPendingImages([])
+        setSelectedCategoryId('')
+        setSelectedTopCategoryId('')
+        setSelectedSubCategoryId('')
         setForm({
           artikelnummer: '',
           bezeichnung: '',
@@ -103,7 +213,7 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
         setOpen(false)
         onSuccess?.()
       } else {
-        setError((res as any)?.message ?? 'Fehler beim Anlegen des Artikels')
+        setError((res as { message?: string }).message ?? 'Fehler beim Anlegen des Artikels')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Fehler beim Anlegen des Artikels')
@@ -114,6 +224,83 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
 
   const update = (field: keyof Article, value: string | number | undefined) => {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const selectCategoryByOption = (optionId: string) => {
+    setSelectedCategoryId(optionId)
+    const option = categoryOptions.find((entry) => entry.id === optionId)
+    if (!option) return
+
+    setSelectedTopCategoryId(option.topId)
+    const sub = option.subName || ''
+    setSelectedSubCategoryId(sub ? option.id : '')
+    setForm((prev) => ({
+      ...prev,
+      kategorie: option.topName,
+      unterkategorie: sub
+    }))
+  }
+
+  const syncTopCategory = (categoryId: string) => {
+    setSelectedTopCategoryId(categoryId)
+    const category = categories.find((c) => getCategoryId(c) === categoryId)
+    setSelectedSubCategoryId('')
+
+    if (category) {
+      setSelectedCategoryId(categoryId)
+      setForm((prev) => ({
+        ...prev,
+        kategorie: category.name,
+        unterkategorie: ''
+      }))
+    }
+  }
+
+  const syncSubCategory = (categoryId: string) => {
+    setSelectedSubCategoryId(categoryId)
+    const category = categories.find((c) => getCategoryId(c) === categoryId)
+    if (!category) return
+
+    setSelectedCategoryId(categoryId)
+    setForm((prev) => ({
+      ...prev,
+      unterkategorie: category.name
+    }))
+  }
+
+  const handleTopCategoryCreated = async (created?: Category) => {
+    await onCategoriesChange?.()
+    if (!created) return
+
+    const createdId = getCategoryId(created)
+    const parentId = getParentId(created)
+    if (!createdId || parentId) return
+
+    setSelectedCategoryId(createdId)
+    setSelectedTopCategoryId(createdId)
+    setSelectedSubCategoryId('')
+    setForm((prev) => ({
+      ...prev,
+      kategorie: created.name,
+      unterkategorie: ''
+    }))
+  }
+
+  const handleSubCategoryCreated = async (created?: Category) => {
+    await onCategoriesChange?.()
+    if (!created || !selectedTopCategoryId) return
+
+    const createdId = getCategoryId(created)
+    if (!createdId) return
+
+    if (getParentId(created) === selectedTopCategoryId) {
+      setSelectedCategoryId(createdId)
+      setSelectedSubCategoryId(createdId)
+      setForm((prev) => ({
+        ...prev,
+        unterkategorie: created.name
+      }))
+    }
   }
 
   return (
@@ -163,31 +350,123 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
               />
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label>Kategorie *</Label>
+            <Select value={selectedCategoryId} onValueChange={selectCategoryByOption}>
+              <SelectTrigger className="rounded-xl h-10">
+                <SelectValue placeholder="Kategorie waehlen" />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+                {categoryOptions.length === 0 && (
+                  <SelectItem value="_empty" disabled>
+                    Keine Kategorien - zuerst anlegen
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {(form.kategorie || form.unterkategorie) && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Oberkategorie: {form.kategorie || '-'} | Unterkategorie: {form.unterkategorie || '-'}
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Kategorie *</Label>
-              <Select
-                value={form.kategorie ?? ''}
-                onValueChange={(v) => update('kategorie', v)}
-                required
-              >
+              <div className="flex items-center justify-between">
+                <Label>Oberkategorie *</Label>
+                <AddCategoryDialog
+                  categories={categories}
+                  onSuccess={handleTopCategoryCreated}
+                  trigger={
+                    <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-lg" aria-label="Oberkategorie anlegen">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              <Select value={selectedTopCategoryId} onValueChange={syncTopCategory}>
                 <SelectTrigger className="rounded-xl h-10">
-                  <SelectValue placeholder="Kategorie wählen" />
+                  <SelectValue placeholder="Oberkategorie waehlen" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id ?? (c as any)._id ?? c.name} value={c.name}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                  {categories.length === 0 && (
+                  {topLevelCategories.map((category) => {
+                    const categoryId = getCategoryId(category)
+                    if (!categoryId) return null
+                    return (
+                      <SelectItem key={categoryId} value={categoryId}>
+                        {category.name}
+                      </SelectItem>
+                    )
+                  })}
+                  {topLevelCategories.length === 0 && (
                     <SelectItem value="_empty" disabled>
-                      Keine Kategorien – zuerst anlegen
+                      Keine Oberkategorien - zuerst anlegen
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Unterkategorie</Label>
+                <AddCategoryDialog
+                  categories={categories}
+                  defaultParentId={selectedTopCategoryId || null}
+                  onSuccess={handleSubCategoryCreated}
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg"
+                      aria-label="Unterkategorie anlegen"
+                      disabled={!selectedTopCategoryId}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              <Select
+                value={selectedSubCategoryId || 'none'}
+                onValueChange={(v) => {
+                  if (v === 'none') {
+                    setSelectedSubCategoryId('')
+                    setSelectedCategoryId(selectedTopCategoryId)
+                    setForm((prev) => ({ ...prev, unterkategorie: '' }))
+                    return
+                  }
+                  syncSubCategory(v)
+                }}
+                disabled={!selectedTopCategoryId}
+              >
+                <SelectTrigger className="rounded-xl h-10">
+                  <SelectValue placeholder={selectedTopCategoryId ? 'Unterkategorie waehlen' : 'Erst Oberkategorie waehlen'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Keine Unterkategorie</SelectItem>
+                  {subCategories.map((category) => {
+                    const categoryId = getCategoryId(category)
+                    if (!categoryId) return null
+                    return (
+                      <SelectItem key={categoryId} value={categoryId}>
+                        {category.name}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Typ *</Label>
               <Select
@@ -207,6 +486,7 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
               </Select>
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="lagerort">Lagerort</Label>
@@ -229,6 +509,7 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
               />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Zustand</Label>
@@ -261,6 +542,7 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
               <p className="text-xs text-slate-500 dark:text-slate-400">Anfangsbestand (wird in der Tabelle angezeigt)</p>
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="mindestbestand">Mindestbestand</Label>
@@ -272,9 +554,10 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
                 onChange={(e) => update('mindestbestand', parseInt(e.target.value, 10) || 0)}
                 className="rounded-xl h-10"
               />
-              <p className="text-xs text-slate-500 dark:text-slate-400">Schwellwert für Warnung „Unter Mindestbestand“</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Schwellwert fuer Warnung "Unter Mindestbestand"</p>
             </div>
           </div>
+
           <div className="space-y-2">
             <Label>Bilder (optional)</Label>
             <div className="flex flex-wrap items-center gap-2">
@@ -291,7 +574,7 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
                   }}
                 />
                 <ImagePlus className="h-5 w-5 text-slate-500 dark:text-slate-400 mb-0.5" />
-                <span className="text-xs text-slate-600 dark:text-slate-400">Hinzufügen</span>
+                <span className="text-xs text-slate-600 dark:text-slate-400">Hinzufuegen</span>
               </label>
               {pendingImages.length > 0 && (
                 <span className="text-sm text-slate-600 dark:text-slate-400">
@@ -300,12 +583,13 @@ export default function AddArticleDialog({ categories, onSuccess }: AddArticleDi
               )}
             </div>
           </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Abbrechen
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Wird gespeichert…' : 'Speichern'}
+              {isSubmitting ? 'Wird gespeichert...' : 'Speichern'}
             </Button>
           </div>
         </form>
