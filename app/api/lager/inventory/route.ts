@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import dbConnect from '@/lib/dbConnect'
 import { Inventory } from '@/lib/models/Inventory'
 import { Article } from '@/lib/models/Article'
+import { ArticleUnit } from '@/lib/models/ArticleUnit'
 import { requireAuth } from '@/lib/security/requireAuth'
 import { z } from 'zod'
 
@@ -52,7 +53,8 @@ export async function POST(request: NextRequest) {
       zeitraumBis: z.union([z.string(), z.date()]).optional(),
       artikelIds: z.array(z.string()).optional().default([]),
       kategorien: z.array(z.string()).optional().default([]),
-      lagerorte: z.array(z.string()).optional().default([])
+      lagerorte: z.array(z.string()).optional().default([]),
+      unitIds: z.array(z.string()).optional().default([])
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
       articleFilter._id = { $in: artikelIdStrings.map((id) => new mongoose.Types.ObjectId(id)) }
     }
 
-    const articles = await Article.find(articleFilter).select('_id bestand').lean()
+    const articles = await Article.find(articleFilter).select('_id bestand serialTracking').lean()
     if (body.typ === 'teil' && articles.length === 0) {
       return NextResponse.json(
         { success: false, message: 'Keine aktiven Produkte fuer den ausgewaehlten Fokus gefunden' },
@@ -106,12 +108,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const positionen = articles.map((a: { _id: unknown; bestand?: number }) => ({
-      artikelId: a._id,
-      sollMenge: a.bestand ?? 0,
-      istMenge: 0,
-      differenz: 0
-    }))
+    const validUnitIds = uniqueStrings(
+      (body.unitIds ?? []).filter((v) => mongoose.Types.ObjectId.isValid(v))
+    )
+
+    let unitsByArticle: Record<string, mongoose.Types.ObjectId[]> = {}
+    if (validUnitIds.length > 0) {
+      const units = await ArticleUnit.find({
+        _id: { $in: validUnitIds.map((id) => new mongoose.Types.ObjectId(id)) }
+      }).select('_id artikelId').lean()
+      for (const u of units) {
+        const artKey = String(u.artikelId)
+        if (!unitsByArticle[artKey]) unitsByArticle[artKey] = []
+        unitsByArticle[artKey].push(u._id as mongoose.Types.ObjectId)
+      }
+    }
+
+    const positionen = articles.map((a: { _id: unknown; bestand?: number; serialTracking?: string }) => {
+      const artIdStr = String(a._id)
+      const selectedUnits = unitsByArticle[artIdStr]
+      if (selectedUnits && selectedUnits.length > 0) {
+        return {
+          artikelId: a._id,
+          sollMenge: selectedUnits.length,
+          istMenge: 0,
+          differenz: -selectedUnits.length,
+          unitIds: selectedUnits
+        }
+      }
+      return {
+        artikelId: a._id,
+        sollMenge: a.bestand ?? 0,
+        istMenge: 0,
+        differenz: 0
+      }
+    })
 
     const doc = await Inventory.create({
       name: body.name.trim(),

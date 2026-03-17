@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { StockMovement } from '@/lib/models/StockMovement'
 import { Article } from '@/lib/models/Article'
+import { ArticleUnit } from '@/lib/models/ArticleUnit'
 import { DeliveryNote } from '@/lib/models/DeliveryNote'
+import { recalculateArticleStock } from '@/lib/utils/recalculateStock'
 import '@/lib/models/User'
 import '@/lib/models/Employee'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
@@ -76,7 +78,8 @@ export async function POST(request: NextRequest) {
         dataUrl: z.string().min(20).max(5_000_000),
         filename: z.string().max(200).optional(),
         capturedAt: z.union([z.string(), z.date()]).optional()
-      })).max(15).optional()
+      })).max(15).optional(),
+      unitIds: z.array(z.string()).optional()
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())
@@ -143,19 +146,38 @@ export async function POST(request: NextRequest) {
       movementPayload.lieferscheinId = generatedNote._id
     }
 
-    if (body.bewegungstyp === 'eingang') {
-      await Article.findByIdAndUpdate(artikelId, { $inc: { bestand: body.menge } })
-    } else if (body.bewegungstyp === 'ausgang') {
-      const newBestand = (article.bestand ?? 0) - body.menge
-      if (newBestand < 0) {
-        return NextResponse.json(
-          { success: false, message: 'Bestand reicht nicht aus' },
-          { status: 400 }
+    const isIndividualTracking = article.serialTracking === 'individual'
+    const unitIds = body.unitIds?.filter((id: string) => mongoose.Types.ObjectId.isValid(id)) ?? []
+
+    if (isIndividualTracking && unitIds.length > 0) {
+      if (body.bewegungstyp === 'eingang') {
+        await ArticleUnit.updateMany(
+          { _id: { $in: unitIds.map((id: string) => new mongoose.Types.ObjectId(id)) }, artikelId },
+          { status: 'verfuegbar' }
+        )
+      } else if (body.bewegungstyp === 'ausgang') {
+        await ArticleUnit.updateMany(
+          { _id: { $in: unitIds.map((id: string) => new mongoose.Types.ObjectId(id)) }, artikelId },
+          { status: 'ausgegeben' }
         )
       }
-      await Article.findByIdAndUpdate(artikelId, { $inc: { bestand: -body.menge } })
-    } else if (body.bewegungstyp === 'korrektur' || body.bewegungstyp === 'inventur') {
-      await Article.findByIdAndUpdate(artikelId, { bestand: body.menge })
+      movementPayload.unitIds = unitIds.map((id: string) => new mongoose.Types.ObjectId(id))
+      await recalculateArticleStock(artikelId)
+    } else {
+      if (body.bewegungstyp === 'eingang') {
+        await Article.findByIdAndUpdate(artikelId, { $inc: { bestand: body.menge } })
+      } else if (body.bewegungstyp === 'ausgang') {
+        const newBestand = (article.bestand ?? 0) - body.menge
+        if (newBestand < 0) {
+          return NextResponse.json(
+            { success: false, message: 'Bestand reicht nicht aus' },
+            { status: 400 }
+          )
+        }
+        await Article.findByIdAndUpdate(artikelId, { $inc: { bestand: -body.menge } })
+      } else if (body.bewegungstyp === 'korrektur' || body.bewegungstyp === 'inventur') {
+        await Article.findByIdAndUpdate(artikelId, { bestand: body.menge })
+      }
     }
 
     const movement = await StockMovement.create(movementPayload)

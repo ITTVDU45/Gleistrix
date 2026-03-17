@@ -1,4 +1,4 @@
-﻿import mongoose from 'mongoose'
+import mongoose from 'mongoose'
 
 const stockMovementSchema = new mongoose.Schema({
   artikelId: {
@@ -37,6 +37,10 @@ const stockMovementSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  unitIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ArticleUnit'
+  }],
   evidencePhotos: [{
     dataUrl: { type: String, required: true },
     filename: { type: String, default: '' },

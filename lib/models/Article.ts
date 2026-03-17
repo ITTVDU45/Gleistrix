@@ -23,7 +23,6 @@ const articleSchema = new mongoose.Schema({
   },
   typ: {
     type: String,
-    enum: ['Werkzeug', 'Maschine', 'Akku', 'Komponente', 'Verbrauch', 'Sonstiges'],
     required: true
   },
   bestand: {
@@ -70,6 +69,11 @@ const articleSchema = new mongoose.Schema({
     type: String,
     enum: ['aktiv', 'archiviert', 'gesperrt'],
     default: 'aktiv'
+  },
+  serialTracking: {
+    type: String,
+    enum: ['none', 'individual'],
+    default: 'none'
   },
   images: {
     type: [{

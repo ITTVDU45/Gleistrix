@@ -9,14 +9,16 @@ export type IntentKey =
   | 'users:update-role' | 'auth:update-profile'
   | 'invite:create-user' | 'invite:create-admin' | 'invite:delete-all' | 'invite:activate-user'
   | 'lager:article:create' | 'lager:article:update' | 'lager:article:delete'
-  | 'lager:article:image:presign' | 'lager:article:image:commit' | 'lager:article:image:delete'
+  | 'lager:article:image:presign' | 'lager:article:image:commit' | 'lager:article:image:delete' | 'lager:article:image:upload'
   | 'lager:category:create' | 'lager:category:update' | 'lager:category:delete'
   | 'lager:movement:create' | 'lager:assignments:create' | 'lager:assignments:bulk' | 'lager:assignments:return'
   | 'lager:recipient:create'
   | 'lager:partner:create' | 'lager:partner:update'
   | 'lager:maintenance:create' | 'lager:maintenance:update' | 'lager:maintenance:delete'
   | 'lager:delivery-note:create' | 'lager:delivery-note:update' | 'lager:delivery-note:attachment:presign' | 'lager:delivery-note:attachment:commit' | 'lager:delivery-note:attachment:delete'
-  | 'lager:inventory:create' | 'lager:inventory:update' | 'lager:inventory:scan' | 'lager:inventory:scan-session' | 'lager:inventory:delete' | 'lager:inventory:complete';
+  | 'lager:inventory:create' | 'lager:inventory:update' | 'lager:inventory:scan' | 'lager:inventory:scan-session' | 'lager:inventory:delete' | 'lager:inventory:complete'
+  | 'lager:unit:create' | 'lager:unit:update' | 'lager:unit:delete' | 'lager:unit:bulk'
+  | 'lager:article-type:create';
 
 type FetchOptions = RequestInit & { intent?: IntentKey };
 

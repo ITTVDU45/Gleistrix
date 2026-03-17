@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Maintenance } from '@/lib/models/Maintenance'
 import { Article } from '@/lib/models/Article'
+import { ArticleUnit } from '@/lib/models/ArticleUnit'
+import { recalculateArticleStock } from '@/lib/utils/recalculateStock'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 import { requireAuth } from '@/lib/security/requireAuth'
 import mongoose from 'mongoose'
@@ -87,8 +89,21 @@ export async function PUT(
 
     if (body.status === 'nicht_bestanden') {
       const aid = (doc as { artikelId?: { _id?: unknown } | unknown }).artikelId
-      const id = aid && typeof aid === 'object' && '_id' in aid ? (aid as { _id: unknown })._id : aid
-      if (id) await Article.findByIdAndUpdate(id, { status: 'gesperrt' })
+      const articleObjId = aid && typeof aid === 'object' && '_id' in aid ? (aid as { _id: unknown })._id : aid
+      if (articleObjId) await Article.findByIdAndUpdate(articleObjId, { status: 'gesperrt' })
+      const unitIdField = (doc as { unitId?: unknown }).unitId
+      if (unitIdField) {
+        await ArticleUnit.findByIdAndUpdate(unitIdField, { status: 'defekt' })
+        if (articleObjId) await recalculateArticleStock(String(articleObjId))
+      }
+    } else if (body.status === 'durchgefuehrt') {
+      const unitIdField = (doc as { unitId?: unknown }).unitId
+      if (unitIdField) {
+        await ArticleUnit.findByIdAndUpdate(unitIdField, { status: 'verfuegbar' })
+        const aid = (doc as { artikelId?: { _id?: unknown } | unknown }).artikelId
+        const articleObjId = aid && typeof aid === 'object' && '_id' in aid ? (aid as { _id: unknown })._id : aid
+        if (articleObjId) await recalculateArticleStock(String(articleObjId))
+      }
     }
     return NextResponse.json({ success: true, data: doc })
   } catch (error) {

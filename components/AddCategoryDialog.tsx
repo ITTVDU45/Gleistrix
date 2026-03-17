@@ -5,7 +5,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
-import { FolderPlus } from 'lucide-react'
+import { FolderPlus, Plus } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
 import {
   Select,
@@ -57,22 +57,33 @@ export default function AddCategoryDialog({
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [beschreibung, setBeschreibung] = useState('')
+  const [typ, setTyp] = useState<string>('')
   const [parentId, setParentId] = useState<string>(defaultParentId ?? 'none')
   const [availableCategories, setAvailableCategories] = useState<Category[]>(categories ?? [])
+  const [typOptions, setTypOptions] = useState<string[]>([])
+  const [newTypName, setNewTypName] = useState('')
+  const [isAddingTyp, setIsAddingTyp] = useState(false)
   const [isLoadingCategories, setIsLoadingCategories] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open) return
-    if (categories) {
-      setAvailableCategories(categories)
-      return
-    }
 
     let cancelled = false
-    setIsLoadingCategories(true)
 
+    LagerApi.articleTypes.list()
+      .then((res) => {
+        if (!cancelled && res?.success) setTypOptions(res.types)
+      })
+      .catch(() => {})
+
+    if (categories) {
+      setAvailableCategories(categories)
+      return () => { cancelled = true }
+    }
+
+    setIsLoadingCategories(true)
     LagerApi.categories
       .list()
       .then((res) => {
@@ -91,10 +102,23 @@ export default function AddCategoryDialog({
         if (!cancelled) setIsLoadingCategories(false)
       })
 
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [open, categories])
+
+  const handleAddTyp = async () => {
+    const trimmed = newTypName.trim()
+    if (!trimmed) return
+    setIsAddingTyp(true)
+    try {
+      const res = await LagerApi.articleTypes.create(trimmed)
+      if (res.success) {
+        setTypOptions((prev) => [...prev, trimmed].sort((a, b) => a.localeCompare(b, 'de')))
+        setTyp(trimmed)
+        setNewTypName('')
+      }
+    } catch {}
+    setIsAddingTyp(false)
+  }
 
   useEffect(() => {
     if (!open) {
@@ -131,13 +155,15 @@ export default function AddCategoryDialog({
       const res = await LagerApi.categories.create({
         name: name.trim(),
         parentId: parentId === 'none' ? null : parentId,
-        beschreibung: beschreibung.trim() || undefined
+        beschreibung: beschreibung.trim() || undefined,
+        typ: typ || undefined
       })
 
       if ((res as { success?: boolean }).success !== false) {
         const createdCategory = (res as { data?: Category }).data
         setName('')
         setBeschreibung('')
+        setTyp('')
         setParentId(defaultParentId ?? 'none')
         setOpen(false)
         onSuccess?.(createdCategory)
@@ -204,6 +230,53 @@ export default function AddCategoryDialog({
                 })}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Typ (fuer Artikel in dieser Kategorie)</Label>
+            <div className="flex gap-2">
+              <Select value={typ || 'none'} onValueChange={(v) => setTyp(v === 'none' ? '' : v)}>
+                <SelectTrigger className="rounded-xl h-10 flex-1">
+                  <SelectValue placeholder="Kein Standard-Typ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Kein Standard-Typ</SelectItem>
+                  {typOptions.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0 rounded-xl"
+                onClick={() => setNewTypName(newTypName ? '' : ' ')}
+                aria-label="Neuen Typ hinzufuegen"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {newTypName !== '' && (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  value={newTypName.trim()}
+                  onChange={(e) => setNewTypName(e.target.value)}
+                  placeholder="Neuer Typ z.B. Elektronik"
+                  className="rounded-xl h-9 flex-1"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTyp() } }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="rounded-xl h-9"
+                  onClick={handleAddTyp}
+                  disabled={!newTypName.trim() || isAddingTyp}
+                >
+                  {isAddingTyp ? '...' : 'Hinzufuegen'}
+                </Button>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="cat-desc">Beschreibung</Label>

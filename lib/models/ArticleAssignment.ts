@@ -43,6 +43,11 @@ const articleAssignmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DeliveryNote',
     default: null
+  },
+  unitId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ArticleUnit',
+    default: null
   }
 }, {
   timestamps: true

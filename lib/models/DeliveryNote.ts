@@ -24,7 +24,8 @@ const deliveryNoteSchema = new mongoose.Schema({
     artikelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' },
     bezeichnung: { type: String },
     menge: { type: Number },
-    seriennummer: { type: String, default: '' }
+    seriennummer: { type: String, default: '' },
+    unitId: { type: mongoose.Schema.Types.ObjectId, ref: 'ArticleUnit', default: null }
   }],
   verantwortlich: {
     type: mongoose.Schema.Types.ObjectId,

@@ -12,8 +12,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { Plus, Trash2 } from 'lucide-react'
-import type { Article } from '@/types/main'
+import { Plus, Trash2, Check } from 'lucide-react'
+import type { Article, ArticleUnit } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 import AddPartnerDialog from '@/components/lager/AddPartnerDialog'
 import PartnerSelect, { type PartnerOption } from '@/components/lager/PartnerSelect'
@@ -73,6 +73,8 @@ export default function WareneingangDialog({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingDeliveryNotes, setIsLoadingDeliveryNotes] = useState(false)
   const [error, setError] = useState('')
+  const [unitSelections, setUnitSelections] = useState<Record<string, { available: ArticleUnit[]; selected: string[]; loading: boolean }>>({})
+  const [newUnitSerials, setNewUnitSerials] = useState<Record<string, string[]>>({})
 
   const allPartnerOptions = useMemo(
     () => [...partnerEmployees, ...partnerSuppliers],
@@ -164,6 +166,26 @@ export default function WareneingangDialog({
     }
   }, [open, selectedSupplier?.label, selectedLieferscheinId])
 
+  function getArticleForItem(item: IncomingItem) {
+    return articles.find(a => ((a as { _id?: unknown })._id?.toString?.() ?? a.id) === item.artikelId)
+  }
+
+  async function loadUnitsForArticle(artikelId: string) {
+    if (!artikelId) return
+    const art = articles.find(a => ((a as { _id?: unknown })._id?.toString?.() ?? a.id) === artikelId)
+    if (art?.serialTracking !== 'individual') return
+    setUnitSelections(prev => ({ ...prev, [artikelId]: { ...(prev[artikelId] ?? { available: [], selected: [] }), loading: true } }))
+    try {
+      const res = await LagerApi.units.list(artikelId, { status: 'ausgegeben' })
+      setUnitSelections(prev => ({
+        ...prev,
+        [artikelId]: { available: res.units ?? [], selected: prev[artikelId]?.selected ?? [], loading: false }
+      }))
+    } catch {
+      setUnitSelections(prev => ({ ...prev, [artikelId]: { available: [], selected: prev[artikelId]?.selected ?? [], loading: false } }))
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -215,13 +237,34 @@ export default function WareneingangDialog({
       const generatedDeliveryId = rawId != null ? String(rawId) : undefined
 
       for (const item of mergedItems) {
+        const art = articles.find(a => ((a as { _id?: unknown })._id?.toString?.() ?? a.id) === item.artikelId)
+        const isIndividual = art?.serialTracking === 'individual'
+        let movementUnitIds: string[] | undefined
+
+        if (isIndividual) {
+          const returning = unitSelections[item.artikelId]?.selected ?? []
+          const newSerials = (newUnitSerials[item.artikelId] ?? []).filter(s => s.trim())
+
+          if (newSerials.length > 0) {
+            const bulkRes = await LagerApi.units.bulkCreate(item.artikelId, newSerials.map(s => ({ seriennummer: s.trim() })))
+            if (!(bulkRes as { success?: boolean })?.success) {
+              throw new Error('Fehler beim Anlegen neuer Units')
+            }
+          }
+
+          movementUnitIds = returning.length > 0 ? returning : undefined
+        }
+
         const res = await LagerApi.movements.create({
           artikelId: item.artikelId,
           bewegungstyp: 'eingang',
-          menge: item.menge,
+          menge: isIndividual
+            ? (unitSelections[item.artikelId]?.selected?.length ?? 0) + (newUnitSerials[item.artikelId] ?? []).filter(s => s.trim()).length
+            : item.menge,
           datum: new Date(datum).toISOString(),
           lieferscheinId: generatedDeliveryId || selectedLieferscheinId || undefined,
-          bemerkung: movementRemark
+          bemerkung: movementRemark,
+          unitIds: movementUnitIds
         })
         if ((res as { success?: boolean })?.success === false) {
           throw new Error((res as { message?: string })?.message ?? 'Fehler beim Wareneingang')
@@ -234,6 +277,8 @@ export default function WareneingangDialog({
       setManualLieferscheinNummer('')
       setOpenOutgoingDeliveryNotes([])
       setBemerkung('')
+      setUnitSelections({})
+      setNewUnitSerials({})
       onOpenChange(false)
       onSuccess()
     } catch (err: unknown) {
@@ -279,6 +324,7 @@ export default function WareneingangDialog({
                     setIncomingItems((prev) =>
                       prev.map((entry) => (entry.id === item.id ? { ...entry, artikelId: value } : entry))
                     )
+                    loadUnitsForArticle(value)
                   }}
                   articles={articles}
                   placeholder={`Artikel ${index + 1} waehlen`}
@@ -310,6 +356,81 @@ export default function WareneingangDialog({
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
+              {getArticleForItem(item)?.serialTracking === 'individual' && item.artikelId && (
+                <div className="col-span-full space-y-2 ml-2 pl-3 border-l-2 border-blue-200 dark:border-blue-800">
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Individuelles Tracking - Rücknahme bestehender oder neue Units</p>
+                  {unitSelections[item.artikelId]?.loading ? (
+                    <p className="text-xs text-slate-500">Lade Units...</p>
+                  ) : (unitSelections[item.artikelId]?.available ?? []).length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-slate-500">Ausgegebene Units zurücknehmen:</p>
+                      <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-slate-200 dark:border-slate-700 p-1.5">
+                        {(unitSelections[item.artikelId]?.available ?? []).map(unit => {
+                          const uid = unit.id ?? unit._id ?? ''
+                          const isSelected = (unitSelections[item.artikelId]?.selected ?? []).includes(uid)
+                          return (
+                            <button
+                              key={uid}
+                              type="button"
+                              className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded text-xs transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                              onClick={() => {
+                                setUnitSelections(prev => {
+                                  const current = prev[item.artikelId] ?? { available: [], selected: [], loading: false }
+                                  const newSelected = isSelected ? current.selected.filter(id => id !== uid) : [...current.selected, uid]
+                                  return { ...prev, [item.artikelId]: { ...current, selected: newSelected } }
+                                })
+                              }}
+                            >
+                              <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
+                                {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                              </div>
+                              <span className="font-mono">{unit.seriennummer}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500">Neue Units mit Seriennummern:</p>
+                    <div className="space-y-1">
+                      {(newUnitSerials[item.artikelId] ?? []).map((serial, sIdx) => (
+                        <div key={sIdx} className="flex gap-1 items-center">
+                          <Input
+                            value={serial}
+                            onChange={e => {
+                              setNewUnitSerials(prev => {
+                                const arr = [...(prev[item.artikelId] ?? [])]
+                                arr[sIdx] = e.target.value
+                                return { ...prev, [item.artikelId]: arr }
+                              })
+                            }}
+                            placeholder={`Neue SN ${sIdx + 1}`}
+                            className="rounded-lg h-7 text-xs flex-1"
+                          />
+                          <Button
+                            type="button" variant="ghost" size="icon" className="h-7 w-7"
+                            onClick={() => setNewUnitSerials(prev => {
+                              const arr = [...(prev[item.artikelId] ?? [])]
+                              arr.splice(sIdx, 1)
+                              return { ...prev, [item.artikelId]: arr }
+                            })}
+                          ><Trash2 className="h-3 w-3" /></Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button" variant="outline" size="sm" className="rounded-lg text-xs h-7"
+                        onClick={() => setNewUnitSerials(prev => ({
+                          ...prev,
+                          [item.artikelId]: [...(prev[item.artikelId] ?? []), '']
+                        }))}
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Neue Unit
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             ))}
           </div>
           <div className="space-y-2">

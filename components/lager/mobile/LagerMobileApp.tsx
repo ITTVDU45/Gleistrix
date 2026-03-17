@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -39,7 +39,7 @@ import {
 } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
 import { ProjectsApi } from '@/lib/api/projects'
-import type { Article, Category, Project, StockMovement } from '@/types/main'
+import type { Article, ArticleUnit, Category, Project, StockMovement } from '@/types/main'
 import AddArticleDialog from '@/components/AddArticleDialog'
 import EditArticleDialog from '@/components/EditArticleDialog'
 import AddCategoryDialog from '@/components/AddCategoryDialog'
@@ -53,6 +53,7 @@ import QrScannerSheet from './QrScannerSheet'
 import { ArticleThumbnail } from '@/components/lager/ArticleThumbnail'
 import ArticleDetailsDialog from '@/components/lager/ArticleDetailsDialog'
 import ArticleSelect from '@/components/lager/ArticleSelect'
+import { ConfirmDeleteModal } from '@/components/ConfirmDeleteModal'
 
 function getArticleId(article: Article): string {
   const raw = (article as { _id?: unknown })._id ?? article.id
@@ -157,6 +158,7 @@ type InventoryFormState = {
   fokusTyp: InventoryFocusType
   kategorien: string[]
   artikelIds: string[]
+  unitIds: string[]
 }
 
 type InventoryEditForm = InventoryFormState
@@ -262,8 +264,24 @@ export default function LagerMobileApp() {
     zeitraumBis: '',
     fokusTyp: 'alle',
     kategorien: [],
-    artikelIds: []
+    artikelIds: [],
+    unitIds: []
   })
+  const [inventoryUnitsMap, setInventoryUnitsMap] = useState<Record<string, ArticleUnit[]>>({})
+  const [inventoryUnitsLoading, setInventoryUnitsLoading] = useState<Record<string, boolean>>({})
+
+  const loadUnitsForArticle = useCallback(async (artId: string) => {
+    if (inventoryUnitsMap[artId] || inventoryUnitsLoading[artId]) return
+    setInventoryUnitsLoading((prev) => ({ ...prev, [artId]: true }))
+    try {
+      const res = await LagerApi.units.list(artId)
+      setInventoryUnitsMap((prev) => ({ ...prev, [artId]: res.units ?? [] }))
+    } catch {
+      setInventoryUnitsMap((prev) => ({ ...prev, [artId]: [] }))
+    } finally {
+      setInventoryUnitsLoading((prev) => ({ ...prev, [artId]: false }))
+    }
+  }, [inventoryUnitsMap, inventoryUnitsLoading])
   const createEmptyInventoryCreateForm = (): InventoryCreateForm => createEmptyInventoryEditForm()
   const [inventoryForm, setInventoryForm] = useState<InventoryEditForm>(createEmptyInventoryEditForm)
   const [inventoryCreateForm, setInventoryCreateForm] = useState<InventoryCreateForm>(createEmptyInventoryCreateForm)
@@ -280,6 +298,8 @@ export default function LagerMobileApp() {
   const [performMaintenanceId, setPerformMaintenanceId] = useState<string | null>(null)
   const [editCategoryOpen, setEditCategoryOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [deleteArticleTarget, setDeleteArticleTarget] = useState<Article | null>(null)
+  const [deleteCategoryTarget, setDeleteCategoryTarget] = useState<Category | null>(null)
 
   const [menge, setMenge] = useState(1)
   const [incomingItems, setIncomingItems] = useState<IncomingItem[]>([createIncomingItem()])
@@ -641,6 +661,7 @@ export default function LagerMobileApp() {
     const fokusTyp = inventoryCreateForm.fokusTyp
     const selectedKategorien = Array.from(new Set(inventoryCreateForm.kategorien))
     const selectedArtikelIds = Array.from(new Set(inventoryCreateForm.artikelIds))
+    const selectedUnitIds = Array.from(new Set(inventoryCreateForm.unitIds))
 
     if (fokusTyp === 'kategorien' && selectedKategorien.length === 0) {
       return setErrorMessage('Bitte mindestens eine Kategorie fuer den Fokus auswaehlen')
@@ -661,7 +682,8 @@ export default function LagerMobileApp() {
         zeitraumVon: inventoryCreateForm.zeitraumVon || undefined,
         zeitraumBis: inventoryCreateForm.zeitraumBis || undefined,
         kategorien: fokusTyp === 'kategorien' ? selectedKategorien : undefined,
-        artikelIds: fokusTyp === 'artikel' ? selectedArtikelIds : undefined
+        artikelIds: fokusTyp === 'artikel' ? selectedArtikelIds : undefined,
+        unitIds: selectedUnitIds.length > 0 ? selectedUnitIds : undefined
       })
       const created = (response as { success?: boolean; data?: InventoryRow })?.data
       if (!(response as { success?: boolean })?.success || !created?._id) {
@@ -802,13 +824,34 @@ export default function LagerMobileApp() {
     }
     inventoryScanThrottleRef.current = { code: normalized, at: scanNow }
 
-    const found = inventoryDetail.positionen.find((pos) => {
+    let found = inventoryDetail.positionen.find((pos) => {
       const article = toInventoryArticle(pos.artikelId)
       const barcode = article?.barcode?.trim().toLowerCase() ?? ''
       const artikelnummer = article?.artikelnummer?.trim().toLowerCase() ?? ''
       return (barcode.length > 0 && (barcode === normalized || normalized.endsWith(barcode)))
         || (artikelnummer.length > 0 && (artikelnummer === normalized || normalized.endsWith(artikelnummer)))
     })
+
+    let scannedUnitId: string | undefined
+
+    // If not found by article barcode, try unit barcode lookup
+    if (!found && normalized.startsWith('art-')) {
+      for (const pos of inventoryDetail.positionen) {
+        const article = toInventoryArticle(pos.artikelId)
+        if (article?.serialTracking !== 'individual') continue
+        const artId = resolveInventoryArticleId(pos.artikelId)
+        if (!artId) continue
+        try {
+          const res = await LagerApi.units.list(artId)
+          const matchingUnit = (res.units ?? []).find(u => u.barcode?.trim().toLowerCase() === normalized)
+          if (matchingUnit) {
+            found = pos
+            scannedUnitId = matchingUnit.id ?? matchingUnit._id
+            break
+          }
+        } catch { /* ignore */ }
+      }
+    }
 
     if (!found) {
       return setErrorMessage(`Kein Inventur-Artikel zu QR-Code "${rawCode}" gefunden`)
@@ -823,7 +866,8 @@ export default function LagerMobileApp() {
       const response = await LagerApi.inventory.recordScan(selectedInventoryId, {
         artikelId,
         code: rawCode,
-        scannedAt: new Date().toISOString()
+        scannedAt: new Date().toISOString(),
+        ...(scannedUnitId && { unitId: scannedUnitId })
       })
       const data = (response as { success?: boolean; data?: InventoryRow })?.data
       if (!(response as { success?: boolean })?.success || !data) {
@@ -1064,7 +1108,7 @@ export default function LagerMobileApp() {
     if (!normalized) return null
     return options.find((option) => option.label.trim().toLocaleLowerCase('de-DE') === normalized) ?? null
   }
-  function resolveArticleByScan(code: string) {
+  async function resolveArticleByScan(code: string) {
     const deliveryQr = parseDeliveryNoteQrPayload(code)
     if (deliveryQr) {
       if (deliveryQr.typ !== 'eingang') {
@@ -1078,12 +1122,37 @@ export default function LagerMobileApp() {
     }
 
     const normalized = code.trim().toLowerCase()
-    const found = articles.find((article) => {
+
+    // 1. Search in articles first (barcode / artikelnummer)
+    let found = articles.find((article) => {
       const artikelnummer = article.artikelnummer?.trim().toLowerCase() ?? ''
       const barcode = article.barcode?.trim().toLowerCase() ?? ''
       return (barcode.length > 0 && (barcode === normalized || normalized.endsWith(barcode)))
         || (artikelnummer.length > 0 && (artikelnummer === normalized || normalized.endsWith(artikelnummer)))
     })
+
+    // 2. If not found in articles, try ArticleUnit lookup via API
+    if (!found && code.startsWith('ART-')) {
+      try {
+        const allArticles = articles.filter(a => a.serialTracking === 'individual')
+        for (const art of allArticles) {
+          const artId = getArticleId(art)
+          if (!artId) continue
+          const res = await LagerApi.units.list(artId)
+          const matchingUnit = (res.units ?? []).find(u =>
+            u.barcode?.trim().toLowerCase() === normalized
+          )
+          if (matchingUnit) {
+            found = art
+            setStatusMessage(`Unit erkannt: SN ${matchingUnit.seriennummer} (${art.bezeichnung})`)
+            break
+          }
+        }
+      } catch {
+        // fallback: unit lookup failed
+      }
+    }
+
     if (!found) {
       setErrorMessage(`Kein Artikel zu QR-Code "${code}" gefunden`)
       return
@@ -1108,7 +1177,7 @@ export default function LagerMobileApp() {
     }
 
     setSelectedArticleId(foundArticleId)
-    setStatusMessage(`Artikel erkannt: ${found.bezeichnung}`)
+    if (!statusMessage) setStatusMessage(`Artikel erkannt: ${found.bezeichnung}`)
   }
   async function handlePartnerSaved() {
     await loadPartnerData()
@@ -1384,16 +1453,17 @@ export default function LagerMobileApp() {
     }
   }
 
-  async function deleteArticle(article: Article) {
-    const id = getArticleId(article)
+  async function confirmDeleteArticle() {
+    if (!deleteArticleTarget) return
+    const id = getArticleId(deleteArticleTarget)
     if (!id) return
-    if (!window.confirm(`Artikel "${article.bezeichnung}" wirklich loeschen?`)) return
     try {
       await LagerApi.articles.archive(id)
+      setDeleteArticleTarget(null)
       setStatusMessage('Artikel geloescht')
       await refreshMasterData()
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Artikel konnte nicht geloescht werden')
+      throw err instanceof Error ? err : new Error('Artikel konnte nicht geloescht werden')
     }
   }
 
@@ -1409,16 +1479,17 @@ export default function LagerMobileApp() {
     }
   }
 
-  async function deleteCategory(category: Category) {
-    const id = getCategoryId(category)
+  async function confirmDeleteCategory() {
+    if (!deleteCategoryTarget) return
+    const id = getCategoryId(deleteCategoryTarget)
     if (!id) return
-    if (!window.confirm(`Kategorie "${category.name}" wirklich loeschen?`)) return
     try {
       await LagerApi.categories.delete(id)
+      setDeleteCategoryTarget(null)
       setStatusMessage('Kategorie geloescht')
       await loadCategories()
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Kategorie konnte nicht geloescht werden')
+      throw err instanceof Error ? err : new Error('Kategorie konnte nicht geloescht werden')
     }
   }
 
@@ -2008,7 +2079,7 @@ export default function LagerMobileApp() {
                           <Button size="sm" variant="outline" onClick={() => { setEditingArticle(article); setEditArticleOpen(true) }}>
                             <Pencil className="mr-1 h-4 w-4" />Bearbeiten
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => deleteArticle(article)}>
+                          <Button size="sm" variant="outline" onClick={() => setDeleteArticleTarget(article)}>
                             <Trash2 className="mr-1 h-4 w-4" />Loeschen
                           </Button>
                         </div>
@@ -2119,7 +2190,7 @@ export default function LagerMobileApp() {
                       <p className="font-medium text-slate-900 dark:text-white">{entry.wartungsart ?? 'Wartung'}</p>
                       <Badge variant="secondary">{entry.status ?? 'offen'}</Badge>
                     </div>
-                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{typeof entry.artikelId === 'object' ? `${entry.artikelId.artikelnummer ?? ''} ${entry.artikelId.bezeichnung ?? ''}`.trim() : String(entry.artikelId ?? '-')}</p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{entry.artikelId && typeof entry.artikelId === 'object' ? `${entry.artikelId.artikelnummer ?? ''} ${entry.artikelId.bezeichnung ?? ''}`.trim() : String(entry.artikelId ?? '-')}</p>
                     <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Faellig: {formatDate(entry.faelligkeitsdatum)}</p>
                     <div className="mt-3 flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => setPerformMaintenanceId(entry._id ?? null)}>
@@ -2447,7 +2518,7 @@ export default function LagerMobileApp() {
                         <Button size="sm" variant="outline" onClick={() => { setEditingCategory(category); setEditCategoryOpen(true) }}>
                           <Pencil className="mr-1 h-4 w-4" />Bearbeiten
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => deleteCategory(category)}>
+                        <Button size="sm" variant="outline" onClick={() => setDeleteCategoryTarget(category)}>
                           <Trash2 className="mr-1 h-4 w-4" />Loeschen
                         </Button>
                       </div>
@@ -2489,7 +2560,7 @@ export default function LagerMobileApp() {
                           <Button size="sm" variant="outline" onClick={() => { setEditingArticle(article); setEditArticleOpen(true) }}>
                             <Pencil className="mr-1 h-4 w-4" />Bearbeiten
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => deleteArticle(article)}>
+                          <Button size="sm" variant="outline" onClick={() => setDeleteArticleTarget(article)}>
                             <Trash2 className="mr-1 h-4 w-4" />Loeschen
                           </Button>
                         </div>
@@ -2527,6 +2598,7 @@ export default function LagerMobileApp() {
           if (!open) setDetailArticle(null)
         }}
         article={detailArticle}
+        onArticleUpdated={loadArticles}
       />
       <AddMaintenanceDialog open={addMaintenanceOpen} onOpenChange={setAddMaintenanceOpen} articles={articles} categories={categories} onSuccess={() => { setStatusMessage('Wartung angelegt'); loadMaintenance() }} />
 
@@ -2644,7 +2716,7 @@ export default function LagerMobileApp() {
               {inventoryCreateForm.fokusTyp === 'artikel' && (
                 <div className="space-y-2">
                   <Label>Produkte (Mehrfachauswahl)</Label>
-                  <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+                  <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2 dark:border-slate-700">
                     {activeArticles.length === 0 ? (
                       <p className="text-xs text-slate-500">Keine Produkte vorhanden.</p>
                     ) : (
@@ -2655,20 +2727,64 @@ export default function LagerMobileApp() {
                           const articleId = getArticleId(article)
                           if (!articleId) return null
                           const isChecked = inventoryCreateForm.artikelIds.includes(articleId)
+                          const hasIndividual = article.serialTracking === 'individual'
+                          const articleUnits = inventoryUnitsMap[articleId] ?? []
+                          const isLoadingUnits = inventoryUnitsLoading[articleId] ?? false
+
                           return (
-                            <label key={articleId} className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-sm">
-                              <Checkbox
-                                checked={isChecked}
-                                onCheckedChange={(checked) => setInventoryCreateForm((prev) => ({
-                                  ...prev,
-                                  artikelIds: toggleStringSelection(prev.artikelIds, articleId, checked === true)
-                                }))}
-                              />
-                              <span className="leading-tight">
-                                <span className="font-medium text-slate-900 dark:text-white">{article.bezeichnung}</span>
-                                <span className="block text-xs text-slate-500">{article.artikelnummer}</span>
-                              </span>
-                            </label>
+                            <div key={articleId}>
+                              <label className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-1 text-sm">
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    const add = checked === true
+                                    setInventoryCreateForm((prev) => ({
+                                      ...prev,
+                                      artikelIds: toggleStringSelection(prev.artikelIds, articleId, add),
+                                      unitIds: add ? prev.unitIds : prev.unitIds.filter((uid) => {
+                                        const belongsToArticle = articleUnits.some((u) => (u.id ?? u._id) === uid)
+                                        return !belongsToArticle
+                                      })
+                                    }))
+                                    if (add && hasIndividual) loadUnitsForArticle(articleId)
+                                  }}
+                                />
+                                <span className="leading-tight">
+                                  <span className="font-medium text-slate-900 dark:text-white">{article.bezeichnung}</span>
+                                  <span className="block text-xs text-slate-500">{article.artikelnummer}</span>
+                                </span>
+                              </label>
+                              {isChecked && hasIndividual && (
+                                <div className="ml-7 mt-1 mb-2 space-y-1 rounded-lg border border-slate-100 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800/50">
+                                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Geräte / Seriennummern:</p>
+                                  {isLoadingUnits ? (
+                                    <p className="text-xs text-slate-400">Lade...</p>
+                                  ) : articleUnits.length === 0 ? (
+                                    <p className="text-xs text-slate-400">Keine Seriennummern vorhanden</p>
+                                  ) : (
+                                    articleUnits.map((unit) => {
+                                      const uid = unit.id ?? unit._id ?? ''
+                                      const unitChecked = inventoryCreateForm.unitIds.includes(uid)
+                                      return (
+                                        <label key={uid} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-700/50">
+                                          <Checkbox
+                                            checked={unitChecked}
+                                            onCheckedChange={(checked) => setInventoryCreateForm((prev) => ({
+                                              ...prev,
+                                              unitIds: toggleStringSelection(prev.unitIds, uid, checked === true)
+                                            }))}
+                                          />
+                                          <span className="font-mono">{unit.seriennummer}</span>
+                                          <Badge variant="outline" className="text-[9px] px-1 py-0">
+                                            {unit.status === 'verfuegbar' ? 'Verfügbar' : unit.status === 'ausgegeben' ? 'Ausgegeben' : unit.status === 'in_wartung' ? 'In Wartung' : unit.status === 'defekt' ? 'Defekt' : unit.status}
+                                          </Badge>
+                                        </label>
+                                      )
+                                    })
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )
                         })
                     )}
@@ -2762,6 +2878,28 @@ export default function LagerMobileApp() {
           }
           resolveArticleByScan(code)
         }}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={deleteArticleTarget !== null}
+        onConfirm={confirmDeleteArticle}
+        onCancel={() => setDeleteArticleTarget(null)}
+        itemCount={1}
+        itemType="Artikel"
+        confirmText="LÖSCHEN"
+        title={`Artikel "${deleteArticleTarget?.bezeichnung}" endgültig löschen?`}
+        description="Diese Aktion kann nicht rückgängig gemacht werden. Der Artikel wird archiviert und ist nicht mehr im Bestand sichtbar."
+      />
+
+      <ConfirmDeleteModal
+        isOpen={deleteCategoryTarget !== null}
+        onConfirm={confirmDeleteCategory}
+        onCancel={() => setDeleteCategoryTarget(null)}
+        itemCount={1}
+        itemType="Kategorie"
+        confirmText="LÖSCHEN"
+        title={`Kategorie "${deleteCategoryTarget?.name}" endgültig löschen?`}
+        description="Diese Aktion kann nicht rückgängig gemacht werden. Alle zugehörigen Artikel bleiben bestehen, verlieren aber ihre Kategorie-Zuordnung."
       />
     </div>
   )

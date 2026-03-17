@@ -7,7 +7,6 @@ import { requireAuth } from '@/lib/security/requireAuth'
 import { z } from 'zod'
 import { generateArticleBarcode } from '@/lib/utils/barcode'
 
-const articleTypEnum = ['Werkzeug', 'Maschine', 'Akku', 'Komponente', 'Verbrauch', 'Sonstiges'] as const
 const zustandEnum = ['neu', 'gut', 'gebraucht', 'defekt'] as const
 const statusEnum = ['aktiv', 'archiviert', 'gesperrt'] as const
 
@@ -26,7 +25,11 @@ export async function GET(request: NextRequest) {
     if (kategorie) filter.kategorie = kategorie
     if (typ) filter.typ = typ
     if (lagerort) filter.lagerort = lagerort
-    if (status) filter.status = status
+    if (status) {
+      filter.status = status
+    } else {
+      filter.status = { $ne: 'archiviert' }
+    }
 
     const articles = await Article.find(filter).sort({ bezeichnung: 1 }).lean()
     return NextResponse.json({ success: true, articles })
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
       bezeichnung: z.string().min(1),
       kategorie: z.string().min(1),
       unterkategorie: z.string().optional().or(z.literal('')),
-      typ: z.enum(articleTypEnum),
+      typ: z.string().min(1),
       bestand: z.number().optional().default(0),
       mindestbestand: z.number().optional().default(0),
       lagerort: z.string().optional().or(z.literal('')),
@@ -63,7 +66,8 @@ export async function POST(request: NextRequest) {
       barcode: z.string().optional(),
       wartungsintervallMonate: z.number().optional().nullable(),
       naechsteWartung: z.union([z.string(), z.date(), z.null()]).optional(),
-      status: z.enum(statusEnum).optional().default('aktiv')
+      status: z.enum(statusEnum).optional().default('aktiv'),
+      serialTracking: z.enum(['none', 'individual']).optional().default('none')
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())
@@ -112,6 +116,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: article }, { status: 201 })
   } catch (error) {
     console.error('Fehler beim Anlegen des Artikels:', error)
+    if ((error as { code?: number }).code === 11000) {
+      return NextResponse.json(
+        { success: false, message: 'Ein Artikel mit dieser Artikelnummer existiert bereits' },
+        { status: 409 }
+      )
+    }
     return NextResponse.json(
       { success: false, message: 'Fehler beim Anlegen des Artikels' },
       { status: 500 }

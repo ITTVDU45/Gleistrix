@@ -36,6 +36,11 @@ const maintenanceSchema = new mongoose.Schema({
   durchgefuehrtVon: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  unitId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ArticleUnit',
+    default: null
   }
 }, {
   timestamps: true

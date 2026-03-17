@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { ArticleAssignment } from '@/lib/models/ArticleAssignment'
 import { Article } from '@/lib/models/Article'
+import { ArticleUnit } from '@/lib/models/ArticleUnit'
 import { StockMovement } from '@/lib/models/StockMovement'
+import { recalculateArticleStock } from '@/lib/utils/recalculateStock'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 import { requireAuth } from '@/lib/security/requireAuth'
 import mongoose from 'mongoose'
@@ -41,9 +43,14 @@ export async function PUT(
       status: 'zurueckgegeben'
     })
 
-    await Article.findByIdAndUpdate(assignment.artikelId, {
-      $inc: { bestand: assignment.menge }
-    })
+    if (assignment.unitId) {
+      await ArticleUnit.findByIdAndUpdate(assignment.unitId, { status: 'verfuegbar' })
+      await recalculateArticleStock(String(assignment.artikelId))
+    } else {
+      await Article.findByIdAndUpdate(assignment.artikelId, {
+        $inc: { bestand: assignment.menge }
+      })
+    }
 
     await StockMovement.create({
       artikelId: assignment.artikelId,

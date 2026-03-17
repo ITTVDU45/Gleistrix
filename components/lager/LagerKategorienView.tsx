@@ -8,6 +8,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
 import AddCategoryDialog from '@/components/AddCategoryDialog'
 import EditCategoryDialog from '@/components/EditCategoryDialog'
+import { ConfirmDeleteModal } from '@/components/ConfirmDeleteModal'
 import type { Category } from '@/types/main'
 
 interface LagerKategorienViewProps {
@@ -27,6 +28,7 @@ function getParentId(cat: Category): string {
 export default function LagerKategorienView({ categories, onRefresh }: LagerKategorienViewProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editCategory, setEditCategory] = useState<Category | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const categoryNameById = useMemo(() => {
@@ -38,21 +40,22 @@ export default function LagerKategorienView({ categories, onRefresh }: LagerKate
     return map
   }, [categories])
 
-  const handleDelete = async (cat: Category) => {
-    const id = getCategoryId(cat)
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return
+    const id = getCategoryId(deleteTarget)
     if (!id) return
-    if (!confirm(`Kategorie "${cat.name}" wirklich loeschen?`)) return
     setError(null)
     setDeletingId(id)
     try {
       const res = await LagerApi.categories.delete(id)
       if ((res as { success?: boolean }).success) {
+        setDeleteTarget(null)
         onRefresh()
       } else {
-        setError((res as { message?: string }).message ?? 'Loeschen fehlgeschlagen')
+        throw new Error((res as { message?: string }).message ?? 'Loeschen fehlgeschlagen')
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Fehler beim Loeschen')
+      throw err instanceof Error ? err : new Error('Fehler beim Loeschen')
     } finally {
       setDeletingId(null)
     }
@@ -125,7 +128,7 @@ export default function LagerKategorienView({ categories, onRefresh }: LagerKate
                           variant="ghost"
                           size="sm"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                          onClick={() => handleDelete(cat)}
+                          onClick={() => setDeleteTarget(cat)}
                           disabled={deletingId === id}
                           aria-label={`Kategorie ${cat.name} loeschen`}
                         >
@@ -140,6 +143,17 @@ export default function LagerKategorienView({ categories, onRefresh }: LagerKate
           </Table>
         )}
       </CardContent>
+
+      <ConfirmDeleteModal
+        isOpen={deleteTarget !== null}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+        itemCount={1}
+        itemType="Kategorie"
+        confirmText="LÖSCHEN"
+        title={`Kategorie "${deleteTarget?.name}" endgültig löschen?`}
+        description="Diese Aktion kann nicht rückgängig gemacht werden. Alle zugehörigen Artikel und Daten bleiben bestehen, verlieren aber ihre Kategorie-Zuordnung."
+      />
     </Card>
   )
 }

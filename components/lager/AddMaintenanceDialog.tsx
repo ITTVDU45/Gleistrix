@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import type { Article, Category } from '@/types/main'
+import type { Article, ArticleUnit, Category } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 
 function getCategoryId(c: Category): string {
@@ -41,6 +42,9 @@ export default function AddMaintenanceDialog({
   const [mode, setMode] = useState<ScopeMode>('article')
   const [artikelId, setArtikelId] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [unitId, setUnitId] = useState('')
+  const [units, setUnits] = useState<ArticleUnit[]>([])
+  const [unitsLoading, setUnitsLoading] = useState(false)
   const [wartungsart, setWartungsart] = useState('')
   const [faelligkeitsdatum, setFaelligkeitsdatum] = useState(new Date().toISOString().slice(0, 10))
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,6 +52,46 @@ export default function AddMaintenanceDialog({
 
   const activeArticles = articles.filter((a) => (a.status ?? 'aktiv') === 'aktiv')
   const activeCategories = categories.filter((c) => getCategoryId(c))
+
+  const selectedArticle = activeArticles.find(
+    (a) => ((a as { _id?: string })._id?.toString?.() ?? a.id) === artikelId
+  )
+  const isIndividual = selectedArticle?.serialTracking === 'individual'
+
+  const loadUnits = useCallback(async (artId: string) => {
+    setUnitsLoading(true)
+    try {
+      const res = await LagerApi.units.list(artId)
+      setUnits(res.units ?? [])
+    } catch {
+      setUnits([])
+    } finally {
+      setUnitsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (artikelId && isIndividual) {
+      loadUnits(artikelId)
+    } else {
+      setUnits([])
+      setUnitId('')
+    }
+  }, [artikelId, isIndividual, loadUnits])
+
+  const handleArticleChange = (value: string) => {
+    setArtikelId(value)
+    setUnitId('')
+    setError('')
+  }
+
+  const STATUS_LABELS: Record<string, string> = {
+    verfuegbar: 'Verfügbar',
+    ausgegeben: 'Ausgegeben',
+    in_wartung: 'In Wartung',
+    defekt: 'Defekt',
+    archiviert: 'Archiviert'
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,6 +116,7 @@ export default function AddMaintenanceDialog({
       const payload: {
         artikelId?: string
         categoryId?: string
+        unitId?: string
         wartungsart: string
         faelligkeitsdatum: string
         status: string
@@ -80,14 +125,19 @@ export default function AddMaintenanceDialog({
         faelligkeitsdatum: new Date(faelligkeitsdatum).toISOString(),
         status: 'geplant'
       }
-      if (mode === 'article') payload.artikelId = artikelId
-      else payload.categoryId = categoryId
+      if (mode === 'article') {
+        payload.artikelId = artikelId
+        if (unitId && unitId !== '__all__') payload.unitId = unitId
+      } else {
+        payload.categoryId = categoryId
+      }
 
       const res = await LagerApi.maintenance.create(payload)
       if ((res as { success?: boolean })?.success !== false) {
-        const created = (res as { created?: number }).created ?? 1
         setArtikelId('')
         setCategoryId('')
+        setUnitId('')
+        setUnits([])
         setWartungsart('')
         setFaelligkeitsdatum(new Date().toISOString().slice(0, 10))
         onOpenChange(false)
@@ -138,21 +188,58 @@ export default function AddMaintenanceDialog({
             </div>
           </div>
           {mode === 'article' ? (
-            <div className="space-y-2">
-              <Label>Artikel *</Label>
-              <Select value={artikelId} onValueChange={setArtikelId} required={mode === 'article'}>
-                <SelectTrigger className="rounded-xl h-10">
-                  <SelectValue placeholder="Artikel wählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeArticles.map((a) => (
-                    <SelectItem key={a.id ?? (a as { _id?: string })._id} value={(a as { _id?: string })._id?.toString?.() ?? (a as { id?: string }).id ?? ''}>
-                      {a.artikelnummer} – {a.bezeichnung}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label>Artikel *</Label>
+                <Select value={artikelId} onValueChange={handleArticleChange} required={mode === 'article'}>
+                  <SelectTrigger className="rounded-xl h-10">
+                    <SelectValue placeholder="Artikel wählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeArticles.map((a) => (
+                      <SelectItem key={a.id ?? (a as { _id?: string })._id} value={(a as { _id?: string })._id?.toString?.() ?? (a as { id?: string }).id ?? ''}>
+                        {a.artikelnummer} – {a.bezeichnung}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {isIndividual && (
+                <div className="space-y-2">
+                  <Label>Gerät / Seriennummer</Label>
+                  {unitsLoading ? (
+                    <p className="text-xs text-slate-500">Lade Seriennummern...</p>
+                  ) : units.length === 0 ? (
+                    <p className="text-xs text-slate-500">Keine Seriennummern vorhanden</p>
+                  ) : (
+                    <Select value={unitId} onValueChange={setUnitId}>
+                      <SelectTrigger className="rounded-xl h-10">
+                        <SelectValue placeholder="Alle Geräte (kein spezifisches)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">Alle Geräte</SelectItem>
+                        {units.map((u) => {
+                          const uid = u.id ?? u._id ?? ''
+                          return (
+                            <SelectItem key={uid} value={uid}>
+                              <span className="flex items-center gap-2">
+                                <span className="font-mono text-xs">{u.seriennummer}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  {STATUS_LABELS[u.status] ?? u.status}
+                                </Badge>
+                              </span>
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Wählen Sie ein einzelnes Gerät oder lassen Sie &quot;Alle Geräte&quot; für den gesamten Artikel.
+                  </p>
+                </div>
+              )}
+            </>
           ) : (
             <div className="space-y-2">
               <Label>Kategorie *</Label>

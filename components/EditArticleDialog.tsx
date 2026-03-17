@@ -12,18 +12,11 @@ import {
   SelectTrigger,
   SelectValue
 } from './ui/select'
+import { Plus } from 'lucide-react'
 import type { Article, Category, ArticleTyp, ArticleZustand } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 import { ArticleImageSection } from './lager/ArticleImageSection'
 
-const TYP_OPTIONS: ArticleTyp[] = [
-  'Werkzeug',
-  'Maschine',
-  'Akku',
-  'Komponente',
-  'Verbrauch',
-  'Sonstiges'
-]
 const ZUSTAND_OPTIONS: ArticleZustand[] = ['neu', 'gut', 'gebraucht', 'defekt']
 
 interface EditArticleDialogProps {
@@ -74,6 +67,9 @@ export default function EditArticleDialog({
 }: EditArticleDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [typOptions, setTypOptions] = useState<string[]>([])
+  const [newTypName, setNewTypName] = useState('')
+  const [isAddingTyp, setIsAddingTyp] = useState(false)
   const [currentArticle, setCurrentArticle] = useState<Article | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
   const [selectedTopCategoryId, setSelectedTopCategoryId] = useState('')
@@ -91,6 +87,29 @@ export default function EditArticleDialog({
     zustand: 'gut',
     status: 'aktiv'
   })
+
+  useEffect(() => {
+    if (!open) return
+    LagerApi.articleTypes.list()
+      .then((res) => { if (res?.success) setTypOptions(res.types) })
+      .catch(() => {})
+    setNewTypName('')
+  }, [open])
+
+  const handleAddTyp = async () => {
+    const trimmed = newTypName.trim()
+    if (!trimmed) return
+    setIsAddingTyp(true)
+    try {
+      const res = await LagerApi.articleTypes.create(trimmed)
+      if (res.success) {
+        setTypOptions((prev) => [...prev, trimmed].sort((a, b) => a.localeCompare(b, 'de')))
+        setForm((prev) => ({ ...prev, typ: trimmed }))
+        setNewTypName('')
+      }
+    } catch {}
+    setIsAddingTyp(false)
+  }
 
   const topLevelCategories = useMemo(
     () =>
@@ -403,25 +422,56 @@ export default function EditArticleDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Typ *</Label>
+          <div className="space-y-2">
+            <Label>Typ *</Label>
+            <div className="flex gap-2">
               <Select
                 value={form.typ ?? 'Werkzeug'}
                 onValueChange={(v) => update('typ', v as ArticleTyp)}
               >
-                <SelectTrigger className="rounded-xl h-10">
+                <SelectTrigger className="rounded-xl h-10 flex-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TYP_OPTIONS.map((t) => (
+                  {typOptions.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0 rounded-xl"
+                onClick={() => setNewTypName(newTypName ? '' : ' ')}
+                aria-label="Neuen Typ hinzufuegen"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
+            {newTypName !== '' && (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  value={newTypName.trim()}
+                  onChange={(e) => setNewTypName(e.target.value)}
+                  placeholder="Neuer Typ z.B. Elektronik"
+                  className="rounded-xl h-9 flex-1"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTyp() } }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="rounded-xl h-9"
+                  onClick={handleAddTyp}
+                  disabled={!newTypName.trim() || isAddingTyp}
+                >
+                  {isAddingTyp ? '...' : 'Hinzufuegen'}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -434,15 +484,17 @@ export default function EditArticleDialog({
                 className="rounded-xl h-10"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-seriennummer">Seriennummer</Label>
-              <Input
-                id="edit-seriennummer"
-                value={form.seriennummer ?? ''}
-                onChange={(e) => update('seriennummer', e.target.value)}
-                className="rounded-xl h-10"
-              />
-            </div>
+            {article.serialTracking !== 'individual' && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-seriennummer">Seriennummer</Label>
+                <Input
+                  id="edit-seriennummer"
+                  value={form.seriennummer ?? ''}
+                  onChange={(e) => update('seriennummer', e.target.value)}
+                  className="rounded-xl h-10"
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -473,8 +525,13 @@ export default function EditArticleDialog({
                 value={form.bestand ?? 0}
                 onChange={(e) => update('bestand', parseInt(e.target.value, 10) || 0)}
                 className="rounded-xl h-10"
+                readOnly={article.serialTracking === 'individual'}
               />
-              <p className="text-xs text-slate-500 dark:text-slate-400">Aktueller Lagerbestand (wird in der Tabelle angezeigt)</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {article.serialTracking === 'individual'
+                  ? 'Wird automatisch aus Units berechnet'
+                  : 'Aktueller Lagerbestand (wird in der Tabelle angezeigt)'}
+              </p>
             </div>
           </div>
 
@@ -492,6 +549,18 @@ export default function EditArticleDialog({
               <p className="text-xs text-slate-500 dark:text-slate-400">Schwellwert fuer Warnung "Unter Mindestbestand"</p>
             </div>
           </div>
+
+          {article.serialTracking === 'individual' && (
+            <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-3">
+              <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                Individuelles Seriennummern-Tracking aktiv
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Der Bestand wird automatisch aus den verfügbaren Units berechnet. 
+                Seriennummern werden über die Detailansicht des Artikels verwaltet.
+              </p>
+            </div>
+          )}
 
           {(article.id ?? (article as { _id?: string })._id) && (
             <ArticleImageSection

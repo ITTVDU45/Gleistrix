@@ -3,6 +3,8 @@ import dbConnect from '@/lib/dbConnect'
 import { Maintenance } from '@/lib/models/Maintenance'
 import { Category } from '@/lib/models/Category'
 import { Article } from '@/lib/models/Article'
+import { ArticleUnit } from '@/lib/models/ArticleUnit'
+import { recalculateArticleStock } from '@/lib/utils/recalculateStock'
 import { requireAuth } from '@/lib/security/requireAuth'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -48,6 +50,7 @@ export async function POST(request: NextRequest) {
     const schema = z.object({
       artikelId: z.string().optional(),
       categoryId: z.string().optional(),
+      unitId: z.string().optional(),
       wartungsart: z.string().min(1),
       faelligkeitsdatum: z.union([z.string(), z.date()]),
       status: z.enum(statusEnum).optional().default('geplant')
@@ -78,12 +81,18 @@ export async function POST(request: NextRequest) {
       if (!mongoose.Types.ObjectId.isValid(artikelId)) {
         return NextResponse.json({ success: false, message: 'Ungültige Artikel-ID' }, { status: 400 })
       }
-      const doc = await Maintenance.create({
+      const maintenancePayload: Record<string, unknown> = {
         artikelId: new mongoose.Types.ObjectId(artikelId),
         wartungsart: body.wartungsart,
         faelligkeitsdatum,
         status: statusVal
-      })
+      }
+      if (body.unitId && mongoose.Types.ObjectId.isValid(body.unitId)) {
+        maintenancePayload.unitId = new mongoose.Types.ObjectId(body.unitId)
+        await ArticleUnit.findByIdAndUpdate(body.unitId, { status: 'in_wartung' })
+        await recalculateArticleStock(artikelId)
+      }
+      const doc = await Maintenance.create(maintenancePayload)
       const populated = await Maintenance.findById(doc._id).populate('artikelId', 'bezeichnung').lean()
       return NextResponse.json({ success: true, created: 1, data: populated ?? doc }, { status: 201 })
     }

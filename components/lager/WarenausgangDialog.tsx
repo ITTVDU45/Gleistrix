@@ -12,8 +12,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { Plus } from 'lucide-react'
-import type { Article } from '@/types/main'
+import { Plus, Check } from 'lucide-react'
+import type { Article, ArticleUnit } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 import AddPartnerDialog from '@/components/lager/AddPartnerDialog'
 import PartnerSelect, { type PartnerOption } from '@/components/lager/PartnerSelect'
@@ -41,8 +41,12 @@ export default function WarenausgangDialog({
   const [bemerkung, setBemerkung] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [availableUnits, setAvailableUnits] = useState<ArticleUnit[]>([])
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
+  const [loadingUnits, setLoadingUnits] = useState(false)
 
   const selectedArticle = articles.find((a) => ((a as { _id?: unknown })._id?.toString?.() ?? a.id) === artikelId)
+  const isIndividualTracking = selectedArticle?.serialTracking === 'individual'
   const maxMenge = selectedArticle ? (selectedArticle.bestand ?? 0) : 0
   const allPartnerOptions = useMemo(
     () => [...partnerEmployees, ...partnerSuppliers],
@@ -89,13 +93,33 @@ export default function WarenausgangDialog({
     }
   }, [kontakt, allPartnerOptions])
 
+  useEffect(() => {
+    if (!artikelId || !isIndividualTracking) {
+      setAvailableUnits([])
+      setSelectedUnitIds([])
+      return
+    }
+    let cancelled = false
+    setLoadingUnits(true)
+    LagerApi.units.list(artikelId, { status: 'verfuegbar' })
+      .then(res => { if (!cancelled) setAvailableUnits(res.units ?? []) })
+      .catch(() => { if (!cancelled) setAvailableUnits([]) })
+      .finally(() => { if (!cancelled) setLoadingUnits(false) })
+    return () => { cancelled = true }
+  }, [artikelId, isIndividualTracking])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!artikelId) {
       setError('Bitte Artikel waehlen.')
       return
     }
-    if (menge > maxMenge) {
+    if (isIndividualTracking && selectedUnitIds.length === 0) {
+      setError('Bitte mindestens eine Unit auswählen.')
+      return
+    }
+    const effectiveMenge = isIndividualTracking ? selectedUnitIds.length : menge
+    if (effectiveMenge > maxMenge) {
       setError(`Bestand reicht nicht aus (max. ${maxMenge}).`)
       return
     }
@@ -109,6 +133,22 @@ export default function WarenausgangDialog({
     setIsSubmitting(true)
     setError('')
     try {
+      const positionen = isIndividualTracking
+        ? selectedUnitIds.map(uid => {
+            const unit = availableUnits.find(u => (u.id ?? u._id) === uid)
+            return {
+              artikelId,
+              bezeichnung: selectedArticle?.bezeichnung ?? selectedArticle?.artikelnummer ?? 'Artikel',
+              menge: 1,
+              seriennummer: unit?.seriennummer ?? ''
+            }
+          })
+        : [{
+            artikelId,
+            bezeichnung: selectedArticle?.bezeichnung ?? selectedArticle?.artikelnummer ?? 'Artikel',
+            menge: effectiveMenge
+          }]
+
       const deliveryResponse = await LagerApi.deliveryNotes.create({
         typ: 'ausgang',
         datum: new Date(datum).toISOString(),
@@ -116,11 +156,7 @@ export default function WarenausgangDialog({
           name: partnerLabel || 'Unbekannter Empfaenger',
           adresse: ''
         },
-        positionen: [{
-          artikelId,
-          bezeichnung: selectedArticle?.bezeichnung ?? selectedArticle?.artikelnummer ?? 'Artikel',
-          menge
-        }]
+        positionen
       })
       const rawId = (deliveryResponse as { data?: { _id?: unknown; id?: string } })?.data?._id
         ?? (deliveryResponse as { data?: { _id?: string; id?: string } })?.data?.id
@@ -129,17 +165,20 @@ export default function WarenausgangDialog({
       const res = await LagerApi.movements.create({
         artikelId,
         bewegungstyp: 'ausgang',
-        menge,
+        menge: effectiveMenge,
         datum: new Date(datum).toISOString(),
         empfaenger: partnerEmployeeId,
         lieferscheinId: deliveryId,
-        bemerkung: movementRemark
+        bemerkung: movementRemark,
+        unitIds: isIndividualTracking ? selectedUnitIds : undefined
       })
       if ((res as { success?: boolean })?.success !== false) {
         setArtikelId('')
         setMenge(1)
         setKontakt('')
         setBemerkung('')
+        setSelectedUnitIds([])
+        setAvailableUnits([])
         onOpenChange(false)
         onSuccess()
       } else {
@@ -179,6 +218,41 @@ export default function WarenausgangDialog({
               </SelectContent>
             </Select>
           </div>
+          {isIndividualTracking && artikelId && (
+            <div className="space-y-2">
+              <Label>Units auswählen * {selectedUnitIds.length > 0 && `(${selectedUnitIds.length} gewählt)`}</Label>
+              {loadingUnits ? (
+                <p className="text-xs text-slate-500">Lade Units...</p>
+              ) : availableUnits.length === 0 ? (
+                <p className="text-xs text-slate-500">Keine verfügbaren Units</p>
+              ) : (
+                <div className="max-h-40 overflow-y-auto space-y-1 rounded-xl border border-slate-200 dark:border-slate-700 p-2">
+                  {availableUnits.map(unit => {
+                    const uid = unit.id ?? unit._id ?? ''
+                    const isSelected = selectedUnitIds.includes(uid)
+                    return (
+                      <button
+                        key={uid}
+                        type="button"
+                        className={`flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                        onClick={() => {
+                          setSelectedUnitIds(prev =>
+                            isSelected ? prev.filter(id => id !== uid) : [...prev, uid]
+                          )
+                        }}
+                      >
+                        <div className={`h-4 w-4 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 dark:border-slate-600'}`}>
+                          {isSelected && <Check className="h-3 w-3 text-white" />}
+                        </div>
+                        <span className="font-mono text-xs">{unit.seriennummer}</span>
+                        <span className="text-xs text-slate-400 ml-auto">{unit.barcode ?? ''}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="wa-menge">Menge *</Label>
@@ -187,12 +261,15 @@ export default function WarenausgangDialog({
                 type="number"
                 min={1}
                 max={maxMenge}
-                value={menge}
+                value={isIndividualTracking ? selectedUnitIds.length : menge}
                 onChange={(e) => setMenge(parseInt(e.target.value, 10) || 1)}
                 className="rounded-xl h-10"
                 required
+                readOnly={isIndividualTracking}
               />
-              {artikelId && <p className="text-xs text-slate-500">Max. Bestand: {maxMenge}</p>}
+              {artikelId && <p className="text-xs text-slate-500">
+                {isIndividualTracking ? `${selectedUnitIds.length} Unit(s) gewählt` : `Max. Bestand: ${maxMenge}`}
+              </p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="wa-datum">Datum *</Label>

@@ -6,7 +6,6 @@ import { requireAuth } from '@/lib/security/requireAuth'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
-const articleTypEnum = ['Werkzeug', 'Maschine', 'Akku', 'Komponente', 'Verbrauch', 'Sonstiges'] as const
 const zustandEnum = ['neu', 'gut', 'gebraucht', 'defekt'] as const
 const statusEnum = ['aktiv', 'archiviert', 'gesperrt'] as const
 
@@ -57,7 +56,7 @@ export async function PUT(
       bezeichnung: z.string().min(1).optional(),
       kategorie: z.string().min(1).optional(),
       unterkategorie: z.string().optional().or(z.literal('')),
-      typ: z.enum(articleTypEnum).optional(),
+      typ: z.string().min(1).optional(),
       bestand: z.number().optional(),
       mindestbestand: z.number().optional(),
       lagerort: z.string().optional().or(z.literal('')),
@@ -66,7 +65,8 @@ export async function PUT(
       wartungsintervallMonate: z.number().optional().nullable(),
       naechsteWartung: z.string().datetime().optional().nullable().or(z.literal(null)),
       wartungsstatus: z.enum(['ok', 'faellig', 'ueberfaellig', 'in_wartung']).optional(),
-      status: z.enum(statusEnum).optional()
+      status: z.enum(statusEnum).optional(),
+      serialTracking: z.enum(['none', 'individual']).optional()
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())
@@ -152,14 +152,14 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: 'Artikel nicht gefunden' }, { status: 404 })
     }
 
-    await Article.findByIdAndUpdate(id, { status: 'archiviert' })
+    await Article.findByIdAndDelete(id)
 
     if (currentUser) {
       try {
         const ActivityLogModel = (await import('@/lib/models/ActivityLog')).default
         await ActivityLogModel.create({
           timestamp: new Date(),
-          actionType: 'lager_article_archived',
+          actionType: 'lager_article_deleted',
           module: 'lager',
           performedBy: {
             userId: currentUser._id,
@@ -168,8 +168,8 @@ export async function DELETE(
           },
           details: {
             entityId: article._id,
-            description: `Artikel archiviert: ${article.bezeichnung} (${article.artikelnummer})`,
-            before: { status: article.status }
+            description: `Artikel geloescht: ${article.bezeichnung} (${article.artikelnummer})`,
+            before: { bezeichnung: article.bezeichnung, artikelnummer: article.artikelnummer, kategorie: article.kategorie }
           }
         })
       } catch (logErr) {
@@ -177,11 +177,11 @@ export async function DELETE(
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Artikel archiviert' })
+    return NextResponse.json({ success: true, message: 'Artikel geloescht' })
   } catch (error) {
-    console.error('Fehler beim Archivieren des Artikels:', error)
+    console.error('Fehler beim Loeschen des Artikels:', error)
     return NextResponse.json(
-      { success: false, message: 'Fehler beim Archivieren des Artikels' },
+      { success: false, message: 'Fehler beim Loeschen des Artikels' },
       { status: 500 }
     )
   }

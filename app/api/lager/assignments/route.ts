@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { ArticleAssignment } from '@/lib/models/ArticleAssignment'
 import { Article } from '@/lib/models/Article'
+import { ArticleUnit } from '@/lib/models/ArticleUnit'
 import { StockMovement } from '@/lib/models/StockMovement'
+import { recalculateArticleStock } from '@/lib/utils/recalculateStock'
 import { DeliveryNote } from '@/lib/models/DeliveryNote'
 import { Employee } from '@/lib/models/Employee'
 import { getNextDeliveryNoteNumber } from '@/lib/utils/deliveryNoteNumber'
@@ -57,7 +59,8 @@ export async function POST(request: NextRequest) {
       ausgabedatum: z.union([z.string(), z.date()]),
       geplanteRueckgabe: z.union([z.string(), z.date(), z.null()]).optional(),
       bemerkung: z.string().optional().or(z.literal('')),
-      createDeliveryNote: z.boolean().optional().default(false)
+      createDeliveryNote: z.boolean().optional().default(false),
+      unitId: z.string().optional()
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())
@@ -115,7 +118,7 @@ export async function POST(request: NextRequest) {
       deliveryNoteId = deliveryNote._id as mongoose.Types.ObjectId
     }
 
-    const assignment = await ArticleAssignment.create({
+    const assignmentPayload: Record<string, unknown> = {
       artikelId: new mongoose.Types.ObjectId(artikelId),
       personId: new mongoose.Types.ObjectId(personId),
       menge: body.menge,
@@ -124,9 +127,23 @@ export async function POST(request: NextRequest) {
       status: 'ausgegeben',
       bemerkung: body.bemerkung ?? '',
       ...(deliveryNoteId && { lieferscheinId: deliveryNoteId })
-    })
+    }
 
-    await Article.findByIdAndUpdate(artikelId, { $inc: { bestand: -body.menge } })
+    const isIndividualTracking = article.serialTracking === 'individual'
+    if (body.unitId && mongoose.Types.ObjectId.isValid(body.unitId)) {
+      assignmentPayload.unitId = new mongoose.Types.ObjectId(body.unitId)
+      if (isIndividualTracking) {
+        await ArticleUnit.findByIdAndUpdate(body.unitId, { status: 'ausgegeben' })
+      }
+    }
+
+    const assignment = await ArticleAssignment.create(assignmentPayload)
+
+    if (isIndividualTracking) {
+      await recalculateArticleStock(artikelId)
+    } else {
+      await Article.findByIdAndUpdate(artikelId, { $inc: { bestand: -body.menge } })
+    }
 
     await StockMovement.create({
       artikelId: new mongoose.Types.ObjectId(artikelId),

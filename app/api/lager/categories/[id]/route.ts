@@ -51,7 +51,8 @@ export async function PUT(
     const schema = z.object({
       name: z.string().min(1).optional(),
       parentId: z.string().optional().nullable(),
-      beschreibung: z.string().optional().or(z.literal(''))
+      beschreibung: z.string().optional().or(z.literal('')),
+      typ: z.string().optional()
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())
@@ -106,6 +107,10 @@ export async function PUT(
       updateData.beschreibung = parseResult.data.beschreibung?.trim?.() || ''
     }
 
+    if (Object.prototype.hasOwnProperty.call(parseResult.data, 'typ')) {
+      updateData.typ = parseResult.data.typ?.trim?.() || ''
+    }
+
     const category = await Category.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
     if (!category) {
       return NextResponse.json({ success: false, message: 'Kategorie nicht gefunden' }, { status: 404 })
@@ -146,22 +151,21 @@ export async function DELETE(
     if (!category) {
       return NextResponse.json({ success: false, message: 'Kategorie nicht gefunden' }, { status: 404 })
     }
-    const inUse = await Article.findOne({
-      $or: [{ kategorie: category.name }, { unterkategorie: category.name }]
-    }).lean()
-    if (inUse) {
-      return NextResponse.json(
-        { success: false, message: 'Kategorie wird noch von Artikeln verwendet' },
-        { status: 400 }
-      )
-    }
-    const hasChildren = await Category.findOne({ parentId: category._id }).lean()
-    if (hasChildren) {
-      return NextResponse.json(
-        { success: false, message: 'Kategorie hat noch Unterkategorien' },
-        { status: 400 }
-      )
-    }
+
+    await Article.updateMany(
+      { kategorie: category.name },
+      { $set: { kategorie: '' } }
+    )
+    await Article.updateMany(
+      { unterkategorie: category.name },
+      { $set: { unterkategorie: '' } }
+    )
+
+    await Category.updateMany(
+      { parentId: category._id },
+      { $set: { parentId: null } }
+    )
+
     await Category.findByIdAndDelete(id)
     return NextResponse.json({ success: true, message: 'Kategorie geloescht' })
   } catch (error) {

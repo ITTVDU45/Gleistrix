@@ -1,6 +1,6 @@
 // ===== GRUNDLEGENDE TYPEN =====
 export type ProjectStatus = 'aktiv' | 'pausiert' | 'abgeschlossen' | 'fertiggestellt' | 'geleistet' | 'kein Status'
-export type MitarbeiterFunktion = 'SIPO' | 'HFE' | 'Monteur/bediener' | 'Sakra' | 'B√É¬ºP' | 'B√ºP' | 'B¸P' | 'HiBa' | 'SAS' | 'Bahnerder'
+export type MitarbeiterFunktion = 'SIPO' | 'HFE' | 'Monteur/bediener' | 'Sakra' | 'BùP' | 'BùP' | 'BùP' | 'HiBa' | 'SAS' | 'Bahnerder'
 export type SnackbarSeverity = 'success' | 'error' | 'warning' | 'info'
 
 // ===== API RESPONSE TYPEN =====
@@ -71,14 +71,14 @@ export interface TimeEntry {
   extra: number
   nachtzulage: string
   sonntag: number
-  sonntagsstunden?: number  // Explizites Feld f√É¬ºr Sonntagsstunden
+  sonntagsstunden?: number  // Explizites Feld fùr Sonntagsstunden
   feiertag: number
   bemerkung: string
-  // Neue Felder f√É¬ºr automatische Pausenberechnung
+  // Neue Felder fùr automatische Pausenberechnung
   breakSegments?: BreakSegment[]
   breakTotalMinutes?: number
   overrideBreaks?: boolean
-  // Berechnete Zuschl√É¬§ge in Minuten
+  // Berechnete Zuschlùge in Minuten
   nightMinutes?: number
   sundayMinutes?: number
   holidayMinutes?: number
@@ -295,7 +295,7 @@ export interface TimeTrackingExportData {
 }
 
 // ===== LVS (Lager) TYPEN =====
-export type ArticleTyp = 'Werkzeug' | 'Maschine' | 'Akku' | 'Komponente' | 'Verbrauch' | 'Sonstiges'
+export type ArticleTyp = string
 export type ArticleZustand = 'neu' | 'gut' | 'gebraucht' | 'defekt'
 export type ArticleStatus = 'aktiv' | 'archiviert' | 'gesperrt'
 export type Bewegungstyp = 'eingang' | 'ausgang' | 'korrektur' | 'inventur'
@@ -308,6 +308,22 @@ export interface ArticleImage {
   bucket: string
   contentType?: string
   createdAt?: string | Date
+}
+
+export type ArticleUnitStatus = 'verfuegbar' | 'ausgegeben' | 'in_wartung' | 'defekt' | 'archiviert'
+
+export interface ArticleUnit {
+  id?: string
+  _id?: string
+  artikelId: string
+  seriennummer: string
+  barcode?: string
+  status: ArticleUnitStatus
+  zustand: ArticleZustand
+  lagerort?: string
+  notizen?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface Article {
@@ -328,6 +344,7 @@ export interface Article {
   naechsteWartung?: string | Date | null
   wartungsstatus?: 'ok' | 'faellig' | 'ueberfaellig' | 'in_wartung'
   status?: ArticleStatus
+  serialTracking?: 'none' | 'individual'
   images?: ArticleImage[]
   createdAt?: string
   updatedAt?: string
@@ -339,6 +356,7 @@ export interface Category {
   name: string
   parentId?: string | null
   beschreibung?: string
+  typ?: ArticleTyp | ''
   createdAt?: string
   updatedAt?: string
 }
@@ -354,6 +372,7 @@ export interface StockMovement {
   empfaenger?: string
   lieferscheinId?: string
   bemerkung?: string
+  unitIds?: string[]
   evidencePhotos?: Array<{ dataUrl: string; filename?: string; capturedAt?: string | Date }>
   artikelId_populated?: { bezeichnung?: string; artikelnummer?: string }
   createdAt?: string
@@ -372,6 +391,7 @@ export interface ArticleAssignment {
   status?: AssignmentStatus
   bemerkung?: string
   lieferscheinId?: string
+  unitId?: string
   artikelId_populated?: { bezeichnung?: string; artikelnummer?: string }
   personId_populated?: { name?: string }
   createdAt?: string

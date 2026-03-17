@@ -14,9 +14,16 @@ const categorySchema = new mongoose.Schema({
   beschreibung: {
     type: String,
     default: ''
+  },
+  typ: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true
 })
 
-export const Category = mongoose.models.Category || mongoose.model('Category', categorySchema)
+if (mongoose.models.Category) {
+  delete (mongoose.models as Record<string, unknown>).Category
+}
+export const Category = mongoose.model('Category', categorySchema)

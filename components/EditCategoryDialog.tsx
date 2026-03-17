@@ -5,7 +5,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
-import { Pencil } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
 import type { Category } from '@/types/main'
 import {
@@ -59,6 +59,10 @@ export default function EditCategoryDialog({
 }: EditCategoryDialogProps) {
   const [name, setName] = useState('')
   const [beschreibung, setBeschreibung] = useState('')
+  const [typ, setTyp] = useState<string>('')
+  const [typOptions, setTypOptions] = useState<string[]>([])
+  const [newTypName, setNewTypName] = useState('')
+  const [isAddingTyp, setIsAddingTyp] = useState(false)
   const [parentId, setParentId] = useState('none')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -67,10 +71,31 @@ export default function EditCategoryDialog({
     if (open && category) {
       setName(category.name ?? '')
       setBeschreibung(category.beschreibung ?? '')
+      setTyp(category.typ ?? '')
       setParentId(getParentId(category))
       setError('')
+      setNewTypName('')
+
+      LagerApi.articleTypes.list()
+        .then((res) => { if (res?.success) setTypOptions(res.types) })
+        .catch(() => {})
     }
   }, [open, category])
+
+  const handleAddTyp = async () => {
+    const trimmed = newTypName.trim()
+    if (!trimmed) return
+    setIsAddingTyp(true)
+    try {
+      const res = await LagerApi.articleTypes.create(trimmed)
+      if (res.success) {
+        setTypOptions((prev) => [...prev, trimmed].sort((a, b) => a.localeCompare(b, 'de')))
+        setTyp(trimmed)
+        setNewTypName('')
+      }
+    } catch {}
+    setIsAddingTyp(false)
+  }
 
   const selectableParents = useMemo(() => {
     const currentId = getCategoryId(category)
@@ -103,7 +128,8 @@ export default function EditCategoryDialog({
       const res = await LagerApi.categories.update(id, {
         name: name.trim(),
         parentId: parentId === 'none' ? null : parentId,
-        beschreibung: beschreibung.trim() || undefined
+        beschreibung: beschreibung.trim() || undefined,
+        typ: typ || ''
       })
       if ((res as { success?: boolean }).success) {
         onOpenChange(false)
@@ -165,6 +191,53 @@ export default function EditCategoryDialog({
                 })}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Typ (fuer Artikel in dieser Kategorie)</Label>
+            <div className="flex gap-2">
+              <Select value={typ || 'none'} onValueChange={(v) => setTyp(v === 'none' ? '' : v)}>
+                <SelectTrigger className="rounded-xl h-10 flex-1">
+                  <SelectValue placeholder="Kein Standard-Typ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Kein Standard-Typ</SelectItem>
+                  {typOptions.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shrink-0 rounded-xl"
+                onClick={() => setNewTypName(newTypName ? '' : ' ')}
+                aria-label="Neuen Typ hinzufuegen"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {newTypName !== '' && (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  value={newTypName.trim()}
+                  onChange={(e) => setNewTypName(e.target.value)}
+                  placeholder="Neuer Typ z.B. Elektronik"
+                  className="rounded-xl h-9 flex-1"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTyp() } }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="rounded-xl h-9"
+                  onClick={handleAddTyp}
+                  disabled={!newTypName.trim() || isAddingTyp}
+                >
+                  {isAddingTyp ? '...' : 'Hinzufuegen'}
+                </Button>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-cat-desc">Beschreibung</Label>

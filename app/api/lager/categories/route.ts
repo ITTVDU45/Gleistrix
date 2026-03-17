@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
     const schema = z.object({
       name: z.string().min(1),
       parentId: z.string().optional().nullable(),
-      beschreibung: z.string().optional().or(z.literal(''))
+      beschreibung: z.string().optional().or(z.literal('')),
+      typ: z.string().optional()
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())
@@ -70,7 +71,8 @@ export async function POST(request: NextRequest) {
     const category = await Category.create({
       name,
       parentId: parentId || null,
-      beschreibung: body.beschreibung?.trim?.() || ''
+      beschreibung: body.beschreibung?.trim?.() || '',
+      typ: body.typ?.trim?.() || ''
     })
 
     return NextResponse.json({ success: true, data: category }, { status: 201 })

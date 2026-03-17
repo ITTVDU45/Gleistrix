@@ -49,10 +49,12 @@ const inventorySchema = new mongoose.Schema({
     artikelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' },
     sollMenge: { type: Number, default: 0 },
     istMenge: { type: Number, default: 0 },
-    differenz: { type: Number, default: 0 }
+    differenz: { type: Number, default: 0 },
+    unitIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ArticleUnit' }]
   }],
   scanEvents: [{
     artikelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' },
+    unitId: { type: mongoose.Schema.Types.ObjectId, ref: 'ArticleUnit', default: null },
     code: { type: String, trim: true },
     scannedAt: { type: Date, required: true },
     scannedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

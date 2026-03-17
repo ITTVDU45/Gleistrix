@@ -27,7 +27,8 @@ export async function POST(
     const schema = z.object({
       artikelId: z.string(),
       code: z.string().trim().min(1).max(200),
-      scannedAt: z.union([z.string(), z.date()]).optional()
+      scannedAt: z.union([z.string(), z.date()]).optional(),
+      unitId: z.string().optional()
     })
     const parseResult = schema.safeParse(await request.json())
     if (!parseResult.success) {
@@ -81,9 +82,18 @@ export async function POST(
     pos.istMenge = (pos.istMenge ?? 0) + 1
     pos.differenz = (pos.istMenge ?? 0) - (pos.sollMenge ?? 0)
 
+    if (body.unitId && mongoose.Types.ObjectId.isValid(body.unitId)) {
+      const unitOid = new mongoose.Types.ObjectId(body.unitId)
+      pos.unitIds = pos.unitIds ?? []
+      if (!pos.unitIds.some((uid: mongoose.Types.ObjectId) => uid.toString() === unitOid.toString())) {
+        pos.unitIds.push(unitOid)
+      }
+    }
+
     ;(inv as any).scanEvents = (inv as any).scanEvents ?? []
     ;(inv as any).scanEvents.push({
       artikelId: articleId,
+      unitId: body.unitId && mongoose.Types.ObjectId.isValid(body.unitId) ? new mongoose.Types.ObjectId(body.unitId) : undefined,
       code: body.code,
       scannedAt: now,
       scannedBy: currentUser?._id,
