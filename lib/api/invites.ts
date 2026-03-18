@@ -21,7 +21,7 @@ export const InvitesApi = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   }),
-  createUser: async (payload: { firstName: string; lastName: string; email: string; phone?: string; role: 'user' | 'admin' | 'lager'; resend?: boolean }) => {
+  createUser: async (payload: { firstName: string; lastName: string; email: string; phone?: string; role: 'user' | 'admin' | 'lager'; resend?: boolean; modules?: string[] }) => {
     const url = `/api/invite/${payload.role === 'admin' ? 'create-admin' : 'create-user'}`
     const intent = payload.role === 'admin' ? 'invite:create-admin' : 'invite:create-user'
     const res = await fetchWithIntent(url, {

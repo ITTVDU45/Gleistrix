@@ -14,7 +14,11 @@ const InviteTokenSchema = new Schema({
   name: { type: String },
   firstName: { type: String },
   lastName: { type: String },
-  phone: { type: String }
+  phone: { type: String },
+  modules: [{
+    type: String,
+    enum: ['dashboard', 'projekte', 'abrechnung', 'mitarbeiter', 'fahrzeuge', 'lager', 'zeiterfassung']
+  }]
 }, { timestamps: true });
 
 // Entferne doppelten Index, da das Feld bereits unique ist

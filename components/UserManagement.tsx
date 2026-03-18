@@ -7,6 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
+import { Checkbox } from './ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,13 @@ import {
   DialogFooter,
   DialogDescription,
 } from './ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { Badge } from './ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { 
@@ -31,8 +39,10 @@ import {
   Eye,
   EyeOff,
   MoreHorizontal,
-  Search
+  Search,
+  Pencil,
 } from 'lucide-react';
+import { SELECTABLE_MODULES, ALL_MODULE_IDS, DEFAULT_USER_MODULES, type ModuleId } from '@/lib/constants/modules';
 
 interface UserFormData {
   firstName: string;
@@ -40,6 +50,7 @@ interface UserFormData {
   email: string;
   phone: string;
   role: 'admin' | 'user' | 'lager';
+  modules: ModuleId[];
 }
 
 interface InviteToken {
@@ -62,6 +73,7 @@ interface ExistingUser {
   isActive: boolean;
   lastLogin?: string;
   createdAt: string;
+  modules?: string[];
 }
 
 interface InvitedUser {
@@ -84,7 +96,8 @@ export default function UserManagement() {
     lastName: '',
     email: '',
     phone: '',
-    role: 'user'
+    role: 'user',
+    modules: [...DEFAULT_USER_MODULES],
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -105,6 +118,22 @@ export default function UserManagement() {
   const [activatePassword, setActivatePassword] = useState('');
   const [activateLoading, setActivateLoading] = useState(false);
   const [activateError, setActivateError] = useState('');
+
+  const [editUser, setEditUser] = useState<ExistingUser | null>(null);
+  const [editForm, setEditForm] = useState({
+    firstName: '', lastName: '', email: '', phone: '', role: 'user' as 'admin' | 'user' | 'lager',
+    modules: [] as ModuleId[], isActive: true,
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'delete' | 'deactivate' | 'activate';
+    userId: string;
+    userName: string;
+    isActive?: boolean;
+  } | null>(null);
+  const [confirmInput, setConfirmInput] = useState('');
 
   // Benutzer laden
   const fetchUsers = async () => {
@@ -161,7 +190,15 @@ export default function UserManagement() {
   }, [error]);
 
   const handleInputChange = (field: keyof UserFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === 'role') {
+        if (value === 'lager') next.modules = ['lager'] as ModuleId[];
+        else if (value === 'admin') next.modules = [...ALL_MODULE_IDS];
+        else next.modules = [...DEFAULT_USER_MODULES];
+      }
+      return next;
+    });
   };
 
   const handleDeleteExpiredInvite = async (email: string) => {
@@ -213,6 +250,7 @@ export default function UserManagement() {
         email: formData.email,
         phone: formData.phone,
         role: formData.role,
+        modules: formData.modules,
       }) as { message?: string; error?: string; emailSent?: boolean; emailError?: string }
       if (!response.error) {
         setShowSuccess(true);
@@ -223,7 +261,8 @@ export default function UserManagement() {
           lastName: '',
           email: '',
           phone: '',
-          role: 'user'
+          role: 'user',
+          modules: [...DEFAULT_USER_MODULES],
         });
         fetchInvitedUsers();
       } else {
@@ -254,7 +293,8 @@ export default function UserManagement() {
                     lastName: '',
                     email: '',
                     phone: '',
-                    role: 'user'
+                    role: 'user',
+                    modules: [...DEFAULT_USER_MODULES],
                   });
                   fetchInvitedUsers();
                 } else {
@@ -285,9 +325,7 @@ export default function UserManagement() {
     try {
       const resp = await UsersApi.toggleStatus(userId, !currentStatus)
       if (!(resp as any).error) {
-        // Benutzerliste aktualisieren
         fetchUsers();
-        console.log(`Benutzer-Status geändert: ${currentStatus ? 'Deaktiviert' : 'Aktiviert'}`);
       } else {
         setError('Fehler beim Ändern des Benutzer-Status');
       }
@@ -297,17 +335,68 @@ export default function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!confirm(`Möchten Sie den Benutzer "${userName}" wirklich löschen?`)) {
-      return;
-    }
+  const handleOpenEdit = (user: ExistingUser) => {
+    const nameParts = (user.name ?? '').split(' ');
+    setEditUser(user);
+    setEditForm({
+      firstName: user.firstName || nameParts[0] || '',
+      lastName: user.lastName || nameParts.slice(1).join(' ') || '',
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role as 'admin' | 'user' | 'lager',
+      modules: (user.modules ?? []) as ModuleId[],
+      isActive: user.isActive,
+    });
+    setEditError('');
+  };
 
+  const handleSaveEdit = async () => {
+    if (!editUser) return;
+    setEditLoading(true);
+    setEditError('');
+    try {
+      const resp = await UsersApi.update(editUser.id, {
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        email: editForm.email,
+        phone: editForm.phone,
+        role: editForm.role,
+        modules: editForm.modules,
+        isActive: editForm.isActive,
+      });
+      if ((resp as any).error) {
+        setEditError((resp as any).error);
+        return;
+      }
+      setEditUser(null);
+      fetchUsers();
+      setSuccessMessage('Benutzer aktualisiert.');
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch {
+      setEditError('Ein Fehler ist aufgetreten.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleConfirmActionExecute = async () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === 'delete') {
+      if (confirmInput !== 'LÖSCHEN') return;
+      await handleDeleteUser(confirmAction.userId);
+    } else {
+      await handleToggleUserStatus(confirmAction.userId, confirmAction.isActive ?? true);
+    }
+    setConfirmAction(null);
+    setConfirmInput('');
+  };
+
+  const handleDeleteUser = async (userId: string) => {
     try {
       const resp = await UsersApi.remove(userId)
       if (!(resp as any).error) {
-        // Benutzerliste aktualisieren
         fetchUsers();
-        console.log(`Benutzer gelöscht: ${userName}`);
       } else {
         setError('Fehler beim Löschen des Benutzers');
       }
@@ -671,6 +760,40 @@ export default function UserManagement() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Module
+                </Label>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                  Welche Bereiche soll der Benutzer sehen können?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {SELECTABLE_MODULES.map((mod) => {
+                    const isLager = formData.role === 'lager';
+                    const checked = formData.modules.includes(mod.id);
+                    const disabled = isLager || mod.id === 'dashboard';
+                    return (
+                      <label key={mod.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${checked ? 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20' : 'border-slate-200 dark:border-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                        <Checkbox
+                          checked={checked}
+                          disabled={disabled}
+                          onCheckedChange={(ch) => {
+                            if (disabled) return;
+                            setFormData((prev) => ({
+                              ...prev,
+                              modules: ch
+                                ? [...prev.modules, mod.id]
+                                : prev.modules.filter((m) => m !== mod.id),
+                            }));
+                          }}
+                        />
+                        <span>{mod.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
               <Button 
                 type="submit" 
                 disabled={isLoading} 
@@ -838,44 +961,49 @@ export default function UserManagement() {
                         }
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {/* Status-Button nur für Nicht-Superadmins */}
-                          {user.role !== 'superadmin' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleToggleUserStatus(user.id, user.isActive)}
-                              className="h-8 w-8 p-0"
-                              title={user.isActive ? 'Deaktivieren' : 'Aktivieren'}
-                            >
-                              {user.isActive ? (
-                                <EyeOff className="h-4 w-4 text-orange-600" />
-                              ) : (
-                                <Eye className="h-4 w-4 text-green-600" />
-                              )}
-                            </Button>
-                          )}
-                          
-                          {/* Lösch-Button nur für Nicht-Superadmins */}
-                          {user.role !== 'superadmin' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteUser(user.id, user.name)}
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                              title="Löschen"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          
-                          {/* Info für Superadmins */}
-                          {user.role === 'superadmin' && (
-                            <span className="text-xs text-slate-500 italic">
-                              Geschützt
-                            </span>
-                          )}
-                        </div>
+                        {user.role === 'superadmin' ? (
+                          <span className="text-xs text-slate-500 italic">Geschützt</span>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenEdit(user)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Bearbeiten
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setConfirmAction({
+                                  type: user.isActive ? 'deactivate' : 'activate',
+                                  userId: user.id,
+                                  userName: user.name,
+                                  isActive: user.isActive,
+                                })}
+                              >
+                                {user.isActive ? (
+                                  <><EyeOff className="h-4 w-4 mr-2" />Deaktivieren</>
+                                ) : (
+                                  <><Eye className="h-4 w-4 mr-2" />Aktivieren</>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-600 focus:text-red-600"
+                                onClick={() => setConfirmAction({
+                                  type: 'delete',
+                                  userId: user.id,
+                                  userName: user.name,
+                                })}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Löschen
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1039,6 +1167,150 @@ export default function UserManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Benutzer bearbeiten Dialog */}
+      <Dialog open={editUser !== null} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Benutzer bearbeiten</DialogTitle>
+            <DialogDescription>
+              Profildaten, Rolle und Module von <strong>{editUser?.name}</strong> anpassen.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-firstName">Vorname</Label>
+                <Input id="edit-firstName" value={editForm.firstName}
+                  onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-lastName">Nachname</Label>
+                <Input id="edit-lastName" value={editForm.lastName}
+                  onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-email">E-Mail</Label>
+              <Input id="edit-email" type="email" value={editForm.email}
+                onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-phone">Telefonnummer</Label>
+              <Input id="edit-phone" value={editForm.phone}
+                onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Rolle</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['admin', 'user', 'lager'] as const).map((r) => (
+                  <Button key={r} type="button" size="sm"
+                    variant={editForm.role === r ? 'default' : 'outline'}
+                    className={editForm.role === r ? (r === 'admin' ? 'bg-blue-600 hover:bg-blue-700' : r === 'lager' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700') : ''}
+                    onClick={() => {
+                      let mods: ModuleId[] = editForm.modules;
+                      if (r === 'lager') mods = ['lager'];
+                      else if (r === 'admin') mods = [...ALL_MODULE_IDS];
+                      setEditForm((p) => ({ ...p, role: r, modules: mods }));
+                    }}
+                  >
+                    {r === 'admin' ? 'Administrator' : r === 'lager' ? 'LAGER' : 'Benutzer'}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <div className="flex items-center gap-3">
+                <Button type="button" size="sm"
+                  variant={editForm.isActive ? 'default' : 'outline'}
+                  className={editForm.isActive ? 'bg-green-600 hover:bg-green-700' : ''}
+                  onClick={() => setEditForm((p) => ({ ...p, isActive: true }))}
+                >Aktiv</Button>
+                <Button type="button" size="sm"
+                  variant={!editForm.isActive ? 'default' : 'outline'}
+                  className={!editForm.isActive ? 'bg-red-600 hover:bg-red-700' : ''}
+                  onClick={() => setEditForm((p) => ({ ...p, isActive: false }))}
+                >Inaktiv</Button>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Module</Label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Welche Bereiche soll der Benutzer sehen?</p>
+              <div className="grid grid-cols-2 gap-2">
+                {SELECTABLE_MODULES.map((mod) => {
+                  const isLager = editForm.role === 'lager';
+                  const checked = editForm.modules.includes(mod.id);
+                  const disabled = isLager || mod.id === 'dashboard';
+                  return (
+                    <label key={mod.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${checked ? 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20' : 'border-slate-200 dark:border-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                      <Checkbox checked={checked} disabled={disabled}
+                        onCheckedChange={(ch) => {
+                          if (disabled) return;
+                          setEditForm((p) => ({
+                            ...p,
+                            modules: ch ? [...p.modules, mod.id] : p.modules.filter((m) => m !== mod.id),
+                          }));
+                        }}
+                      />
+                      <span>{mod.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            {editError && <p className="text-sm text-red-600 dark:text-red-400">{editError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)} disabled={editLoading}>Abbrechen</Button>
+            <Button onClick={handleSaveEdit} disabled={editLoading}>
+              {editLoading ? 'Speichert…' : 'Speichern'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bestätigungsdialog für Löschen / Deaktivieren */}
+      <Dialog open={confirmAction !== null} onOpenChange={(open) => { if (!open) { setConfirmAction(null); setConfirmInput(''); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmAction?.type === 'delete' ? 'Benutzer löschen' : confirmAction?.type === 'deactivate' ? 'Benutzer deaktivieren' : 'Benutzer aktivieren'}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmAction?.type === 'delete' ? (
+                <>Möchten Sie <strong>{confirmAction?.userName}</strong> unwiderruflich löschen? Geben Sie <strong>LÖSCHEN</strong> ein, um zu bestätigen.</>
+              ) : confirmAction?.type === 'deactivate' ? (
+                <>Möchten Sie <strong>{confirmAction?.userName}</strong> wirklich deaktivieren? Der Benutzer kann sich dann nicht mehr anmelden.</>
+              ) : (
+                <>Möchten Sie <strong>{confirmAction?.userName}</strong> wieder aktivieren?</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {confirmAction?.type === 'delete' && (
+            <div className="py-2">
+              <Input
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+                placeholder='LÖSCHEN eingeben'
+                className="font-medium"
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setConfirmAction(null); setConfirmInput(''); }}>
+              Abbrechen
+            </Button>
+            <Button
+              variant={confirmAction?.type === 'delete' ? 'destructive' : 'default'}
+              disabled={confirmAction?.type === 'delete' && confirmInput !== 'LÖSCHEN'}
+              onClick={handleConfirmActionExecute}
+            >
+              {confirmAction?.type === 'delete' ? 'Endgültig löschen' : confirmAction?.type === 'deactivate' ? 'Deaktivieren' : 'Aktivieren'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

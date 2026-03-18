@@ -21,6 +21,7 @@ import PerformMaintenanceDialog from './PerformMaintenanceDialog'
 interface MaintenanceRow {
   _id: string
   artikelId: { bezeichnung?: string; artikelnummer?: string }
+  unitId?: { seriennummer?: string; barcode?: string; status?: string } | null
   wartungsart: string
   faelligkeitsdatum: string
   durchfuehrungsdatum?: string | null
@@ -139,6 +140,7 @@ export default function LagerWartungView({ articles, categories, onRefresh }: La
               <TableHeader>
                 <TableRow>
                   <TableHead>Artikel</TableHead>
+                  <TableHead>Seriennummer</TableHead>
                   <TableHead>Wartungsart</TableHead>
                   <TableHead>Fällig am</TableHead>
                   <TableHead>Status</TableHead>
@@ -146,34 +148,44 @@ export default function LagerWartungView({ articles, categories, onRefresh }: La
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((row) => (
-                  <TableRow key={row._id}>
-                    <TableCell>
-                      {(row.artikelId as { artikelnummer?: string })?.artikelnummer ?? ''} –{' '}
-                      {(row.artikelId as { bezeichnung?: string })?.bezeichnung ?? '–'}
-                    </TableCell>
-                    <TableCell>{row.wartungsart}</TableCell>
-                    <TableCell>{formatDatum(row.faelligkeitsdatum)}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant[row.status] ?? 'secondary'}>
-                        {statusLabel[row.status] ?? row.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {canPerform(row) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1"
-                          onClick={() => setPerformId(row._id)}
-                        >
-                          <CheckCircle className="h-3 w-3" />
-                          Durchführen
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filtered.map((row) => {
+                  const unit = row.unitId && typeof row.unitId === 'object' ? row.unitId : null
+                  return (
+                    <TableRow key={row._id}>
+                      <TableCell>
+                        {(row.artikelId as { artikelnummer?: string })?.artikelnummer ?? ''} –{' '}
+                        {(row.artikelId as { bezeichnung?: string })?.bezeichnung ?? '–'}
+                      </TableCell>
+                      <TableCell>
+                        {unit ? (
+                          <span className="font-mono text-xs">{unit.seriennummer}</span>
+                        ) : (
+                          <span className="text-xs text-slate-400">–</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{row.wartungsart}</TableCell>
+                      <TableCell>{formatDatum(row.faelligkeitsdatum)}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant[row.status] ?? 'secondary'}>
+                          {statusLabel[row.status] ?? row.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {canPerform(row) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => setPerformId(row._id)}
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                            Durchführen
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}

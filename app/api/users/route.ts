@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     // Alle Benutzer laden (außer sich selbst)
     const users = await usersCollection
       .find({ _id: { $ne: objectId } })
-      .project({ name: 1, email: 1, role: 1, firstName: 1, lastName: 1, phone: 1, isActive: 1, lastLogin: 1, createdAt: 1 })
+      .project({ name: 1, email: 1, role: 1, firstName: 1, lastName: 1, phone: 1, isActive: 1, lastLogin: 1, createdAt: 1, modules: 1 })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -52,7 +52,8 @@ export async function GET(req: NextRequest) {
         phone: user.phone,
         isActive: user.isActive,
         lastLogin: user.lastLogin,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
+        modules: user.modules ?? [],
       }))
     }, { status: 200 });
     

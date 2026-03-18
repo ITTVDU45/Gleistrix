@@ -68,7 +68,8 @@ export async function GET(req: NextRequest) {
         lastName: user.lastName,
         phone: user.phone,
         address: user.address,
-        lastLogin: user.lastLogin
+        lastLogin: user.lastLogin,
+        modules: user.modules ?? [],
       } 
     }, { status: 200 });
     

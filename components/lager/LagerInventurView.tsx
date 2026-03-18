@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ClipboardCheck, Plus, CheckCircle, FileDown, Camera, Save } from 'lucide-react'
-import type { Article } from '@/types/main'
+import type { Article, ArticleUnit, Category } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 import QrScannerSheet from '@/components/lager/mobile/QrScannerSheet'
 
@@ -15,6 +16,14 @@ interface InventoryArticleRef {
   bezeichnung?: string
   artikelnummer?: string
   barcode?: string
+  serialTracking?: 'none' | 'individual'
+}
+
+interface InventoryUnitRef {
+  _id?: string
+  seriennummer?: string
+  barcode?: string
+  status?: string
 }
 
 interface InventoryPosition {
@@ -22,6 +31,7 @@ interface InventoryPosition {
   sollMenge: number
   istMenge: number
   differenz: number
+  unitIds?: (InventoryUnitRef | string)[]
 }
 
 interface InventoryItem {
@@ -37,8 +47,11 @@ interface InventoryItem {
 
 interface LagerInventurViewProps {
   articles: Article[]
+  categories?: Category[]
   onRefresh: () => void
 }
+
+type CreateFocusType = 'alle' | 'kategorien' | 'artikel'
 
 interface InventoryFormState {
   name: string
@@ -47,9 +60,28 @@ interface InventoryFormState {
   zeitraumBis: string
 }
 
+interface CreateFormState extends InventoryFormState {
+  fokusTyp: CreateFocusType
+  kategorien: string[]
+  artikelIds: string[]
+  unitIds: string[]
+}
+
+function toggleSelection(arr: string[], value: string, add: boolean): string[] {
+  return add ? [...arr, value] : arr.filter((v) => v !== value)
+}
+
+function getArticleId(a: Article): string {
+  return (a as { _id?: string })._id?.toString?.() ?? a.id ?? ''
+}
+
+function getCategoryId(c: Category): string {
+  return (c as { _id?: string })._id ?? (c as { id?: string }).id ?? ''
+}
+
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
-export default function LagerInventurView({ onRefresh }: LagerInventurViewProps) {
+export default function LagerInventurView({ articles, categories, onRefresh }: LagerInventurViewProps) {
   const [list, setList] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
@@ -61,12 +93,31 @@ export default function LagerInventurView({ onRefresh }: LagerInventurViewProps)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [scanInput, setScanInput] = useState('')
   const [scanMessage, setScanMessage] = useState<string | null>(null)
-  const [createForm, setCreateForm] = useState<InventoryFormState>({
-    name: '',
-    stichtag: todayISO(),
-    zeitraumVon: '',
-    zeitraumBis: ''
+
+  const activeArticles = (articles ?? []).filter((a) => (a.status ?? 'aktiv') === 'aktiv')
+  const activeCategories = (categories ?? []).filter((c) => getCategoryId(c))
+
+  const emptyCreateForm = (): CreateFormState => ({
+    name: '', stichtag: todayISO(), zeitraumVon: '', zeitraumBis: '',
+    fokusTyp: 'alle', kategorien: [], artikelIds: [], unitIds: []
   })
+  const [createForm, setCreateForm] = useState<CreateFormState>(emptyCreateForm)
+
+  const [createUnitsMap, setCreateUnitsMap] = useState<Record<string, ArticleUnit[]>>({})
+  const [createUnitsLoading, setCreateUnitsLoading] = useState<Record<string, boolean>>({})
+
+  const loadUnitsForCreate = useCallback(async (artId: string) => {
+    if (createUnitsMap[artId] || createUnitsLoading[artId]) return
+    setCreateUnitsLoading((prev) => ({ ...prev, [artId]: true }))
+    try {
+      const res = await LagerApi.units.list(artId)
+      setCreateUnitsMap((prev) => ({ ...prev, [artId]: res.units ?? [] }))
+    } catch {
+      setCreateUnitsMap((prev) => ({ ...prev, [artId]: [] }))
+    } finally {
+      setCreateUnitsLoading((prev) => ({ ...prev, [artId]: false }))
+    }
+  }, [createUnitsMap, createUnitsLoading])
   const [metaForm, setMetaForm] = useState<InventoryFormState>({
     name: '',
     stichtag: '',
@@ -128,19 +179,35 @@ export default function LagerInventurView({ onRefresh }: LagerInventurViewProps)
       setScanMessage('Zeitraum-Ende darf nicht vor Zeitraum-Beginn liegen.')
       return
     }
+    if (!createForm.name.trim()) {
+      setScanMessage('Bitte Inventurname angeben.')
+      return
+    }
+    if (createForm.fokusTyp === 'kategorien' && createForm.kategorien.length === 0) {
+      setScanMessage('Bitte mindestens eine Kategorie auswaehlen.')
+      return
+    }
+    if (createForm.fokusTyp === 'artikel' && createForm.artikelIds.length === 0) {
+      setScanMessage('Bitte mindestens ein Produkt auswaehlen.')
+      return
+    }
 
     setSaving(true)
     try {
       const res = await LagerApi.inventory.create({
-        name: createForm.name.trim() || undefined,
-        typ: 'voll',
+        name: createForm.name.trim(),
+        typ: createForm.fokusTyp === 'alle' ? 'voll' : 'teil',
         stichtag: createForm.stichtag || todayISO(),
         zeitraumVon: createForm.zeitraumVon || undefined,
-        zeitraumBis: createForm.zeitraumBis || undefined
+        zeitraumBis: createForm.zeitraumBis || undefined,
+        kategorien: createForm.fokusTyp === 'kategorien' ? createForm.kategorien : undefined,
+        artikelIds: createForm.fokusTyp === 'artikel' ? createForm.artikelIds : undefined,
+        unitIds: createForm.unitIds.length > 0 ? createForm.unitIds : undefined
       })
       if ((res as any)?.success && (res as any).data) {
         setCreateOpen(false)
-        setCreateForm({ name: '', stichtag: todayISO(), zeitraumVon: '', zeitraumBis: '' })
+        setCreateForm(emptyCreateForm())
+        setCreateUnitsMap({})
         setScanMessage(null)
         await loadList()
         setSelectedId((res as any).data._id)
@@ -428,6 +495,7 @@ export default function LagerInventurView({ onRefresh }: LagerInventurViewProps)
                       <TableRow className="bg-slate-50 dark:bg-slate-700">
                         <TableHead className="font-medium text-slate-700 dark:text-slate-300">Artikel</TableHead>
                         <TableHead className="font-medium text-slate-700 dark:text-slate-300">Barcode</TableHead>
+                        <TableHead className="font-medium text-slate-700 dark:text-slate-300">Seriennummern</TableHead>
                         <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Soll</TableHead>
                         <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Ist</TableHead>
                         <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Differenz</TableHead>
@@ -440,10 +508,26 @@ export default function LagerInventurView({ onRefresh }: LagerInventurViewProps)
                         const ist = istMengen[aid] ?? p.istMenge
                         const diff = ist - p.sollMenge
                         const bezeichnung = article?.bezeichnung ?? article?.artikelnummer ?? '-'
+                        const resolvedUnits = (p.unitIds ?? [])
+                          .map((u) => (typeof u === 'object' && u !== null ? u as InventoryUnitRef : null))
+                          .filter(Boolean) as InventoryUnitRef[]
                         return (
                           <TableRow key={aid || idx}>
                             <TableCell className="dark:text-white">{bezeichnung}</TableCell>
                             <TableCell className="dark:text-slate-300">{article?.barcode || '-'}</TableCell>
+                            <TableCell>
+                              {resolvedUnits.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {resolvedUnits.map((u) => (
+                                    <Badge key={u._id} variant="outline" className="text-[10px] font-mono px-1 py-0">
+                                      {u.seriennummer}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400">–</span>
+                              )}
+                            </TableCell>
                             <TableCell className="text-right dark:text-slate-300">{p.sollMenge}</TableCell>
                             <TableCell className="text-right">
                               <input
@@ -496,14 +580,14 @@ export default function LagerInventurView({ onRefresh }: LagerInventurViewProps)
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Neue Inventur</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              Definieren Sie Name, Stichtag und optional einen Zeitraum.
+              Definieren Sie Name, Stichtag, Fokus und optional einen Zeitraum.
             </p>
             <div className="space-y-3 mb-4">
               <label className="block text-xs text-slate-600 dark:text-slate-400">
-                Inventurname
+                Inventurname *
                 <input
                   type="text"
                   value={createForm.name}
@@ -541,9 +625,117 @@ export default function LagerInventurView({ onRefresh }: LagerInventurViewProps)
                   />
                 </label>
               </div>
+
+              <div>
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Inventur-Fokus</p>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant={createForm.fokusTyp === 'alle' ? 'default' : 'outline'}
+                    onClick={() => setCreateForm((p) => ({ ...p, fokusTyp: 'alle', kategorien: [], artikelIds: [], unitIds: [] }))}>
+                    Alle Produkte
+                  </Button>
+                  <Button type="button" size="sm" variant={createForm.fokusTyp === 'kategorien' ? 'default' : 'outline'}
+                    onClick={() => setCreateForm((p) => ({ ...p, fokusTyp: 'kategorien', artikelIds: [], unitIds: [] }))}>
+                    Kategorien
+                  </Button>
+                  <Button type="button" size="sm" variant={createForm.fokusTyp === 'artikel' ? 'default' : 'outline'}
+                    onClick={() => setCreateForm((p) => ({ ...p, fokusTyp: 'artikel', kategorien: [], unitIds: [] }))}>
+                    Einzelprodukte
+                  </Button>
+                </div>
+              </div>
+
+              {createForm.fokusTyp === 'kategorien' && (
+                <div>
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Kategorien</p>
+                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+                    {activeCategories.length === 0 ? (
+                      <p className="text-xs text-slate-400">Keine Kategorien vorhanden.</p>
+                    ) : activeCategories.map((c) => {
+                      const cName = c.name?.trim() ?? ''
+                      if (!cName) return null
+                      return (
+                        <label key={getCategoryId(c)} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700">
+                          <Checkbox checked={createForm.kategorien.includes(cName)}
+                            onCheckedChange={(ch) => setCreateForm((p) => ({ ...p, kategorien: toggleSelection(p.kategorien, cName, ch === true) }))} />
+                          <span>{cName}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {createForm.fokusTyp === 'artikel' && (
+                <div>
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Produkte</p>
+                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+                    {activeArticles.length === 0 ? (
+                      <p className="text-xs text-slate-400">Keine Produkte vorhanden.</p>
+                    ) : activeArticles
+                      .slice()
+                      .sort((a, b) => (a.bezeichnung || '').localeCompare(b.bezeichnung || '', 'de'))
+                      .map((article) => {
+                        const artId = getArticleId(article)
+                        if (!artId) return null
+                        const isChecked = createForm.artikelIds.includes(artId)
+                        const hasIndividual = article.serialTracking === 'individual'
+                        const artUnits = createUnitsMap[artId] ?? []
+                        const isUnitLoading = createUnitsLoading[artId] ?? false
+
+                        return (
+                          <div key={artId}>
+                            <label className="flex cursor-pointer items-start gap-2 rounded px-1 py-0.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700">
+                              <Checkbox checked={isChecked}
+                                onCheckedChange={(ch) => {
+                                  const add = ch === true
+                                  setCreateForm((p) => ({
+                                    ...p,
+                                    artikelIds: toggleSelection(p.artikelIds, artId, add),
+                                    unitIds: add ? p.unitIds : p.unitIds.filter((uid) => !artUnits.some((u) => (u.id ?? u._id) === uid))
+                                  }))
+                                  if (add && hasIndividual) loadUnitsForCreate(artId)
+                                }} />
+                              <span className="leading-tight">
+                                <span className="font-medium text-slate-900 dark:text-white">{article.bezeichnung}</span>
+                                <span className="block text-xs text-slate-500">{article.artikelnummer}</span>
+                              </span>
+                            </label>
+                            {isChecked && hasIndividual && (
+                              <div className="ml-7 mt-1 mb-2 space-y-1 rounded border border-slate-100 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800/50">
+                                <p className="text-[11px] font-medium text-slate-500">Geräte / Seriennummern:</p>
+                                {isUnitLoading ? (
+                                  <p className="text-xs text-slate-400">Lade...</p>
+                                ) : artUnits.length === 0 ? (
+                                  <p className="text-xs text-slate-400">Keine Seriennummern</p>
+                                ) : artUnits.map((unit) => {
+                                  const uid = unit.id ?? unit._id ?? ''
+                                  return (
+                                    <label key={uid} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-700/50">
+                                      <Checkbox checked={createForm.unitIds.includes(uid)}
+                                        onCheckedChange={(ch) => setCreateForm((p) => ({ ...p, unitIds: toggleSelection(p.unitIds, uid, ch === true) }))} />
+                                      <span className="font-mono">{unit.seriennummer}</span>
+                                      <Badge variant="outline" className="text-[9px] px-1 py-0">
+                                        {unit.status === 'verfuegbar' ? 'Verfügbar' : unit.status === 'ausgegeben' ? 'Ausgegeben' : unit.status === 'in_wartung' ? 'In Wartung' : unit.status === 'defekt' ? 'Defekt' : unit.status}
+                                      </Badge>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
+            {scanMessage && (
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-sm text-amber-700 dark:text-amber-300 mb-3">
+                {scanMessage}
+              </div>
+            )}
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Abbrechen</Button>
+              <Button variant="outline" onClick={() => { setCreateOpen(false); setCreateForm(emptyCreateForm()); setScanMessage(null) }}>Abbrechen</Button>
               <Button onClick={handleCreate} disabled={saving}>{saving ? 'Wird angelegt...' : 'Starten'}</Button>
             </div>
           </div>

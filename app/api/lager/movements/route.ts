@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
       .populate('artikelId', 'bezeichnung artikelnummer')
       .populate('verantwortlich', 'name')
       .populate('empfaenger', 'name')
+      .populate('unitIds', 'seriennummer barcode status')
       .lean()
     return NextResponse.json({ success: true, movements })
   } catch (error) {

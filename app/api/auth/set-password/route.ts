@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
       firstName: inviteToken.firstName,
       lastName: inviteToken.lastName,
       phone: inviteToken.phone,
-      isActive: true
+      isActive: true,
+      modules: inviteToken.modules ?? [],
     });
 
     await newUser.save();

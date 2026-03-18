@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import Image from 'next/image';
+import { moduleByHref } from '@/lib/constants/modules';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -39,6 +40,7 @@ interface CurrentUser {
   name: string;
   email: string;
   role: string;
+  modules?: string[];
 }
 
 export default function Sidebar() {
@@ -134,11 +136,19 @@ export default function Sidebar() {
     return null;
   }
 
+  const userModules = currentUser.modules ?? []
   const visibleNavigation = navigation.filter((item) => {
     if (currentUser.role === 'lager') return item.href === '/lager' || item.href === '/lager/app'
+    if (currentUser.role === 'superadmin') {
+      if (item.href === '/lager/app') return false
+      return true
+    }
     if (item.href === '/lager/app') return false
-    if (item.href === '/lager') return currentUser.role === 'superadmin' || currentUser.role === 'admin'
-    return true
+    if (item.href === '/dashboard' || item.href === '/einstellungen') return true
+    const mod = moduleByHref(item.href)
+    if (!mod) return true
+    if (userModules.length === 0) return true
+    return userModules.includes(mod)
   })
 
   return (

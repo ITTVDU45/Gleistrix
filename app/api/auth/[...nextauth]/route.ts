@@ -74,7 +74,8 @@ const authOptions: AuthOptions = {
             id: userDoc._id.toString(),
             email: userDoc.email,
             name: userDoc.name || '',
-            role: userDoc.role || 'user'
+            role: userDoc.role || 'user',
+            modules: userDoc.modules ?? [],
           };
         } catch (error) {
           console.error("Authentifizierungsfehler:", error);
@@ -88,6 +89,7 @@ const authOptions: AuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.modules = user.modules ?? [];
       }
       return token;
     },
@@ -95,6 +97,7 @@ const authOptions: AuthOptions = {
       if (token) {
         session.user.id = token.id;
         session.user.role = token.role;
+        session.user.modules = token.modules ?? [];
       }
       return session;
     }

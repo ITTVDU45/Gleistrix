@@ -17,6 +17,7 @@ interface AssignmentRow {
   _id: string
   artikelId: { bezeichnung?: string; artikelnummer?: string } | string
   personId: { name?: string } | string
+  unitId?: { seriennummer?: string; barcode?: string; status?: string } | string | null
   menge: number
   ausgabedatum: string
   geplanteRueckgabe?: string | null
@@ -128,6 +129,7 @@ export default function LagerAusgabeView({ articles, onRefresh }: LagerAusgabeVi
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-700">
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Artikel</TableHead>
+                    <TableHead className="font-medium text-slate-700 dark:text-slate-300">Seriennummer</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Mitarbeiter</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Menge</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Ausgabedatum</TableHead>
@@ -136,25 +138,35 @@ export default function LagerAusgabeView({ articles, onRefresh }: LagerAusgabeVi
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {assignments.map((a) => (
-                    <TableRow
-                      key={a._id}
-                      className={`hover:bg-slate-50 dark:hover:bg-slate-700 ${isUeberfaellig(a) ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}
-                    >
-                      <TableCell className="dark:text-white">{getArtikelName(a.artikelId as any)}</TableCell>
-                      <TableCell className="dark:text-slate-300">{getPersonName(a.personId as any)}</TableCell>
-                      <TableCell className="dark:text-slate-300">{a.menge}</TableCell>
-                      <TableCell className="dark:text-slate-300">{formatDatum(a.ausgabedatum)}</TableCell>
-                      <TableCell className="dark:text-slate-300">{formatDatum(a.geplanteRueckgabe ?? undefined)}</TableCell>
-                      <TableCell>
-                        {isUeberfaellig(a) ? (
-                          <Badge variant="destructive">Überfällig</Badge>
-                        ) : (
-                          <span className="text-slate-500 dark:text-slate-400 text-sm">–</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {assignments.map((a) => {
+                    const unit = a.unitId && typeof a.unitId === 'object' ? a.unitId as { seriennummer?: string } : null
+                    return (
+                      <TableRow
+                        key={a._id}
+                        className={`hover:bg-slate-50 dark:hover:bg-slate-700 ${isUeberfaellig(a) ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}
+                      >
+                        <TableCell className="dark:text-white">{getArtikelName(a.artikelId as any)}</TableCell>
+                        <TableCell>
+                          {unit?.seriennummer ? (
+                            <span className="font-mono text-xs">{unit.seriennummer}</span>
+                          ) : (
+                            <span className="text-xs text-slate-400">–</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="dark:text-slate-300">{getPersonName(a.personId as any)}</TableCell>
+                        <TableCell className="dark:text-slate-300">{a.menge}</TableCell>
+                        <TableCell className="dark:text-slate-300">{formatDatum(a.ausgabedatum)}</TableCell>
+                        <TableCell className="dark:text-slate-300">{formatDatum(a.geplanteRueckgabe ?? undefined)}</TableCell>
+                        <TableCell>
+                          {isUeberfaellig(a) ? (
+                            <Badge variant="destructive">Überfällig</Badge>
+                          ) : (
+                            <span className="text-slate-500 dark:text-slate-400 text-sm">–</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>

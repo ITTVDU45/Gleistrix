@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Inventory } from '@/lib/models/Inventory'
 import { Article } from '@/lib/models/Article'
+import { ArticleUnit } from '@/lib/models/ArticleUnit'
 import { requireAuth } from '@/lib/security/requireAuth'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -35,7 +36,8 @@ export async function GET(
       return NextResponse.json({ success: false, message: 'Ungueltige ID' }, { status: 400 })
     }
     const doc = await Inventory.findById(id)
-      .populate('positionen.artikelId', 'bezeichnung artikelnummer barcode bestand')
+      .populate('positionen.artikelId', 'bezeichnung artikelnummer barcode bestand serialTracking')
+      .populate('positionen.unitIds', 'seriennummer barcode status')
       .lean()
     if (!doc) {
       return NextResponse.json({ success: false, message: 'Inventur nicht gefunden' }, { status: 404 })

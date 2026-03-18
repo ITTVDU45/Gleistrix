@@ -20,7 +20,11 @@ const UserSchema = new Schema({
   lastLogin: { type: Date },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   welcomeEmailSent: { type: Boolean, default: false },
-  welcomeEmailSentAt: { type: Date }
+  welcomeEmailSentAt: { type: Date },
+  modules: [{
+    type: String,
+    enum: ['dashboard', 'projekte', 'abrechnung', 'mitarbeiter', 'fahrzeuge', 'lager', 'zeiterfassung']
+  }]
 }, { timestamps: true });
 
 export default models.User || mongoose.model('User', UserSchema, 'users'); 

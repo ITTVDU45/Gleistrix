@@ -31,12 +31,13 @@ export async function POST(req: NextRequest) {
       email: z.string().email(),
       phone: z.string().optional().or(z.literal('')),
       resend: z.boolean().optional().default(false),
+      modules: z.array(z.string()).optional(),
     });
     const parseResult = schema.safeParse(await req.json());
     if (!parseResult.success) {
       return NextResponse.json({ error: 'Validierungsfehler', issues: parseResult.error.flatten() }, { status: 400 });
     }
-    const { firstName, lastName, email, phone, resend } = parseResult.data;
+    const { firstName, lastName, email, phone, resend, modules } = parseResult.data;
 
     // Validierung
     if (!firstName || !lastName || !email) {
@@ -93,7 +94,8 @@ export async function POST(req: NextRequest) {
       name: `${firstName} ${lastName}`,
       firstName,
       lastName,
-      phone
+      phone,
+      modules: modules ?? [],
     });
 
     await inviteToken.save();

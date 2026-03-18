@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Package } from 'lucide-react'
 import type { Article } from '@/types/main'
 import type { StockMovement } from '@/types/main'
@@ -122,21 +123,39 @@ export default function LagerBewegungenView({ articles, onRefresh, initialLiefer
                 <TableRow className="bg-slate-50 dark:bg-slate-700">
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300">Datum</TableHead>
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300">Artikel</TableHead>
+                  <TableHead className="font-medium text-slate-700 dark:text-slate-300">Seriennummern</TableHead>
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300">Typ</TableHead>
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Menge</TableHead>
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300">Bemerkung</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {movements.map((m, idx) => (
-                  <TableRow key={(m as any)._id ?? idx} className="hover:bg-slate-50 dark:hover:bg-slate-700">
-                    <TableCell className="dark:text-slate-300">{formatDatum(m.datum)}</TableCell>
-                    <TableCell className="dark:text-white">{getArtikelBezeichnung(m)}</TableCell>
-                    <TableCell className="dark:text-slate-300">{m.bewegungstyp}</TableCell>
-                    <TableCell className="text-right font-medium dark:text-white">{m.menge}</TableCell>
-                    <TableCell className="dark:text-slate-300 max-w-[200px] truncate">{m.bemerkung || '-'}</TableCell>
-                  </TableRow>
-                ))}
+                {movements.map((m, idx) => {
+                  const populatedUnits = ((m as any).unitIds ?? [])
+                    .filter((u: any) => u && typeof u === 'object' && u.seriennummer) as { seriennummer: string; _id?: string }[]
+                  return (
+                    <TableRow key={(m as any)._id ?? idx} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                      <TableCell className="dark:text-slate-300">{formatDatum(m.datum)}</TableCell>
+                      <TableCell className="dark:text-white">{getArtikelBezeichnung(m)}</TableCell>
+                      <TableCell>
+                        {populatedUnits.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {populatedUnits.map((u) => (
+                              <Badge key={u._id ?? u.seriennummer} variant="outline" className="text-[10px] font-mono px-1 py-0">
+                                {u.seriennummer}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">–</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="dark:text-slate-300">{m.bewegungstyp}</TableCell>
+                      <TableCell className="text-right font-medium dark:text-white">{m.menge}</TableCell>
+                      <TableCell className="dark:text-slate-300 max-w-[200px] truncate">{m.bemerkung || '-'}</TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>

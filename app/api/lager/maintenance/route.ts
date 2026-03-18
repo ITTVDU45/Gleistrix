@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       .sort({ faelligkeitsdatum: 1 })
       .limit(500)
       .populate('artikelId', 'bezeichnung artikelnummer')
+      .populate('unitId', 'seriennummer barcode status')
       .lean()
     return NextResponse.json({ success: true, maintenance: list })
   } catch (error) {

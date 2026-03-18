@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
       phone: inviteToken.phone,
       isActive: true,
       createdBy: inviteToken.createdBy,
+      modules: inviteToken.modules ?? [],
     })
     await newUser.save()
 

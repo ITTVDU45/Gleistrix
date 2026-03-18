@@ -233,7 +233,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
           </TabsContent>
         )}
         <TabsContent value="inventur" className="mt-4">
-          <LagerInventurView articles={articles} onRefresh={loadData} />
+          <LagerInventurView articles={articles} categories={categories} onRefresh={loadData} />
         </TabsContent>
         {!isLagerOnly && (
           <TabsContent value="kategorien" className="mt-4">

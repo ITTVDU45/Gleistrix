@@ -81,6 +81,7 @@ export default function LagerBestandView({ articles, categories, onRefresh }: La
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Bezeichnung</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Kategorie</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Lagerort</TableHead>
+                    <TableHead className="font-medium text-slate-700 dark:text-slate-300">Tracking</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Bestand</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Mindestbestand</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300 w-[140px]">Warnung</TableHead>
@@ -96,6 +97,13 @@ export default function LagerBestandView({ articles, categories, onRefresh }: La
                       <TableCell className="dark:text-slate-300">{a.bezeichnung}</TableCell>
                       <TableCell className="dark:text-slate-300">{getCategoryDisplay(a)}</TableCell>
                       <TableCell className="dark:text-slate-300">{a.lagerort || '–'}</TableCell>
+                      <TableCell>
+                        {a.serialTracking === 'individual' ? (
+                          <Badge variant="outline" className="text-xs">Seriennummern</Badge>
+                        ) : (
+                          <span className="text-xs text-slate-400">Mengenbasiert</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-medium dark:text-white">{a.bestand ?? 0}</TableCell>
                       <TableCell className="text-right dark:text-slate-300">{a.mindestbestand ?? 0}</TableCell>
                       <TableCell>
