@@ -84,9 +84,10 @@ export async function POST(
 
     if (body.unitId && mongoose.Types.ObjectId.isValid(body.unitId)) {
       const unitOid = new mongoose.Types.ObjectId(body.unitId)
-      pos.unitIds = pos.unitIds ?? []
-      if (!pos.unitIds.some((uid: mongoose.Types.ObjectId) => uid.toString() === unitOid.toString())) {
-        pos.unitIds.push(unitOid)
+      const posAny = pos as any
+      posAny.unitIds = posAny.unitIds ?? []
+      if (!posAny.unitIds.some((uid: mongoose.Types.ObjectId) => uid.toString() === unitOid.toString())) {
+        posAny.unitIds.push(unitOid)
       }
     }
 

@@ -44,12 +44,7 @@ export async function POST(
 
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    await new Promise<void>((resolve, reject) => {
-      minioClient.putObject(bucket, objectKey, buffer, buffer.length, { 'Content-Type': contentType }, (err) => {
-        if (err) return reject(err)
-        resolve()
-      })
-    })
+    await minioClient.putObject(bucket, objectKey, buffer, buffer.length, { 'Content-Type': contentType })
 
     const attachment = {
       attachmentId,

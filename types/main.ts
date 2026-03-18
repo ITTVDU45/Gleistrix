@@ -1,6 +1,6 @@
 // ===== GRUNDLEGENDE TYPEN =====
 export type ProjectStatus = 'aktiv' | 'pausiert' | 'abgeschlossen' | 'fertiggestellt' | 'geleistet' | 'kein Status'
-export type MitarbeiterFunktion = 'SIPO' | 'HFE' | 'Monteur/bediener' | 'Sakra' | 'BP' | 'BP' | 'BP' | 'HiBa' | 'SAS' | 'Bahnerder'
+export type MitarbeiterFunktion = 'SIPO' | 'HFE' | 'Monteur/bediener' | 'Sakra' | 'BÃ¼P' | 'HiBa' | 'SAS' | 'Bahnerder'
 export type SnackbarSeverity = 'success' | 'error' | 'warning' | 'info'
 
 // ===== API RESPONSE TYPEN =====
@@ -71,14 +71,14 @@ export interface TimeEntry {
   extra: number
   nachtzulage: string
   sonntag: number
-  sonntagsstunden?: number  // Explizites Feld fr Sonntagsstunden
+  sonntagsstunden?: number  // Explizites Feld fï¿½r Sonntagsstunden
   feiertag: number
   bemerkung: string
-  // Neue Felder fr automatische Pausenberechnung
+  // Neue Felder fï¿½r automatische Pausenberechnung
   breakSegments?: BreakSegment[]
   breakTotalMinutes?: number
   overrideBreaks?: boolean
-  // Berechnete Zuschlge in Minuten
+  // Berechnete Zuschlï¿½ge in Minuten
   nightMinutes?: number
   sundayMinutes?: number
   holidayMinutes?: number

@@ -10,7 +10,7 @@ export async function GET() {
   try {
     await dbConnect()
     const types = await ArticleType.find({}).sort({ name: 1 }).lean()
-    const names: string[] = types.map((t) => (t as { name: string }).name)
+    const names: string[] = types.map((t) => (t as unknown as { name: string }).name)
 
     for (const def of DEFAULT_TYPES) {
       if (!names.includes(def)) names.push(def)

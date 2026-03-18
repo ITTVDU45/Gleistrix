@@ -6,7 +6,7 @@ export type IntentKey =
   | 'vehicles:create' | 'vehicles:update' | 'vehicles:delete'
   | 'employees:create' | 'employees:update' | 'employees:delete'
   | 'activity:create' | 'activity:pdf-export'
-  | 'users:update-role' | 'auth:update-profile'
+  | 'users:update-role' | 'users:update' | 'auth:update-profile'
   | 'invite:create-user' | 'invite:create-admin' | 'invite:delete-all' | 'invite:activate-user'
   | 'lager:article:create' | 'lager:article:update' | 'lager:article:delete'
   | 'lager:article:image:presign' | 'lager:article:image:commit' | 'lager:article:image:delete' | 'lager:article:image:upload'

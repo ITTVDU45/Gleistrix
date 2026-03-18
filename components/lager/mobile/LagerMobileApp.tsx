@@ -116,7 +116,7 @@ type MaintenanceRow = {
 }
 
 type InventoryPosition = {
-  artikelId?: { _id?: string; bezeichnung?: string; artikelnummer?: string; barcode?: string } | string
+  artikelId?: { _id?: string; bezeichnung?: string; artikelnummer?: string; barcode?: string; serialTracking?: string } | string
   sollMenge?: number
   istMenge?: number
   differenz?: number
@@ -567,7 +567,8 @@ export default function LagerMobileApp() {
       zeitraumBis: toDateInput(data.zeitraumBis),
       fokusTyp: getInventoryFocusType(data),
       kategorien: normalizeStringSelection(data.kategorien),
-      artikelIds: normalizeIdSelection(data.artikelIds)
+      artikelIds: normalizeIdSelection(data.artikelIds),
+      unitIds: []
     })
 
     const next: Record<string, number> = {}
@@ -1177,7 +1178,7 @@ export default function LagerMobileApp() {
     }
 
     setSelectedArticleId(foundArticleId)
-    if (!statusMessage) setStatusMessage(`Artikel erkannt: ${found.bezeichnung}`)
+    setStatusMessage(`Artikel erkannt: ${found.bezeichnung}`)
   }
   async function handlePartnerSaved() {
     await loadPartnerData()

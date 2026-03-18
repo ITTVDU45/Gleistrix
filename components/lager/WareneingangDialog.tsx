@@ -316,7 +316,8 @@ export default function WareneingangDialog({
               </Button>
             </div>
             {incomingItems.map((item, index) => (
-              <div key={item.id} className="grid grid-cols-[1fr_110px_42px] gap-2">
+              <div key={item.id}>
+              <div className="grid grid-cols-[1fr_110px_42px] gap-2">
                 <ArticleSelect
                   id={`we-artikel-${index + 1}`}
                   value={item.artikelId}
@@ -431,6 +432,7 @@ export default function WareneingangDialog({
                   </div>
                 </div>
               )}
+              </div>
             ))}
           </div>
           <div className="space-y-2">
