@@ -4,13 +4,12 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Card, CardContent, CardHeader } from '../../components/ui/card'
-import { Filter, RefreshCw } from 'lucide-react'
+import { ChevronDown, ChevronUp, Filter, RefreshCw } from 'lucide-react'
 import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown'
 
 type Props = { projects: any[]; onFilterChange: (filtered: any[]) => void }
 
 export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
-  // Filter States
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedNames, setSelectedNames] = useState<string[]>([])
   const [selectedAuftraggeber, setSelectedAuftraggeber] = useState<string[]>([])
@@ -20,8 +19,8 @@ export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
   const [dateTo, setDateTo] = useState<string>('')
   const [hoursFrom, setHoursFrom] = useState<string>('')
   const [hoursTo, setHoursTo] = useState<string>('')
+  const [isCollapsed, setIsCollapsed] = useState(true)
 
-  // Alle verfügbaren Optionen
   const allAvailableOptions = useMemo(() => {
     const allNames = Array.from(new Set(projects.map(p => p.name).filter(Boolean)))
     const allAuftraggeber = Array.from(new Set(projects.map(p => p.auftraggeber).filter(Boolean)))
@@ -36,7 +35,6 @@ export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
     }
   }, [projects])
 
-  // Dynamische option filtering (kopiert von ProjectListFilter)
   const filteredNames = useMemo(() => {
     let availableNames = allAvailableOptions.names
 
@@ -229,7 +227,6 @@ export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
     return availableStatuses
   }, [projects, allAvailableOptions.statuses, selectedNames, selectedAuftraggeber, selectedBaustellen, dateFrom, dateTo, hoursFrom, hoursTo])
 
-  // Gefilterte Projekte berechnen
   const filteredProjects = useMemo(() => {
     let filtered = projects
 
@@ -267,12 +264,10 @@ export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
     return filtered
   }, [projects, searchTerm, selectedNames, selectedAuftraggeber, selectedBaustellen, selectedStatuses, dateFrom, dateTo, hoursFrom, hoursTo])
 
-  // Use ref to avoid infinite loops when parent passes a new callback identity
   const onFilterChangeRef = useRef(onFilterChange)
   useEffect(() => { onFilterChangeRef.current = onFilterChange }, [onFilterChange])
   useEffect(() => { onFilterChangeRef.current(filteredProjects) }, [filteredProjects])
 
-  // Reset
   const resetFilters = () => {
     setSearchTerm('')
     setSelectedNames([])
@@ -288,121 +283,134 @@ export default function AbrechnungFilter({ projects, onFilterChange }: Props) {
   return (
     <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Filter className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Filter</h2>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={resetFilters}
-            className="flex items-center gap-2 rounded-lg border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Filter zurücksetzen
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setIsCollapsed((prev) => !prev)}
+              className="flex items-center gap-2 rounded-lg border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white"
+              aria-expanded={!isCollapsed}
+              aria-controls="abrechnung-filter-panel"
+            >
+              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              {isCollapsed ? 'Filter anzeigen' : 'Filter einklappen'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={resetFilters}
+              className="flex items-center gap-2 rounded-lg border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Filter zurÃ¼cksetzen
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Suche</Label>
-            <Input
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Projekt, Auftraggeber, Baustelle, Status"
-            />
-          </div>
+      {!isCollapsed && (
+        <CardContent id="abrechnung-filter-panel">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Suche</Label>
+              <Input
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Projekt, Auftraggeber, Baustelle, Status"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <MultiSelectDropdown
-              label="Projektname"
-              options={filteredNames}
-              selected={selectedNames}
-              onChange={setSelectedNames}
-              placeholder="Projektnamen wählen"
-              renderTagsBelow
-            />
-          </div>
+            <div className="space-y-2">
+              <MultiSelectDropdown
+                label="Projektname"
+                options={filteredNames}
+                selected={selectedNames}
+                onChange={setSelectedNames}
+                placeholder="Projektnamen wÃ¤hlen"
+                renderTagsBelow
+              />
+            </div>
 
-          <div className="space-y-2">
-            <MultiSelectDropdown
-              label="Auftraggeber"
-              options={filteredAuftraggeber}
-              selected={selectedAuftraggeber}
-              onChange={setSelectedAuftraggeber}
-              placeholder="Auftraggeber wählen"
-              renderTagsBelow
-            />
-          </div>
+            <div className="space-y-2">
+              <MultiSelectDropdown
+                label="Auftraggeber"
+                options={filteredAuftraggeber}
+                selected={selectedAuftraggeber}
+                onChange={setSelectedAuftraggeber}
+                placeholder="Auftraggeber wÃ¤hlen"
+                renderTagsBelow
+              />
+            </div>
 
-          <div className="space-y-2">
-            <MultiSelectDropdown
-              label="Baustelle"
-              options={filteredBaustellen}
-              selected={selectedBaustellen}
-              onChange={setSelectedBaustellen}
-              placeholder="Baustellen wählen"
-              renderTagsBelow
-            />
-          </div>
+            <div className="space-y-2">
+              <MultiSelectDropdown
+                label="Baustelle"
+                options={filteredBaustellen}
+                selected={selectedBaustellen}
+                onChange={setSelectedBaustellen}
+                placeholder="Baustellen wÃ¤hlen"
+                renderTagsBelow
+              />
+            </div>
 
-          <div className="space-y-2">
-            <MultiSelectDropdown
-              label="Status"
-              options={filteredStatuses}
-              selected={selectedStatuses}
-              onChange={setSelectedStatuses}
-              placeholder="Status wählen"
-              renderTagsBelow
-            />
-          </div>
+            <div className="space-y-2">
+              <MultiSelectDropdown
+                label="Status"
+                options={filteredStatuses}
+                selected={selectedStatuses}
+                onChange={setSelectedStatuses}
+                placeholder="Status wÃ¤hlen"
+                renderTagsBelow
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Datum von</Label>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Datum von</Label>
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Datum bis</Label>
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Datum bis</Label>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Stunden von</Label>
-            <Input
-              type="number"
-              placeholder="0"
-              value={hoursFrom}
-              onChange={(e) => setHoursFrom(e.target.value)}
-              className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Stunden von</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={hoursFrom}
+                onChange={(e) => setHoursFrom(e.target.value)}
+                className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Stunden bis</Label>
-            <Input
-              type="number"
-              placeholder="100"
-              value={hoursTo}
-              onChange={(e) => setHoursTo(e.target.value)}
-              className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-            />
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Stunden bis</Label>
+              <Input
+                type="number"
+                placeholder="100"
+                value={hoursTo}
+                onChange={(e) => setHoursTo(e.target.value)}
+                className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
           </div>
-        </div>
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   )
 }
-
-

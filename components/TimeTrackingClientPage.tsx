@@ -40,6 +40,25 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
     return `${wholeHours}:${minutes.toString().padStart(2, '0')}`;
   };
 
+  const getEntryMultiplier = (entry: any): number => {
+    if (!entry?.isExternal) return 1;
+    const count = typeof entry.externalCount === 'number' ? entry.externalCount : parseFloat(String(entry.externalCount || 1));
+    return Number.isFinite(count) && count > 0 ? count : 1;
+  };
+
+  const getEntryBaseName = (entry: any): string => {
+    if (entry?.isExternal) {
+      return String(entry.externalCompanyName || entry.name || '').trim();
+    }
+    return String(entry?.name || '').trim();
+  };
+
+  const getEntryDisplayName = (entry: any): string => {
+    const base = getEntryBaseName(entry) || '-';
+    const multiplier = getEntryMultiplier(entry);
+    return entry?.isExternal ? `${base} (x${multiplier})` : base;
+  };
+
   // Alle Zeiteinträge aus allen Projekten sammeln
   const allTimeEntriesRaw: TimeEntry[] = projects.flatMap((project: Project) => 
     Object.entries(project.mitarbeiterZeiten || {}).flatMap(([date, entries]) =>
@@ -54,7 +73,11 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
          ort: (project as any).baustelle || '-',
         // ensure Funktion is available under `funktion` (fallbacks from possible keys)
         funktion: (entry as any).funktion || (entry as any).role || (entry as any).position || '-',
-        id: `${project.id}-${date}-${entry.id || Math.random()}`
+        id: `${project.id}-${date}-${entry.id || Math.random()}`,
+        isExternal: (entry as any).isExternal,
+        externalCompanyId: (entry as any).externalCompanyId,
+        externalCompanyName: (entry as any).externalCompanyName,
+        externalCount: (entry as any).externalCount
       }))
     )
   );
@@ -73,11 +96,11 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
   });
 
   const getTotalHours = () => {
-    return allTimeEntries.reduce((sum: number, entry: any) => sum + entry.stunden, 0);
+    return allTimeEntries.reduce((sum: number, entry: any) => sum + ((entry.stunden || 0) * getEntryMultiplier(entry)), 0);
   };
 
   const getTotalTravelHours = () => {
-    return allTimeEntries.reduce((sum: number, entry: any) => sum + entry.fahrtstunden, 0);
+    return allTimeEntries.reduce((sum: number, entry: any) => sum + ((entry.fahrtstunden || 0) * getEntryMultiplier(entry)), 0);
   };
 
   // Filter-States im Page-Component
@@ -93,16 +116,31 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
     return Array.from(new Set(allTimeEntries.map(entry => entry.ort ?? '').filter(ort => ort && ort !== '-')));
   }, [allTimeEntries]);
 
+  const employeeOptions = React.useMemo(() => {
+    const optionSet = new Set<string>();
+    employees.forEach((employee) => {
+      if (employee?.name) optionSet.add(employee.name);
+    });
+    allTimeEntries.forEach((entry: any) => {
+      const base = getEntryBaseName(entry);
+      if (base) optionSet.add(base);
+    });
+    return Array.from(optionSet);
+  }, [employees, allTimeEntries]);
+
   // Gefilterte Einträge
   const filteredEntries: TimeEntry[] = allTimeEntries.filter(entry => {
     if (selectedProjects.length > 0 && !(entry.projectName && selectedProjects.includes(entry.projectName))) return false;
-    if (selectedEmployees.length > 0 && !(entry.name && selectedEmployees.includes(entry.name))) return false;
+    if (selectedEmployees.length > 0) {
+      const baseName = getEntryBaseName(entry);
+      if (!baseName || !selectedEmployees.includes(baseName)) return false;
+    }
     if (selectedLocations.length > 0 && !(entry.ort && selectedLocations.includes(entry.ort))) return false;
     if (dateFrom && (entry.date ?? '') < dateFrom) return false;
     if (dateTo && (entry.date ?? '') > dateTo) return false;
     if (searchTerm && !(
       (entry.projectName ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (entry.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (getEntryBaseName(entry) ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       ((entry.client ?? '').toLowerCase().includes(searchTerm.toLowerCase())) ||
       ((entry.ort ?? '').toLowerCase().includes(searchTerm.toLowerCase()))
     )) return false;
@@ -152,7 +190,7 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
         <TimeTrackingExport timeEntries={(sortedEntries || filteredEntries).map((e) => ({
           date: e.date ?? '',
           projectName: e.projectName ?? '',
-          name: e.name ?? '',
+          name: getEntryDisplayName(e),
           start: e.start ?? '',
           ende: e.ende ?? '',
           stunden: typeof e.stunden === 'number' ? e.stunden : parseFloat(String(e.stunden || 0)) || 0,
@@ -161,7 +199,11 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
           orderNumber: (e as any).orderNumber ?? '',
           sapNumber: (e as any).sapNumber ?? '',
           client: e.client ?? '',
-          status: e.status ?? 'kein Status'
+          status: e.status ?? 'kein Status',
+          isExternal: (e as any).isExternal,
+          externalCompanyId: (e as any).externalCompanyId,
+          externalCompanyName: (e as any).externalCompanyName,
+          externalCount: (e as any).externalCount
         } as TimeTrackingExportData))} />
       </div>
 
@@ -229,7 +271,7 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
       {/* Filter-Bereich */}
       <TimeTrackingFilters
         projects={projects}
-        employees={employees}
+        employeeOptions={employeeOptions}
         availableLocations={availableLocations}
         selectedProjects={selectedProjects}
         setSelectedProjects={setSelectedProjects}
@@ -308,7 +350,7 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                           <div>
-                            <p className="text-slate-900 dark:text-slate-100">{entry.name}</p>
+                            <p className="text-slate-900 dark:text-slate-100">{getEntryDisplayName(entry)}</p>
                             <p className="text-sm text-slate-500 dark:text-slate-500">{entry.funktion || (entry as any).role || '-'}</p>
                           </div>
                         </div>
@@ -323,7 +365,7 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="font-mono rounded-lg">
-                          {formatHours(entry.stunden)}
+                          {formatHours((entry.stunden || 0) * getEntryMultiplier(entry))}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -334,32 +376,32 @@ export default function TimeTrackingClientPage({ projects, employees }: TimeTrac
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
                           {entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ?
-                            parseFloat(entry.nachtzulage).toFixed(2) + 'h' :
+                            (parseFloat(entry.nachtzulage) * getEntryMultiplier(entry)).toFixed(2) + 'h' :
                             '-'}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
                           {entry.sonntag !== undefined && entry.sonntag !== null && entry.sonntag !== '' ?
-                            parseFloat(entry.sonntag).toFixed(2) + 'h' :
+                            (parseFloat(entry.sonntag) * getEntryMultiplier(entry)).toFixed(2) + 'h' :
                             '-'}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
                           {entry.feiertag !== undefined && entry.feiertag !== null && entry.feiertag !== '' ?
-                            parseFloat(entry.feiertag).toFixed(2) + 'h' :
+                            (parseFloat(entry.feiertag) * getEntryMultiplier(entry)).toFixed(2) + 'h' :
                             '-'}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
-                          {entry.fahrtstunden > 0 ? `${entry.fahrtstunden}h` : '-'}
+                          {entry.fahrtstunden > 0 ? `${entry.fahrtstunden * getEntryMultiplier(entry)}h` : '-'}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-600 dark:text-slate-400">
-                          {entry.extra || '-'}
+                          {typeof entry.extra === 'number' ? `${(entry.extra * getEntryMultiplier(entry)).toFixed(2)}h` : (entry.extra || '-')}
                         </span>
                       </TableCell>
                       <TableCell>

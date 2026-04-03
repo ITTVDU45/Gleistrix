@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import AbrechnungDialog from './AbrechnungDialog.tsx'
 import AbrechnungFilter from './AbrechnungFilter'
+import DynamicBillingStats from './DynamicBillingStats'
 import { Card, CardContent, CardHeader } from '../../components/ui/card'
 import { Calendar, MapPin, User, Clock } from 'lucide-react'
 import InlineStatusSelect from '../../components/InlineStatusSelect'
@@ -15,12 +16,9 @@ export default function AbrechnungClient({ projects = [] }: Props){
   const [selectedProject, setSelectedProject] = React.useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [filteredProjects, setFilteredProjects] = React.useState<any[]>(projects)
-
-  // keep a local copy to allow optimistic updates (status)
   const [localProjects, setLocalProjects] = React.useState<any[]>(projects)
 
   React.useEffect(() => {
-    // projects passed from server only contain selected fields; mirror into localProjects
     setFilteredProjects(projects || [])
     setLocalProjects(projects || [])
   }, [projects])
@@ -29,21 +27,16 @@ export default function AbrechnungClient({ projects = [] }: Props){
     setFilteredProjects(filtered)
   }, [])
 
-  // Ermittele den effektiven Abrechnungsstatus auf Basis der tatsächlich vorhandenen Arbeitstage
-  // Hintergrund: Bei tagübergreifenden Einsätzen liegt der Eintrag unter dem Start-Tag.
-  // Vollständig abgerechnet => alle Tage mit Zeiteinträgen (Keys in mitarbeiterZeiten) sind in abgerechneteTage enthalten.
   const getEffectiveStatus = React.useCallback((p: any): string => {
     try {
       const billed = new Set<string>(Array.isArray(p?.abgerechneteTage) ? (p.abgerechneteTage as any[]).map((d: any) => String(d)) : [])
-      // Zähle nur Tage mit tatsächlichen Einträgen; Tage mit [] oder undefined ignorieren.
-      // Ergänze Folgetage für tagübergreifende Einträge (Ende-Tag).
       const daysWithEntries: Record<string, true> = {}
       Object.entries(p?.mitarbeiterZeiten || {}).forEach(([day, arr]: any) => {
-        if (Array.isArray(arr) && arr.length > 0) { daysWithEntries[day] = true }
-        (Array.isArray(arr) ? arr : []).forEach((e: any) => {
+        if (Array.isArray(arr) && arr.length > 0) daysWithEntries[day] = true
+        ;(Array.isArray(arr) ? arr : []).forEach((e: any) => {
           const endStr: string | undefined = e?.ende || e?.end
           if (typeof endStr === 'string' && endStr.includes('T')) {
-            const endDay = endStr.slice(0,10)
+            const endDay = endStr.slice(0, 10)
             if (endDay && endDay !== day) daysWithEntries[endDay] = true
           }
         })
@@ -52,7 +45,6 @@ export default function AbrechnungClient({ projects = [] }: Props){
       if (daysWithEntriesArr.length > 0 && daysWithEntriesArr.every(d => billed.has(String(d)))) {
         return 'geleistet'
       }
-      // Teilweise, wenn es mindestens einen abgerechneten Tag gibt
       if (billed.size > 0) return 'teilweise_abgerechnet'
       return p?.status || 'kein Status'
     } catch {
@@ -68,7 +60,9 @@ export default function AbrechnungClient({ projects = [] }: Props){
         return sum + arr.reduce((es: number, e: any) => es + (e.stunden || 0), 0)
       }, 0)
       return total
-    } catch (e) { return 0 }
+    } catch {
+      return 0
+    }
   }
 
   const formatHoursDot = (value: any): string => {
@@ -92,8 +86,6 @@ export default function AbrechnungClient({ projects = [] }: Props){
   const [snackbar, setSnackbar] = React.useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' })
   const closeSnackbar = () => setSnackbar({ open: false, message: '', severity: 'success' })
 
-  // Snackbar will be shown via onFinished callback from dialog
-
   return (
     <div className="space-y-6">
       {snackbar.open && (
@@ -102,6 +94,9 @@ export default function AbrechnungClient({ projects = [] }: Props){
           <button onClick={closeSnackbar} className="ml-3 underline">OK</button>
         </div>
       )}
+
+      <DynamicBillingStats projects={filteredProjects} />
+
       <AbrechnungFilter projects={projects} onFilterChange={handleFilterChange} />
 
       <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -155,10 +150,7 @@ export default function AbrechnungClient({ projects = [] }: Props){
                       <TableCell>
                         {(() => {
                           const effective = getEffectiveStatus(p)
-                          // Für die Anzeige Status überschreiben, Backend-Status bleibt unberührt bis zur nächsten Abrechnung/Aktualisierung
-                          return (
-                            <InlineStatusSelect project={{ ...p, status: effective }} onStatusChange={(ns) => handleStatusChange(p.id, ns)} showInlineFeedback={false} />
-                          )
+                          return <InlineStatusSelect project={{ ...p, status: effective }} onStatusChange={(ns) => handleStatusChange(p.id, ns)} showInlineFeedback={false} />
                         })()}
                       </TableCell>
 
@@ -195,7 +187,7 @@ export default function AbrechnungClient({ projects = [] }: Props){
         onOpenChange={setDialogOpen}
         projectId={selectedProject}
         onFinished={(ok?: boolean) => {
-          setDialogOpen(false);
+          setDialogOpen(false)
           if (ok) setSnackbar({ open: true, message: 'Abrechnung erfolgreich erstellt und E-Mail versendet', severity: 'success' })
           else setSnackbar({ open: true, message: 'Abrechnung fehlgeschlagen', severity: 'error' })
         }}
@@ -203,5 +195,3 @@ export default function AbrechnungClient({ projects = [] }: Props){
     </div>
   )
 }
-
-

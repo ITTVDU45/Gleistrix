@@ -1,162 +1,170 @@
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import InviteToken from "../../../../lib/models/InviteToken"
-import mongoose from "mongoose"
-import { getToken } from "next-auth/jwt"
 import { nanoid } from "nanoid"
 import User from "../../../../lib/models/User"
 import { sendInviteEmailResult } from "../../../../lib/mailer"
-import { z } from 'zod'
+import { z } from "zod"
+import mongoose from "mongoose"
+import { requireAdminUser } from "../../../../lib/auth/requireAdminUser"
+
+async function resolveInviteCreatorId(adminId: string): Promise<mongoose.Types.ObjectId | null> {
+  if (adminId !== "env-superadmin") {
+    try {
+      return new mongoose.Types.ObjectId(adminId)
+    } catch {
+      return null
+    }
+  }
+
+  const db = mongoose.connection.db
+  if (!db) return null
+
+  const users = db.collection("users")
+  const configuredEmail = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase()
+
+  if (configuredEmail) {
+    const matchingUser = await users.findOne(
+      { email: configuredEmail, role: { $in: ["superadmin", "admin"] } },
+      { projection: { _id: 1 } }
+    )
+    if (matchingUser?._id) {
+      return matchingUser._id as mongoose.Types.ObjectId
+    }
+  }
+
+  const fallbackAdmin = await users.findOne(
+    { role: { $in: ["superadmin", "admin"] } },
+    { projection: { _id: 1 }, sort: { role: -1, createdAt: 1 } }
+  )
+
+  return (fallbackAdmin?._id as mongoose.Types.ObjectId | undefined) ?? null
+}
 
 export async function POST(req: NextRequest) {
   try {
-    await dbConnect();
-    
-    // NextAuth Token lesen
-    const sessionToken = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    if (!sessionToken) {
-      return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
-    }
-    const db = mongoose.connection?.db;
-    if (!db) {
-      return NextResponse.json({ error: "DB nicht verbunden" }, { status: 500 });
-    }
-    const usersCollection = db.collection('users');
-    const currentUserId = sessionToken.id as string | undefined;
-    if (!currentUserId) {
-      return NextResponse.json({ error: "Ungültiges Token" }, { status: 401 });
-    }
-    let objectId;
-    try {
-      objectId = new mongoose.Types.ObjectId(String(currentUserId));
-    } catch (e) {
-      return NextResponse.json({ error: "Ungültige Benutzer-ID" }, { status: 401 });
-    }
-    const currentUser = await usersCollection.findOne({ _id: objectId });
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'superadmin')) {
-      return NextResponse.json({ error: "Nur Admins können Benutzer einladen" }, { status: 403 });
+    const adminAuth = await requireAdminUser(req)
+    if (!adminAuth.ok) {
+      return NextResponse.json(
+        { error: adminAuth.status === 403 ? "Nur Admins können Benutzer einladen" : adminAuth.error },
+        { status: adminAuth.status }
+      )
     }
 
-    // Request-Body parsen
-    const csrf = req.headers.get('x-csrf-intent');
-    if (process.env.NODE_ENV === 'production' && csrf !== 'invite:create-user') {
-      return NextResponse.json({ error: 'Ungültige Anforderung' }, { status: 400 });
+    await dbConnect()
+
+    const createdBy = await resolveInviteCreatorId(adminAuth.user.id)
+    if (!createdBy) {
+      return NextResponse.json(
+        { error: "Für den Superadmin konnte kein Admin-Benutzer in der Datenbank als Ersteller zugeordnet werden." },
+        { status: 500 }
+      )
     }
+
+    const csrf = req.headers.get("x-csrf-intent")
+    if (process.env.NODE_ENV === "production" && csrf !== "invite:create-user") {
+      return NextResponse.json({ error: "Ungültige Anforderung" }, { status: 400 })
+    }
+
     const schema = z.object({
       firstName: z.string().min(1),
       lastName: z.string().min(1),
       email: z.string().email(),
-      phone: z.string().optional().or(z.literal('')),
-      role: z.enum(['user', 'lager']).optional().default('user'),
+      phone: z.string().optional().or(z.literal("")),
+      role: z.enum(["user", "lager"]).optional().default("user"),
       resend: z.boolean().optional().default(false),
       modules: z.array(z.string()).optional(),
-    });
-    const parseResult = schema.safeParse(await req.json());
+    })
+    const parseResult = schema.safeParse(await req.json())
     if (!parseResult.success) {
-      return NextResponse.json({ error: 'Validierungsfehler', issues: parseResult.error.flatten() }, { status: 400 });
-    }
-    const { firstName, lastName, email, phone, role, resend, modules } = parseResult.data;
-
-    // Validierung
-    if (!firstName || !lastName || !email) {
-      return NextResponse.json({ error: "Vorname, Nachname und E-Mail sind erforderlich" }, { status: 400 });
+      return NextResponse.json({ error: "Validierungsfehler", issues: parseResult.error.flatten() }, { status: 400 })
     }
 
-    // E-Mail-Format validieren
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: "Ungültige E-Mail-Adresse" }, { status: 400 });
-    }
+    const { firstName, lastName, email, phone, role, resend, modules } = parseResult.data
 
-    // Prüfen ob Benutzer bereits existiert
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email })
     if (existingUser) {
-      return NextResponse.json({ error: "Ein Benutzer mit dieser E-Mail existiert bereits" }, { status: 409 });
+      return NextResponse.json({ error: "Ein Benutzer mit dieser E-Mail existiert bereits" }, { status: 409 })
     }
 
-    // Beim erneuten Senden: alle Einladungen für diese E-Mail löschen (atomar)
     if (resend) {
-      await InviteToken.deleteMany({ email });
+      await InviteToken.deleteMany({ email })
     } else {
-      // Prüfen ob bereits eine Einladung für diese E-Mail existiert
       const existingInvite = await InviteToken.findOne({
         email,
         used: false,
-        expiresAt: { $gt: new Date() }
-      });
+        expiresAt: { $gt: new Date() },
+      })
       if (existingInvite) {
-        return NextResponse.json({
-          error: "Eine gültige Einladung für diese E-Mail wurde bereits gesendet",
-          message: "Die Einladung ist noch 24 Stunden gültig. Bitte warten Sie, bis sie abgelaufen ist."
-        }, { status: 409 });
+        return NextResponse.json(
+          {
+            error: "Eine gültige Einladung für diese E-Mail wurde bereits gesendet",
+            message: "Die Einladung ist noch 24 Stunden gültig. Bitte warten Sie, bis sie abgelaufen ist.",
+          },
+          { status: 409 }
+        )
       }
-      // Abgelaufene oder verwendete Einladungen für diese E-Mail löschen
+
       await InviteToken.deleteMany({
         email,
-        $or: [
-          { used: true },
-          { expiresAt: { $lt: new Date() } }
-        ]
-      });
+        $or: [{ used: true }, { expiresAt: { $lt: new Date() } }],
+      })
     }
 
-    // Eindeutigen Token generieren
-    const inviteTokenValue = nanoid(32);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 Stunden
+    const inviteTokenValue = nanoid(32)
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
-    // Einladung in Datenbank speichern
     const inviteToken = new InviteToken({
       email,
       role,
       token: inviteTokenValue,
       used: false,
       expiresAt,
-      createdBy: currentUser._id,
+      createdBy,
       name: `${firstName} ${lastName}`,
       firstName,
       lastName,
       phone,
       modules: modules ?? [],
-    });
+    })
 
-    await inviteToken.save();
+    await inviteToken.save()
 
-    // E-Mail-Einladung senden
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
-    const inviteLink = `${baseUrl}/auth/set-password?token=${inviteTokenValue}`;
-    const emailResult = await sendInviteEmailResult(email, `${firstName} ${lastName}`, role, inviteLink, expiresAt);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
+    const inviteLink = `${baseUrl}/auth/set-password?token=${inviteTokenValue}`
+    const emailResult = await sendInviteEmailResult(email, `${firstName} ${lastName}`, role, inviteLink, expiresAt)
 
     if (emailResult.ok) {
-      console.log('=== USER EINLADUNG GESENDET ===');
-      console.log(`An: ${email}`);
-      console.log(`Name: ${firstName} ${lastName}`);
-      console.log(`Rolle: ${role}`);
-      console.log('==================================');
+      console.log("=== USER EINLADUNG GESENDET ===")
+      console.log(`An: ${email}`)
+      console.log(`Name: ${firstName} ${lastName}`)
+      console.log(`Rolle: ${role}`)
+      console.log("==================================")
     } else {
-      console.warn('=== E-MAIL VERSAND FEHLGESCHLAGEN ===', emailResult.error);
-      console.log(`An: ${email}`);
-      console.log(`Token/Link für manuellen Versand: ${inviteLink}`);
-      console.log('=====================================');
+      console.warn("=== E-MAIL VERSAND FEHLGESCHLAGEN ===", emailResult.error)
+      console.log(`An: ${email}`)
+      console.log(`Token/Link für manuellen Versand: ${inviteLink}`)
+      console.log("=====================================")
     }
 
-    return NextResponse.json({
-      message: emailResult.ok
-        ? "Benutzer-Einladung erfolgreich gesendet"
-        : "Einladung angelegt, E-Mail konnte nicht zugestellt werden.",
-      emailSent: emailResult.ok,
-      emailError: emailResult.error,
-      invite: {
-        email,
-        name: `${firstName} ${lastName}`,
-        role,
-        expiresAt
-      }
-    }, { status: 201 });
-    
+    return NextResponse.json(
+      {
+        message: emailResult.ok
+          ? "Benutzer-Einladung erfolgreich gesendet"
+          : "Einladung angelegt, E-Mail konnte nicht zugestellt werden.",
+        emailSent: emailResult.ok,
+        emailError: emailResult.error,
+        invite: {
+          email,
+          name: `${firstName} ${lastName}`,
+          role,
+          expiresAt,
+        },
+      },
+      { status: 201 }
+    )
   } catch (error) {
-    console.error('Create user invite error:', error);
-    return NextResponse.json({ 
-      error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
-    }, { status: 500 });
+    console.error("Create user invite error:", error)
+    return NextResponse.json({ error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." }, { status: 500 })
   }
-} 
+}

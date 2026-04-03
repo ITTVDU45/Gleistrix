@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import mongoose from "mongoose"
 import { getToken } from "next-auth/jwt"
+import { ENV_SUPERADMIN_JWT_ID, isEnvSuperadminJwtToken } from "../../../../lib/auth/envSuperadmin"
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,6 +29,23 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       console.log("Keine Benutzer-ID im Token");
       return NextResponse.json({ error: "Ungültiges Token" }, { status: 401 });
+    }
+
+    if (isEnvSuperadminJwtToken(token as { id?: string; role?: string })) {
+      return NextResponse.json({
+        user: {
+          id: ENV_SUPERADMIN_JWT_ID,
+          email: (token as { email?: string }).email ?? "",
+          name: (token as { name?: string }).name || "Super Admin",
+          role: "superadmin",
+          firstName: "",
+          lastName: "",
+          phone: "",
+          address: undefined,
+          lastLogin: undefined,
+          modules: [],
+        },
+      }, { status: 200 });
     }
     
     let objectId: mongoose.Types.ObjectId;

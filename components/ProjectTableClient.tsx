@@ -206,15 +206,15 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
         </div>
       )}
 
-      <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
-      <CardHeader>
+      <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/70 ring-1 ring-white">
+      <CardHeader className="border-b border-slate-100 pb-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Projektliste</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+            <h2 className="text-xl font-semibold text-slate-900">Projektliste</h2>
+            <p className="text-sm text-slate-600 mt-1">
               Zeige {displayedProjects.length} von {localProjects.length} Projekten
               {selectedProjects.size > 0 && (
-                <span className="ml-2 text-blue-600 dark:text-blue-400">
+                <span className="ml-2 text-blue-600">
                   ({selectedProjects.size} ausgewählt)
                 </span>
               )}
@@ -224,7 +224,7 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
             <button
               onClick={() => setShowDeleteModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 
-                         text-white font-medium rounded-lg transition-colors
+                         text-white font-medium rounded-xl transition-colors
                          disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isDeleting}
             >
@@ -238,12 +238,12 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6">
         {displayedProjects.length > 0 ? (
-          <div className="rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-50 dark:bg-slate-700">
+                <TableRow className="bg-slate-50/90">
                   <TableHead className="w-12">
                     <input
                       type="checkbox"
@@ -257,21 +257,21 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
                       title={allSelected ? 'Alle abwählen' : 'Alle auswählen'}
                     />
                   </TableHead>
-                  <TableHead className="font-medium text-slate-700 dark:text-slate-300">Projekt</TableHead>
-                  <TableHead className="font-medium text-slate-700 dark:text-slate-300">Auftraggeber</TableHead>
-                  <TableHead className="font-medium text-slate-700 dark:text-slate-300">Baustelle</TableHead>
-                  <TableHead className="font-medium text-slate-700 dark:text-slate-300">Status</TableHead>
-                  <TableHead className="font-medium text-slate-700 dark:text-slate-300">Datum</TableHead>
-                  <TableHead className="font-medium text-slate-700 dark:text-slate-300">Stunden</TableHead>
-                  <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Aktionen</TableHead>
+                  <TableHead className="font-medium text-slate-700">Projekt</TableHead>
+                  <TableHead className="font-medium text-slate-700">Auftraggeber</TableHead>
+                  <TableHead className="font-medium text-slate-700">Baustelle</TableHead>
+                  <TableHead className="font-medium text-slate-700">Status</TableHead>
+                  <TableHead className="font-medium text-slate-700">Datum</TableHead>
+                  <TableHead className="font-medium text-slate-700">Stunden</TableHead>
+                  <TableHead className="font-medium text-slate-700 text-right">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {displayedProjects.map((project: Project) => (
                   <TableRow 
                     key={project.id} 
-                    className={`hover:bg-slate-50 dark:hover:bg-slate-700 ${
-                      selectedProjects.has(project.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                    className={`transition-colors hover:bg-slate-50 ${
+                      selectedProjects.has(project.id) ? 'bg-blue-50/70' : ''
                     }`}
                   >
                     <TableCell>
@@ -285,20 +285,20 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium text-slate-900 dark:text-white">{project.name}</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">#{project.auftragsnummer}</p>
+                        <p className="font-medium text-slate-900">{project.name}</p>
+                        <p className="text-sm text-slate-500">#{project.auftragsnummer}</p>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                        <span className="text-slate-700 dark:text-slate-300">{project.auftraggeber}</span>
+                        <User className="h-4 w-4 text-slate-400" />
+                        <span className="text-slate-700">{project.auftraggeber}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                        <span className="text-slate-700 dark:text-slate-300">{project.baustelle}</span>
+                        <MapPin className="h-4 w-4 text-slate-400" />
+                        <span className="text-slate-700">{project.baustelle}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -310,16 +310,16 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                        <span className="text-slate-700 dark:text-slate-300">
+                        <Calendar className="h-4 w-4 text-slate-400" />
+                        <span className="text-slate-700">
                           {new Date(project.datumBeginn).toLocaleDateString('de-DE')}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                        <span className="text-slate-700 dark:text-slate-300">
+                        <Clock className="h-4 w-4 text-slate-400" />
+                        <span className="text-slate-700">
                           {getTotalHours(project).toFixed(1)}h
                         </span>
                       </div>
@@ -333,7 +333,7 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
             </Table>
           </div>
         ) : (
-          <div className="text-center py-12">
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 py-12 text-center">
             <Building2 className="h-12 w-12 text-slate-400 mx-auto mb-4" />
             <p className="text-slate-600">Keine Projekte vorhanden</p>
             <p className="text-sm text-slate-500 mt-1">Erstellen Sie Ihr erstes Projekt</p>
@@ -342,12 +342,12 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
 
         {/* Limit-Auswahl Dropdown */}
         {localProjects.length > 0 && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200 dark:border-slate-600">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+            <p className="text-sm text-slate-600">
               Zeige {displayedProjects.length} von {localProjects.length} Projekten
             </p>
             <div className="flex items-center gap-2">
-              <label htmlFor="displayLimit" className="text-sm text-slate-600 dark:text-slate-400">
+              <label htmlFor="displayLimit" className="text-sm text-slate-600">
                 Anzeigen:
               </label>
               <select
@@ -359,8 +359,8 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
                   // Auswahl zurücksetzen bei Limit-Änderung
                   setSelectedProjects(new Set());
                 }}
-                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 
-                           bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                className="px-3 py-1.5 rounded-xl border border-slate-300 
+                           bg-white text-slate-900
                            text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent
                            cursor-pointer"
               >

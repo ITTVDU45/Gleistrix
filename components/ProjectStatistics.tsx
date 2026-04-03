@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, R
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from './ui/select';
+import { ChevronDown, ChevronUp, Filter } from 'lucide-react';
 import MultiSelectDropdown from './ui/MultiSelectDropdown';
 
 interface ProjectStatisticsProps {
@@ -37,11 +38,11 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
       doc.setFontSize(12);
       doc.text(`Exportiert am: ${timestamp}`, 14, 30);
       
-      // Filter-Information hinzufügen
+      // Filter-Information hinzufÃƒÂ¼gen
       let filterInfo = '';
       if (filter.selectedMonth) {
         const monthNames = [
-          'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+          'Januar', 'Februar', 'MÃƒÂ¤rz', 'April', 'Mai', 'Juni',
           'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
         ];
         const [year, month] = filter.selectedMonth.split('-');
@@ -65,7 +66,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
       
       // Zusammenfassung
       doc.setFontSize(14);
-      doc.text('Übersicht', 14, 45);
+      doc.text('ÃƒÅ“bersicht', 14, 45);
       doc.setFontSize(10);
       doc.text(`Aktive Projekte: ${filteredProjects.filter(p => p.status === 'aktiv').length}`, 14, 55);
       doc.text(`Mitarbeiter: ${employees.length}`, 14, 60);
@@ -78,7 +79,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
       
       doc.text(`Gesamtarbeitsstunden: ${formatHours(totalHours)}`, 14, 65);
       
-      // Diagramme als Bilder exportieren mit Überschriften
+      // Diagramme als Bilder exportieren mit ÃƒÅ“berschriften
       const chartTitles = [
         'Projektstatus',
         'Fahrzeuge im Einsatz (aktive Projekte)',
@@ -89,14 +90,14 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
         'Top 10 Mitarbeiter'
       ];
       if (typeof document === 'undefined') {
-        console.warn('PDF-Export nur im Browser verfügbar');
+        console.warn('PDF-Export nur im Browser verfÃƒÂ¼gbar');
         return;
       }
       const charts = document.querySelectorAll('.chart-container');
       let yOffset = 70;
       charts.forEach(async (chart, idx) => {
         try {
-          // Überschrift vor jedem Diagramm
+          // ÃƒÅ“berschrift vor jedem Diagramm
           doc.setFontSize(13);
           doc.text(chartTitles[idx] || `Diagramm ${idx + 1}`, 14, yOffset);
           yOffset += 7;
@@ -147,11 +148,11 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
     const options = [];
     const currentYear = new Date().getFullYear();
     const monthNames = [
-      'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+      'Januar', 'Februar', 'MÃƒÂ¤rz', 'April', 'Mai', 'Juni',
       'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
     ];
     
-    // Generiere Optionen für aktuelle und vorherige Jahre
+    // Generiere Optionen fÃƒÂ¼r aktuelle und vorherige Jahre
     for (let year = currentYear + 1; year >= currentYear - 2; year--) {
       for (let month = 1; month <= 12; month++) {
         const monthStr = String(month).padStart(2, '0');
@@ -176,8 +177,9 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
       fahrzeug: [] as string[]
     };
   });
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
-  // Hilfsfunktionen für Filteroptionen
+  // Hilfsfunktionen fÃƒÂ¼r Filteroptionen
   const allMitarbeiter = React.useMemo(() => {
     const set = new Set<string>();
     projects.forEach(p => {
@@ -200,7 +202,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
     return true;
   }
 
-  // Hilfsfunktion: Gibt alle relevanten Tage für die aktuelle Filterung zurück
+  // Hilfsfunktion: Gibt alle relevanten Tage fÃƒÂ¼r die aktuelle Filterung zurÃƒÂ¼ck
   function getRelevanteTageFuerProjekt(p: any) {
     const tage = new Set<string>();
     // Wenn Fahrzeug-Filter aktiv: alle Tage, an denen das Fahrzeug eingesetzt wurde
@@ -288,7 +290,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
   const statusCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
     filteredProjects.forEach(p => {
-      // Prüfe, ob das Projekt im Zeitraum aktiv ist
+      // PrÃƒÂ¼fe, ob das Projekt im Zeitraum aktiv ist
       const tage = getRelevanteTageFuerProjekt(p);
       if (tage.size > 0) {
         counts[p.status] = (counts[p.status] || 0) + 1;
@@ -297,7 +299,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
     return Object.entries(counts).map(([status, count]) => ({ status, count }));
   }, [filteredProjects, filter.dateFrom, filter.dateTo, filter.mitarbeiter, filter.fahrzeug]);
 
-  // 2. ATWS Einsatz (dynamisch: alle Technik-Einträge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
+  // 2. ATWS Einsatz (dynamisch: alle Technik-EintrÃƒÂ¤ge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
   const atwStats = React.useMemo(() => {
     let anzahl = 0;
     let meter = 0;
@@ -371,14 +373,14 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
       });
       return row;
     });
-    // Farbpaletten (Counts kräftig, Meterlänge gleiche Farbtöne leichter)
+    // Farbpaletten (Counts krÃƒÂ¤ftig, MeterlÃƒÂ¤nge gleiche FarbtÃƒÂ¶ne leichter)
     const basePalette = ['#114F6B', '#2563eb', '#22c55e', '#f59e0b', '#a21caf', '#ef4444', '#06b6d4'];
     const countColors = seriesNames.map((_, idx) => basePalette[idx % basePalette.length]);
     const meterColors = seriesNames.map((_, idx) => `rgba(${parseInt(basePalette[idx % basePalette.length].slice(1,3),16)}, ${parseInt(basePalette[idx % basePalette.length].slice(3,5),16)}, ${parseInt(basePalette[idx % basePalette.length].slice(5,7),16)}, 0.6)`);
     return { data, seriesNames, countColors, meterColors };
   }, [filteredProjects, filter.dateFrom, filter.dateTo, filter.mitarbeiter, filter.fahrzeug]);
 
-  // 3. Arbeitsstunden pro Monat (dynamisch: alle Einträge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
+  // 3. Arbeitsstunden pro Monat (dynamisch: alle EintrÃƒÂ¤ge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
   const monthlyHours = React.useMemo(() => {
     const map: Record<string, number> = {};
     filteredProjects.forEach(p => {
@@ -394,7 +396,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
     return Object.entries(map).map(([month, stunden]) => ({ month, stunden }));
   }, [filteredProjects, filter.dateFrom, filter.dateTo, filter.mitarbeiter, filter.fahrzeug]);
 
-  // 4. Top 10 Mitarbeiter (dynamisch: alle Einträge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
+  // 4. Top 10 Mitarbeiter (dynamisch: alle EintrÃƒÂ¤ge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
   const topMitarbeiter = React.useMemo(() => {
     const map: Record<string, number> = {};
     filteredProjects.forEach(p => {
@@ -412,10 +414,10 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
       .slice(0, 10);
   }, [filteredProjects, filter.dateFrom, filter.dateTo, filter.mitarbeiter, filter.fahrzeug]);
 
-  // Kontextbezogene Dropdown-Optionen für Mitarbeiter und Fahrzeuge
+  // Kontextbezogene Dropdown-Optionen fÃƒÂ¼r Mitarbeiter und Fahrzeuge
   const filteredMitarbeiter = React.useMemo(() => {
     if (filter.fahrzeug.length === 0) return allMitarbeiter;
-    // Nur Mitarbeiter, die an Tagen mit dem gewählten Fahrzeug im Projekt eingetragen sind
+    // Nur Mitarbeiter, die an Tagen mit dem gewÃƒÂ¤hlten Fahrzeug im Projekt eingetragen sind
     const set = new Set<string>();
     projects.forEach(p => {
       Object.entries(p.fahrzeuge || {}).forEach(([day, arr]: any) => {
@@ -433,7 +435,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
 
   const filteredFahrzeuge = React.useMemo(() => {
     if (filter.mitarbeiter.length === 0) return allFahrzeuge;
-    // Nur Fahrzeuge, die an Tagen mit dem gewählten Mitarbeiter im Projekt eingesetzt wurden
+    // Nur Fahrzeuge, die an Tagen mit dem gewÃƒÂ¤hlten Mitarbeiter im Projekt eingesetzt wurden
     const set = new Set<string>();
     projects.forEach(p => {
       Object.entries(p.mitarbeiterZeiten || {}).forEach(([day, entries]: any) => {
@@ -449,7 +451,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
     return Array.from(set);
   }, [projects, filter.mitarbeiter, filter.dateFrom, filter.dateTo, allFahrzeuge]);
 
-  // 5. KFZ-Einsatz (nur das ausgewählte Fahrzeug, falls Filter aktiv)
+  // 5. KFZ-Einsatz (nur das ausgewÃƒÂ¤hlte Fahrzeug, falls Filter aktiv)
   const kfzStats = React.useMemo(() => {
     const map: Record<string, { fahrzeug: string, projekte: Set<string>, count: number }> = {};
     filteredProjects.forEach(p => {
@@ -458,7 +460,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
         if (!tage.has(day)) return;
         (arr || []).forEach((v: any) => {
           const key = v.type + ' ' + v.licensePlate;
-          // Wenn Fahrzeug-Filter aktiv, nur das gewählte Fahrzeug zählen
+          // Wenn Fahrzeug-Filter aktiv, nur das gewÃƒÂ¤hlte Fahrzeug zÃƒÂ¤hlen
           if (filter.fahrzeug.length === 0 || filter.fahrzeug.includes(key)) {
             if (!map[key]) map[key] = { fahrzeug: key, projekte: new Set(), count: 0 };
             map[key].count += 1;
@@ -467,7 +469,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
         });
       });
     });
-    // Wenn Fahrzeug-Filter aktiv, nur die gefilterten Fahrzeuge zurückgeben
+    // Wenn Fahrzeug-Filter aktiv, nur die gefilterten Fahrzeuge zurÃƒÂ¼ckgeben
     if (filter.fahrzeug.length > 0) {
       return filter.fahrzeug.map(fz => map[fz]).filter(Boolean).sort((a, b) => b.count - a.count);
     }
@@ -478,7 +480,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
     })).sort((a, b) => b.count - a.count);
   }, [filteredProjects, filter.dateFrom, filter.dateTo, filter.mitarbeiter, filter.fahrzeug]);
 
-  // 6. Mitarbeiter unter 140 Stunden (dynamisch: alle Einträge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
+  // 6. Mitarbeiter unter 140 Stunden (dynamisch: alle EintrÃƒÂ¤ge an Tagen, an denen das Fahrzeug oder der Mitarbeiter eingesetzt ist)
   const mitarbeiterUnter140 = React.useMemo(() => {
     const map: Record<string, number> = {};
     const now = new Date();
@@ -505,92 +507,111 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Projektstatistiken</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Detaillierte Übersicht und Analysen</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Detaillierte ÃƒÅ“bersicht und Analysen</p>
           </div>
           <Button onClick={handleExportStatisticsPDF} className="rounded-lg bg-orange-600 hover:bg-orange-700 text-white">
             PDF Export
           </Button>
-        </div>
-        {/* Filterleiste */}
-        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mt-6 mb-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-            {/* Monatsauswahl */}
-            <div>
-              <label className="block text-xs font-semibold mb-1">Monat</label>
-              <Select 
-                value={filter.selectedMonth} 
-                onValueChange={(value) => {
-                  const dateRange = getMonthDateRange(value);
-                  setFilter(f => ({ 
-                    ...f, 
-                    selectedMonth: value,
-                    dateFrom: dateRange.dateFrom,
-                    dateTo: dateRange.dateTo
-                  }));
-                }}
-              >
-                <SelectTrigger className="rounded-xl h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {getMonthOptions().map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        </div>        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mt-6 mb-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Filter</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Monat, Zeitraum, Mitarbeiter, Fahrzeuge und ATWS-Einsatz</p>
+              </div>
             </div>
-            
-            {/* Manuelle Zeitraumauswahl (optional) */}
-            <div>
-              <label className="block text-xs font-semibold mb-1">Zeitraum von</label>
-              <Input 
-                type="date" 
-                value={filter.dateFrom} 
-                onChange={e => setFilter(f => ({ ...f, dateFrom: e.target.value }))} 
-                className="rounded-xl h-10" 
-                placeholder="Optional"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1">bis</label>
-              <Input 
-                type="date" 
-                value={filter.dateTo} 
-                onChange={e => setFilter(f => ({ ...f, dateTo: e.target.value }))} 
-                className="rounded-xl h-10" 
-                placeholder="Optional"
-              />
-            </div>
-            
-            <div className="flex items-center gap-2 mt-6">
-              <Checkbox id="atwsOnly" checked={filter.atwsOnly} onCheckedChange={checked => setFilter(f => ({ ...f, atwsOnly: !!checked }))} />
-              <label htmlFor="atwsOnly" className="text-xs font-semibold">nur mit ATWS-Einsatz</label>
-            </div>
-            
-            {/* Multi-Select Mitarbeiter als Dropdown */}
-            <MultiSelectDropdown
-              label="Mitarbeiter"
-              options={filteredMitarbeiter}
-              selected={filter.mitarbeiter}
-              onChange={values => setFilter(f => ({ ...f, mitarbeiter: values }))}
-              placeholder="Mitarbeiter wählen"
-              renderTagsBelow
-            />
-            {/* Multi-Select Fahrzeug als Dropdown */}
-            <MultiSelectDropdown
-              label="Fahrzeug"
-              options={filteredFahrzeuge}
-              selected={filter.fahrzeug}
-              onChange={values => setFilter(f => ({ ...f, fahrzeug: values }))}
-              placeholder="Fahrzeuge wählen"
-              renderTagsBelow
-            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFilterCollapsed((prev) => !prev)}
+              aria-expanded={!isFilterCollapsed}
+              aria-controls="dashboard-project-statistics-filters"
+              className="rounded-xl border-slate-200"
+            >
+              {isFilterCollapsed ? 'Filter anzeigen' : 'Filter einklappen'}
+              {isFilterCollapsed ? <ChevronDown className="ml-2 h-4 w-4" /> : <ChevronUp className="ml-2 h-4 w-4" />}
+            </Button>
           </div>
-          <div className="flex justify-end mt-4">
-            <Button variant="outline" onClick={resetFilter} className="rounded-xl border-slate-200">Filter zurücksetzen</Button>
-          </div>
+          {!isFilterCollapsed && (
+            <div id="dashboard-project-statistics-filters" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Monat</label>
+                  <Select 
+                    value={filter.selectedMonth} 
+                    onValueChange={(value) => {
+                      const dateRange = getMonthDateRange(value);
+                      setFilter(f => ({ 
+                        ...f, 
+                        selectedMonth: value,
+                        dateFrom: dateRange.dateFrom,
+                        dateTo: dateRange.dateTo
+                      }));
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getMonthOptions().map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Zeitraum von</label>
+                  <Input 
+                    type="date" 
+                    value={filter.dateFrom} 
+                    onChange={e => setFilter(f => ({ ...f, dateFrom: e.target.value }))} 
+                    className="rounded-xl h-10" 
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1">bis</label>
+                  <Input 
+                    type="date" 
+                    value={filter.dateTo} 
+                    onChange={e => setFilter(f => ({ ...f, dateTo: e.target.value }))} 
+                    className="rounded-xl h-10" 
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 mt-6">
+                  <Checkbox id="atwsOnly" checked={filter.atwsOnly} onCheckedChange={checked => setFilter(f => ({ ...f, atwsOnly: !!checked }))} />
+                  <label htmlFor="atwsOnly" className="text-xs font-semibold">nur mit ATWS-Einsatz</label>
+                </div>
+
+                <MultiSelectDropdown
+                  label="Mitarbeiter"
+                  options={filteredMitarbeiter}
+                  selected={filter.mitarbeiter}
+                  onChange={values => setFilter(f => ({ ...f, mitarbeiter: values }))}
+                  placeholder="Mitarbeiter waehlen"
+                  renderTagsBelow
+                />
+                <MultiSelectDropdown
+                  label="Fahrzeug"
+                  options={filteredFahrzeuge}
+                  selected={filter.fahrzeug}
+                  onChange={values => setFilter(f => ({ ...f, fahrzeug: values }))}
+                  placeholder="Fahrzeuge waehlen"
+                  renderTagsBelow
+                />
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button variant="outline" onClick={resetFilter} className="rounded-xl border-slate-200">Filter zuruecksetzen</Button>
+              </div>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -636,7 +657,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
                     const key = props?.dataKey as string | undefined;
                     const isCount = !!key && key.endsWith('__count');
                     const base = key ? key.replace(/__count$|__meter$/,'') : _name;
-                    return [isCount ? value : `${value} m`, isCount ? `${base} (Anzahl)` : `${base} (Meterlänge)`];
+                    return [isCount ? value : `${value} m`, isCount ? `${base} (Anzahl)` : `${base} (MeterlÃƒÂ¤nge)`];
                   }}
                   labelFormatter={(label: any) => `Monat: ${String(label).slice(5,7)}/${String(label).slice(0,4)}`}
                 />
@@ -705,8 +726,8 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis type="number" tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
                 <YAxis dataKey="fahrzeug" type="category" width={180} tick={{ fill: '#64748b' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
-                <Tooltip contentStyle={{ borderRadius: 12 }} formatter={(v: any) => [v, 'Einsätze']} />
-                <Bar dataKey="count" fill="url(#barTealKfzDash)" name="Einsätze" radius={[8,8,8,8]}>
+                <Tooltip contentStyle={{ borderRadius: 12 }} formatter={(v: any) => [v, 'EinsÃƒÂ¤tze']} />
+                <Bar dataKey="count" fill="url(#barTealKfzDash)" name="EinsÃƒÂ¤tze" radius={[8,8,8,8]}>
                   <LabelList dataKey="count" position="right" fill="#334155" />
                 </Bar>
               </BarChart>
@@ -725,7 +746,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
               </thead>
               <tbody>
                 {mitarbeiterUnter140.length === 0 && (
-                  <tr><td colSpan={2} className="text-center text-slate-400 py-2">Alle Mitarbeiter über 140h</td></tr>
+                  <tr><td colSpan={2} className="text-center text-slate-400 py-2">Alle Mitarbeiter ÃƒÂ¼ber 140h</td></tr>
                 )}
                 {mitarbeiterUnter140.map(m => (
                   <tr key={m.name}>

@@ -59,6 +59,18 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
     return Number.isFinite(n) ? n : 0
   }
 
+  const getEntryMultiplier = (entry: any): number => {
+    if (!entry?.isExternal) return 1
+    const count = typeof entry.externalCount === 'number' ? entry.externalCount : parseFloat(String(entry.externalCount || 1))
+    return Number.isFinite(count) && count > 0 ? count : 1
+  }
+
+  const getEntryDisplayName = (entry: any): string => {
+    const base = String(entry.externalCompanyName || entry.name || entry.mitarbeiter || '-')
+    const multiplier = getEntryMultiplier(entry)
+    return entry?.isExternal ? `${base} (x${multiplier})` : base
+  }
+
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportPDF = async () => {
@@ -108,20 +120,20 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       const totalHours = timeEntries.reduce((sum, rawEntry) => {
         const entry: any = rawEntry as any;
         const st = typeof entry.stunden === 'number' ? entry.stunden : parseFloat(String(entry.stunden || 0)) || 0;
-        return sum + st;
+        return sum + st * getEntryMultiplier(entry);
       }, 0);
       doc.text(`Gesamtstunden: ${formatHours(totalHours)}`, 14, summaryTitleY + 15);
       
       const totalTravelHours = timeEntries.reduce((sum, rawEntry) => {
         const entry: any = rawEntry as any;
         const f = typeof entry.fahrtstunden === 'number' ? entry.fahrtstunden : parseFloat(String(entry.fahrtstunden || 0)) || 0;
-        return sum + f;
+        return sum + f * getEntryMultiplier(entry);
       }, 0);
       doc.text(`Fahrtstunden: ${totalTravelHours.toFixed(1)}h`, 14, summaryTitleY + 20);
       
       const totalNightHours = timeEntries.reduce((sum, rawEntry) => {
         const entry: any = rawEntry as any;
-        return sum + parseNumber(entry.nachtzulage);
+        return sum + parseNumber(entry.nachtzulage) * getEntryMultiplier(entry);
       }, 0);
       doc.text(`Nachtstunden: ${totalNightHours.toFixed(1)}h`, 14, summaryTitleY + 25);
       
@@ -148,13 +160,14 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
           neueSumme: sum + (Number.isFinite(sonntagNum) ? sonntagNum : 0)
         });
         
-        return sum + (Number.isFinite(sonntagNum) ? sonntagNum : 0);
+        const multiplier = getEntryMultiplier(entry);
+        return sum + (Number.isFinite(sonntagNum) ? sonntagNum * multiplier : 0);
       }, 0);
       doc.text(`Sonntagsstunden: ${totalSundayHours.toFixed(1)}h`, 14, summaryTitleY + 30);
       
       const totalHolidayHours = timeEntries.reduce((sum, rawEntry) => {
         const entry: any = rawEntry as any;
-        return sum + parseNumber(entry.feiertag);
+        return sum + parseNumber(entry.feiertag) * getEntryMultiplier(entry);
       }, 0);
       doc.text(`Feiertagsstunden: ${totalHolidayHours.toFixed(1)}h`, 14, summaryTitleY + 35);
       
@@ -162,15 +175,16 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       const totalExtraHours = timeEntries.reduce((sum, rawEntry) => {
         const entry: any = rawEntry as any;
         const extraVal = entry.extra;
+        const multiplier = getEntryMultiplier(entry);
         // Versuche, numerische Werte zu extrahieren (z.B. "2.5" oder "2,5")
         if (typeof extraVal === 'number') {
-          return sum + extraVal;
+          return sum + (extraVal * multiplier);
         } else if (typeof extraVal === 'string') {
           const numMatch = extraVal.match(/[\d,.]+/);
           if (numMatch) {
             const num = parseFloat(numMatch[0].replace(',', '.'));
             if (Number.isFinite(num)) {
-              return sum + num;
+              return sum + (num * multiplier);
             }
           }
         }
@@ -193,21 +207,35 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
         const date = entry.date ? new Date(entry.date).toLocaleDateString('de-DE') : '-'
         const projekt = entry.projectName || entry.project || '-'
         const ort = entry.ort || entry.location || '-' 
-        const name = entry.name || entry.mitarbeiter || '-'
+        const name = getEntryDisplayName(entry)
         const funktion = entry.funktion || entry.role || entry.position || '-'
         const start = entry.start || entry.beginn || '-'
         const ende = entry.ende || entry.end || '-'
         const zeit = (start && ende && start !== '-' && ende !== '-') ? formatZeit(start, ende) : start || ende || '-'
-        const gesamt = typeof entry.stunden === 'number' ? formatHours(entry.stunden) : (entry.stunden ? String(entry.stunden) : '-')
+        const multiplier = getEntryMultiplier(entry)
+        const stundenNum = typeof entry.stunden === 'number' ? entry.stunden : parseNumber(entry.stunden)
+        const gesamt = Number.isFinite(stundenNum) ? formatHours(stundenNum * multiplier) : (entry.stunden ? String(entry.stunden) : '-')
         const pauseNum = typeof entry.pause === 'number' ? entry.pause : parseNumber(entry.pause)
         const pause = Number.isFinite(pauseNum) && pauseNum > 0 ? `${formatHoursDot(pauseNum)}h` : '-'
-        const nacht = entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ? `${formatHoursDot(parseNumber(entry.nachtzulage))}h` : '-'
+        const nacht = entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ? `${formatHoursDot(parseNumber(entry.nachtzulage) * multiplier)}h` : '-'
         const sonntagVal = entry.sonntagsstunden ?? entry.sonntag
-        const sonntag = sonntagVal !== undefined && sonntagVal !== null && sonntagVal !== '' ? `${formatHoursDot(parseNumber(sonntagVal)) }h` : '-'
-        const feiertag = entry.feiertag !== undefined && entry.feiertag !== null && entry.feiertag !== '' ? `${formatHoursDot(parseNumber(entry.feiertag))}h` : '-'
+        const sonntag = sonntagVal !== undefined && sonntagVal !== null && sonntagVal !== '' ? `${formatHoursDot(parseNumber(sonntagVal) * multiplier) }h` : '-'
+        const feiertag = entry.feiertag !== undefined && entry.feiertag !== null && entry.feiertag !== '' ? `${formatHoursDot(parseNumber(entry.feiertag) * multiplier)}h` : '-'
         const fahrtNum = entry.fahrtstunden ?? entry.fahrt
-        const fahrt = fahrtNum !== undefined && fahrtNum !== null && fahrtNum !== '' ? `${formatHoursDot(parseNumber(fahrtNum))}h` : '-'
-        const extra = entry.extra || '-'
+        const fahrt = fahrtNum !== undefined && fahrtNum !== null && fahrtNum !== '' ? `${formatHoursDot(parseNumber(fahrtNum) * multiplier)}h` : '-'
+        const extraRaw = entry.extra
+        let extra = extraRaw || '-'
+        if (typeof extraRaw === 'number') {
+          extra = `${formatHoursDot(extraRaw * multiplier)}h`
+        } else if (typeof extraRaw === 'string') {
+          const numMatch = extraRaw.match(/[\d,.]+/)
+          if (numMatch) {
+            const num = parseFloat(numMatch[0].replace(',', '.'))
+            if (Number.isFinite(num)) {
+              extra = `${formatHoursDot(num * multiplier)}h`
+            }
+          }
+        }
         const status = entry.status || entry.projectStatus || '-'
         return [date, projekt, ort, name, funktion, zeit, gesamt, pause, nacht, sonntag, feiertag, fahrt, extra, status]
       })

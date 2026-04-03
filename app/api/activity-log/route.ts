@@ -1,143 +1,105 @@
-import { NextRequest, NextResponse } from 'next/server';
-export const runtime = 'nodejs'
-import dbConnect from '../../../lib/dbConnect';
-import ActivityLog from '../../../lib/models/ActivityLog';
-import mongoose from 'mongoose';
-import { getToken } from 'next-auth/jwt';
+﻿import { NextRequest, NextResponse } from "next/server"
+export const runtime = "nodejs"
+import dbConnect from "../../../lib/dbConnect"
+import ActivityLog from "../../../lib/models/ActivityLog"
+import mongoose from "mongoose"
+import { requireAdminUser } from "../../../lib/auth/requireAdminUser"
 
 export async function GET(req: NextRequest) {
   try {
-    await dbConnect();
-    
-    // NextAuth Token lesen
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    if (!token) {
-      return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
-    }
-    const db = mongoose.connection.db;
-    if (!db) {
-      return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
-    }
-    const usersCollection = db.collection('users');
-    const currentUserId = token.id as string | undefined;
-    if (!currentUserId) {
-      return NextResponse.json({ error: "Ungültiges Token" }, { status: 401 });
-    }
-    let objectId;
-    try {
-      objectId = new mongoose.Types.ObjectId(String(currentUserId));
-    } catch (e) {
-      return NextResponse.json({ error: "Ungültige Benutzer-ID" }, { status: 401 });
-    }
-    const currentUser = await usersCollection.findOne({ _id: objectId });
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'superadmin')) {
-      return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
+    const adminAuth = await requireAdminUser(req)
+    if (!adminAuth.ok) {
+      return NextResponse.json({ error: adminAuth.error }, { status: adminAuth.status })
     }
 
-    // Query-Parameter auslesen
-    const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const module = searchParams.get('module');
-    const actionType = searchParams.get('actionType');
-    const userId = searchParams.get('userId');
-    const dateFrom = searchParams.get('dateFrom');
-    const dateTo = searchParams.get('dateTo');
-    const search = searchParams.get('search');
+    await dbConnect()
 
-    // Filter-Objekt erstellen
-    const filter: any = {};
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get("page") || "1")
+    const limit = parseInt(searchParams.get("limit") || "20")
+    const module = searchParams.get("module")
+    const actionType = searchParams.get("actionType")
+    const userId = searchParams.get("userId")
+    const dateFrom = searchParams.get("dateFrom")
+    const dateTo = searchParams.get("dateTo")
+    const search = searchParams.get("search")
+
+    const filter: any = {}
 
     if (module) {
-      // Unterstütze mehrere Module (komma-getrennt)
-      const modules = module.split(',');
-      if (modules.length > 1) {
-        filter.module = { $in: modules };
-      } else {
-        filter.module = module;
-      }
+      const modules = module.split(",")
+      filter.module = modules.length > 1 ? { $in: modules } : module
     }
 
     if (actionType) {
-      // Unterstütze mehrere ActionTypes (komma-getrennt)
-      const actionTypes = actionType.split(',');
-      if (actionTypes.length > 1) {
-        filter.actionType = { $in: actionTypes };
-      } else {
-        filter.actionType = actionType;
-      }
+      const actionTypes = actionType.split(",")
+      filter.actionType = actionTypes.length > 1 ? { $in: actionTypes } : actionType
     }
 
     if (userId) {
       try {
-        filter['performedBy.userId'] = new mongoose.Types.ObjectId(String(userId));
-      } catch (e) {
-        return NextResponse.json({ error: 'Ungültige Benutzer-ID' }, { status: 400 });
+        filter["performedBy.userId"] = new mongoose.Types.ObjectId(String(userId))
+      } catch {
+        return NextResponse.json({ error: "Ungueltige Benutzer-ID" }, { status: 400 })
       }
     }
 
     if (dateFrom || dateTo) {
-      // Robuste Datum-Parsing: unterstützt yyyy-MM-dd und dd.MM.yyyy
-      const parseDate = (s: string, endOfDay = false) => {
-        let d = new Date(s);
-        if (Number.isNaN(d.getTime())) {
-          const ddmmyyyy = s.match(/^([0-3]?\d)\.([01]?\d)\.(\d{4})$/);
-          if (ddmmyyyy) {
-            const day = parseInt(ddmmyyyy[1], 10);
-            const month = parseInt(ddmmyyyy[2], 10) - 1;
-            const year = parseInt(ddmmyyyy[3], 10);
-            d = new Date(year, month, day);
+      const parseDate = (value: string, endOfDay = false) => {
+        let date = new Date(value)
+        if (Number.isNaN(date.getTime())) {
+          const match = value.match(/^([0-3]?\d)\.([01]?\d)\.(\d{4})$/)
+          if (match) {
+            const day = parseInt(match[1], 10)
+            const month = parseInt(match[2], 10) - 1
+            const year = parseInt(match[3], 10)
+            date = new Date(year, month, day)
           }
         }
-        if (!Number.isNaN(d.getTime())) {
-          if (endOfDay) d.setHours(23, 59, 59, 999);
-          else d.setHours(0, 0, 0, 0);
-          return d;
-        }
-        return null as any;
-      };
-      const tsFilter: any = {};
+        if (Number.isNaN(date.getTime())) return null
+        if (endOfDay) date.setHours(23, 59, 59, 999)
+        else date.setHours(0, 0, 0, 0)
+        return date
+      }
+
+      const tsFilter: any = {}
       if (dateFrom) {
-        const d = parseDate(dateFrom, false);
-        if (d) tsFilter.$gte = d;
+        const parsed = parseDate(dateFrom, false)
+        if (parsed) tsFilter.$gte = parsed
       }
       if (dateTo) {
-        const d = parseDate(dateTo, true);
-        if (d) tsFilter.$lte = d;
+        const parsed = parseDate(dateTo, true)
+        if (parsed) tsFilter.$lte = parsed
       }
       if (Object.keys(tsFilter).length > 0) {
-        filter.timestamp = tsFilter;
+        filter.timestamp = tsFilter
       }
     }
 
     if (search) {
       filter.$or = [
-        { 'performedBy.name': { $regex: search, $options: 'i' } },
-        { 'details.description': { $regex: search, $options: 'i' } }
-      ];
+        { "performedBy.name": { $regex: search, $options: "i" } },
+        { "details.description": { $regex: search, $options: "i" } },
+      ]
     }
 
-    // Pagination
-    const skip = (page - 1) * limit;
+    const skip = (page - 1) * limit
 
-    // Activity Logs abrufen (ohne populate, um fehlendes User-Model zu vermeiden)
     const logs = await ActivityLog.find(filter)
       .sort({ timestamp: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
 
-    // Gesamtanzahl für Pagination
-    const total = await ActivityLog.countDocuments(filter);
+    const total = await ActivityLog.countDocuments(filter)
 
-    // Daten formatieren
     const formattedLogs = logs.map((log: any) => {
-      let userIdStr: string | null = null;
-      const raw = (log as any).performedBy?.userId;
-      if (typeof raw === 'string') userIdStr = raw;
-      else if (raw && typeof raw.toString === 'function') userIdStr = raw.toString();
-      else if (raw && raw._id && typeof raw._id.toString === 'function') userIdStr = raw._id.toString();
+      let userIdStr: string | null = null
+      const raw = log?.performedBy?.userId
+      if (typeof raw === "string") userIdStr = raw
+      else if (raw && typeof raw.toString === "function") userIdStr = raw.toString()
+      else if (raw && raw._id && typeof raw._id.toString === "function") userIdStr = raw._id.toString()
 
-      return ({
+      return {
         id: log._id,
         timestamp: log.timestamp,
         actionType: log.actionType,
@@ -145,11 +107,11 @@ export async function GET(req: NextRequest) {
         performedBy: {
           userId: userIdStr,
           name: log.performedBy.name,
-          role: log.performedBy.role
+          role: log.performedBy.role,
         },
-        details: log.details
-      });
-    });
+        details: log.details,
+      }
+    })
 
     return NextResponse.json({
       success: true,
@@ -158,14 +120,11 @@ export async function GET(req: NextRequest) {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-
+        pages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
-    console.error('Error fetching activity logs:', error);
-    return NextResponse.json({ 
-      error: "Fehler beim Laden der Aktivitäts-Logs" 
-    }, { status: 500 });
+    console.error("Error fetching activity logs:", error)
+    return NextResponse.json({ error: "Fehler beim Laden der Activity Logs" }, { status: 500 })
   }
-} 
+}

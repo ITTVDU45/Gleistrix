@@ -223,22 +223,24 @@ export async function PUT(request: Request) {
 
           // Mitarbeiter-Einsaetze synchronisieren (parallel, blockiert nicht)
           // Jeder Zeiteintrag wird auch beim Mitarbeiter gespeichert
-          const employeeSyncPromises = logEntries.map(({day, entry}) => 
-            Employee.updateOne(
-              { name: entry.name },
-              { $push: { 
-                einsaetze: {
-                  projektId: id,
-                  datum: day,
-                  stunden: entry.stunden || 0,
-                  fahrtstunden: entry.fahrtstunden || 0,
-                  funktion: entry.funktion || '',
-                  entryId: entry.id || ''
-                }
-              }}
-            ).catch((err) => {
-              console.warn(`Mitarbeiter-Sync fehlgeschlagen für ${entry.name}:`, err.message);
-            })
+          const employeeSyncPromises = logEntries
+            .filter(({ entry }) => !entry?.isExternal)
+            .map(({day, entry}) => 
+              Employee.updateOne(
+                { name: entry.name },
+                { $push: { 
+                  einsaetze: {
+                    projektId: id,
+                    datum: day,
+                    stunden: entry.stunden || 0,
+                    fahrtstunden: entry.fahrtstunden || 0,
+                    funktion: entry.funktion || '',
+                    entryId: entry.id || ''
+                  }
+                }}
+              ).catch((err) => {
+                console.warn(`Mitarbeiter-Sync fehlgeschlagen für ${entry.name}:`, err.message);
+              })
           );
           // Parallel ausführen, aber nicht auf Ergebnis warten
           Promise.all(employeeSyncPromises).catch(() => {});
@@ -299,17 +301,19 @@ export async function PUT(request: Request) {
             (project as any).mitarbeiterZeiten[date] = arr;
             
             // Mitarbeiter-Einsatz synchronisieren
-            try {
-              await Employee.updateOne(
-                { name: enrichedEntry.name, 'einsaetze.entryId': enrichedEntry.id },
-                { $set: { 
-                  'einsaetze.$.stunden': enrichedEntry.stunden || 0,
-                  'einsaetze.$.fahrtstunden': enrichedEntry.fahrtstunden || 0,
-                  'einsaetze.$.funktion': enrichedEntry.funktion || ''
-                }}
-              );
-            } catch (syncErr) {
-              console.warn('Mitarbeiter-Sync bei edit fehlgeschlagen:', syncErr);
+            if (!enrichedEntry?.isExternal) {
+              try {
+                await Employee.updateOne(
+                  { name: enrichedEntry.name, 'einsaetze.entryId': enrichedEntry.id },
+                  { $set: { 
+                    'einsaetze.$.stunden': enrichedEntry.stunden || 0,
+                    'einsaetze.$.fahrtstunden': enrichedEntry.fahrtstunden || 0,
+                    'einsaetze.$.funktion': enrichedEntry.funktion || ''
+                  }}
+                );
+              } catch (syncErr) {
+                console.warn('Mitarbeiter-Sync bei edit fehlgeschlagen:', syncErr);
+              }
             }
             
             try {
@@ -350,7 +354,7 @@ export async function PUT(request: Request) {
           }
           
           // Mitarbeiter-Einsatz entfernen
-          if (removed) {
+          if (removed && !removed?.isExternal) {
             try {
               await Employee.updateOne(
                 { name: removed.name },
@@ -979,3 +983,4 @@ export async function DELETE(request: Request) {
     );
   }
 } 
+

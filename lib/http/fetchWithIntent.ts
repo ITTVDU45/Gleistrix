@@ -5,6 +5,7 @@ export type IntentKey =
   | 'project-vehicle:assign' | 'project-vehicle:update' | 'project-vehicle:unassign'
   | 'vehicles:create' | 'vehicles:update' | 'vehicles:delete'
   | 'employees:create' | 'employees:update' | 'employees:delete'
+  | 'subcompanies:create' | 'subcompanies:update' | 'subcompanies:delete'
   | 'activity:create' | 'activity:pdf-export'
   | 'users:update-role' | 'users:update' | 'auth:update-profile'
   | 'invite:create-user' | 'invite:create-admin' | 'invite:delete-all' | 'invite:activate-user'

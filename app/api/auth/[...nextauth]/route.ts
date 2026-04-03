@@ -4,6 +4,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import dbConnect from "../../../../lib/dbConnect";
 import { compare } from "bcryptjs";
 import mongoose from "mongoose";
+import {
+  ENV_SUPERADMIN_JWT_ID,
+  envSuperadminDisplayName,
+  matchEnvSuperadminCredentials,
+} from "../../../../lib/auth/envSuperadmin";
 
 const authOptions: AuthOptions = {
   providers: [
@@ -19,6 +24,22 @@ const authOptions: AuthOptions = {
         }
 
         try {
+          const envSuperEmail = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase() ?? "";
+          const envSuperPassSet = Boolean(process.env.SUPERADMIN_PASSWORD);
+          if (envSuperEmail && envSuperPassSet && credentials.email.trim().toLowerCase() === envSuperEmail) {
+            if (!matchEnvSuperadminCredentials(credentials.email, credentials.password)) {
+              throw new Error("E-Mail oder Passwort ist falsch");
+            }
+            console.log("=== LOGIN: ENV SUPERADMIN ===");
+            return {
+              id: ENV_SUPERADMIN_JWT_ID,
+              email: credentials.email.trim(),
+              name: envSuperadminDisplayName(),
+              role: "superadmin",
+              modules: [],
+            };
+          }
+
           await dbConnect();
           console.log(`Suche Benutzer mit E-Mail: ${credentials.email}`);
           
@@ -90,6 +111,8 @@ const authOptions: AuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.modules = user.modules ?? [];
+        token.email = user.email;
+        token.name = user.name;
       }
       return token;
     },
@@ -98,6 +121,8 @@ const authOptions: AuthOptions = {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.modules = token.modules ?? [];
+        if (token.email) session.user.email = token.email as string;
+        if (token.name) session.user.name = token.name as string;
       }
       return session;
     }

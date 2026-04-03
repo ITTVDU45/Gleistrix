@@ -1,62 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'nodejs'
-import dbConnect from '../../../../lib/dbConnect';
-import Lock from '../../../../lib/models/Lock';
-import User from '../../../../lib/models/User';
-import { getToken } from 'next-auth/jwt';
-import mongoose from 'mongoose';
+import dbConnect from '../../../../lib/dbConnect'
+import Lock from '../../../../lib/models/Lock'
+import { resolveLockUser } from '../../../../lib/auth/resolveLockUser'
 
 export async function POST(req: NextRequest) {
   try {
-    await dbConnect();
-    
-    // NextAuth Token aus Request lesen
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    
-    if (!token) {
-      console.log("Kein gültiges NextAuth-Token gefunden");
-      return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+    await dbConnect()
+
+    const resolvedUser = await resolveLockUser(req)
+    if (!resolvedUser.ok) {
+      return NextResponse.json({ error: resolvedUser.error }, { status: resolvedUser.status })
     }
-    
-    const userId = token.id;
-    if (!userId) {
-      console.log("Keine Benutzer-ID im Token");
-      return NextResponse.json({ error: "Ungültiges Token" }, { status: 401 });
-    }
-    
-    // Benutzer direkt aus der Collection abrufen
-   const db = mongoose.connection.db;
-   if (!db) {
-     return NextResponse.json({ error: 'Datenbankverbindung nicht verfügbar' }, { status: 500 });
-   }
-   const usersCollection = db.collection('users');
-    const objectId = new mongoose.Types.ObjectId(String(userId));
-    const currentUser = await usersCollection.findOne({ _id: objectId });
-    
-    if (!currentUser) {
-      console.log("Benutzer nicht gefunden mit ID:", userId);
-      return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 404 });
-    }
-    
-    const body = await req.json();
-    const { resourceType, resourceId } = body;
-    
+
+    const body = await req.json()
+    const { resourceType, resourceId } = body
+
     if (!resourceType || !resourceId) {
-      return NextResponse.json({ error: "Ressourcentyp und Ressourcen-ID erforderlich" }, { status: 400 });
+      return NextResponse.json({ error: 'Ressourcentyp und Ressourcen-ID erforderlich' }, { status: 400 })
     }
-    
-    const updated = await Lock.updateActivity(String(resourceType), String(resourceId), String(userId));
-    
+
+    const updated = await Lock.updateActivity(
+      String(resourceType),
+      String(resourceId),
+      String(resolvedUser.effectiveUserId)
+    )
+
     return NextResponse.json({
       success: true,
       updated,
-      message: updated ? "Aktivität aktualisiert" : "Keine Sperre zum Aktualisieren gefunden"
-    });
-    
+      message: updated ? 'Aktivitaet aktualisiert' : 'Keine Sperre zum Aktualisieren gefunden',
+    })
   } catch (error: any) {
-    console.error('Fehler beim Aktualisieren der Aktivität:', error);
-    return NextResponse.json({
-      error: "Fehler beim Aktualisieren der Aktivität"
-    }, { status: 500 });
+    console.error('Fehler beim Aktualisieren der Aktivitaet:', error)
+    return NextResponse.json({ error: 'Fehler beim Aktualisieren der Aktivitaet' }, { status: 500 })
   }
-} 
+}

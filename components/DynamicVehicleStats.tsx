@@ -1,82 +1,87 @@
 'use client';
 import React from 'react';
-import { Building2, Clock, CheckCircle, User } from 'lucide-react';
+import { Truck, CircleCheckBig, Briefcase, Wrench } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
-import type { Project } from '../types';
-
-interface DynamicProjectStatsProps {
-  projects: Project[];
-}
+import type { Vehicle, Project } from '../types';
+import { getVehicleStatus } from '../lib/utils/vehicleStatus';
 
 type StatCard = {
   label: string
   value: string | number
-  icon: typeof Building2
+  icon: typeof Truck
   tone: string
   iconShell: string
   accent: string
 }
 
-export default function DynamicProjectStats({ projects }: DynamicProjectStatsProps) {
-  const statsData = React.useMemo(() => {
-    const totalProjects = projects.length;
-    const activeProjects = projects.filter(project => project.status === 'aktiv').length;
-    const completedProjects = projects.filter(project =>
-      ['abgeschlossen', 'fertiggestellt', 'geleistet'].includes(project.status)
-    ).length;
-    const totalHours = projects.reduce((sum, project) => {
-      return sum + Object.values(project.mitarbeiterZeiten || {}).reduce((projectSum, entries) => {
-        return projectSum + entries.reduce((entrySum, entry) => entrySum + entry.stunden, 0);
-      }, 0);
-    }, 0);
+interface DynamicVehicleStatsProps {
+  vehicles: Vehicle[];
+  projects: Project[];
+}
+
+export default function DynamicVehicleStats({ vehicles, projects }: DynamicVehicleStatsProps) {
+  const stats = React.useMemo(() => {
+    let inUse = 0;
+    let unavailable = 0;
+
+    vehicles.forEach((vehicle) => {
+      const statusInfo = getVehicleStatus(vehicle, projects);
+      if (statusInfo.status === 'im_einsatz') {
+        inUse += 1;
+        return;
+      }
+      if (statusInfo.status === 'wartung' || String(statusInfo.status).includes('nicht')) {
+        unavailable += 1;
+      }
+    });
 
     return {
-      totalProjects,
-      activeProjects,
-      completedProjects,
-      totalHours
+      total: vehicles.length,
+      available: Math.max(vehicles.length - inUse - unavailable, 0),
+      inUse,
+      unavailable,
     };
-  }, [projects]);
+  }, [vehicles, projects]);
 
   const statCards: StatCard[] = [
     {
       label: 'Gesamt',
-      value: statsData.totalProjects,
-      icon: Building2,
+      value: stats.total,
+      icon: Truck,
       tone: 'text-blue-600',
       iconShell: 'bg-blue-50 ring-blue-100',
       accent: 'from-blue-500 via-sky-400 to-cyan-300',
     },
     {
-      label: 'Aktiv',
-      value: statsData.activeProjects,
-      icon: Clock,
+      label: 'Verfuegbar',
+      value: stats.available,
+      icon: CircleCheckBig,
       tone: 'text-emerald-600',
       iconShell: 'bg-emerald-50 ring-emerald-100',
       accent: 'from-emerald-500 via-lime-400 to-green-300',
     },
     {
-      label: 'Abgeschlossen',
-      value: statsData.completedProjects,
-      icon: CheckCircle,
+      label: 'Im Einsatz',
+      value: stats.inUse,
+      icon: Briefcase,
       tone: 'text-fuchsia-600',
       iconShell: 'bg-fuchsia-50 ring-fuchsia-100',
       accent: 'from-fuchsia-500 via-violet-400 to-purple-300',
     },
     {
-      label: 'Gesamtstunden',
-      value: `${statsData.totalHours.toFixed(1)}h`,
-      icon: User,
+      label: 'Nicht verfuegbar',
+      value: stats.unavailable,
+      icon: Wrench,
       tone: 'text-amber-600',
       iconShell: 'bg-amber-50 ring-amber-100',
       accent: 'from-amber-500 via-orange-400 to-yellow-300',
     },
-  ]
+  ];
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       {statCards.map((card) => {
-        const Icon = card.icon
+        const Icon = card.icon;
         return (
           <Card
             key={card.label}
@@ -95,7 +100,7 @@ export default function DynamicProjectStats({ projects }: DynamicProjectStatsPro
               <div className={`mt-5 h-1.5 rounded-full bg-gradient-to-r ${card.accent}`} />
             </CardContent>
           </Card>
-        )
+        );
       })}
     </div>
   );

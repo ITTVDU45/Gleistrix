@@ -1,110 +1,125 @@
 'use client';
 import React from 'react';
-import { FileText, Clock, User, Building2 } from 'lucide-react';
+import { FileText, Clock, Car, Building2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
-import type { TimeEntry } from '../types';
 
 interface DynamicTimeTrackingStatsProps {
-  timeEntries: any[]; // Verwende any[] statt TimeEntry[] für flexiblere Feldstrukturen
+  timeEntries: any[];
+}
+
+type StatCard = {
+  label: string
+  value: string | number
+  icon: typeof FileText
+  tone: string
+  iconShell: string
+  accent: string
 }
 
 export default function DynamicTimeTrackingStats({ timeEntries }: DynamicTimeTrackingStatsProps) {
-  // Hilfsfunktion zur Formatierung von Stunden in HH:MM Format
   const formatHours = (hours: number): string => {
     const wholeHours = Math.floor(hours);
     const minutes = Math.round((hours - wholeHours) * 60);
     return `${wholeHours}:${minutes.toString().padStart(2, '0')}`;
   };
 
-  // Dynamische Berechnungen basierend auf gefilterten Zeiteinträgen
   const statsData = React.useMemo(() => {
-    // Gesamteinträge
     const totalEntries = timeEntries.length;
-
-    // Arbeitsstunden
     const totalWorkHours = timeEntries.reduce((sum, entry) => {
       const stunden = typeof entry.stunden === 'number' ? entry.stunden : parseFloat(String(entry.stunden || 0)) || 0;
-      return sum + stunden;
+      const multiplier = entry?.isExternal
+        ? (() => {
+            const count = typeof entry.externalCount === 'number' ? entry.externalCount : parseFloat(String(entry.externalCount || 1));
+            return Number.isFinite(count) && count > 0 ? count : 1;
+          })()
+        : 1;
+      return sum + stunden * multiplier;
     }, 0);
-
-    // Fahrtstunden
     const totalTravelHours = timeEntries.reduce((sum, entry) => {
-      const fahrtstunden = typeof entry.fahrtstunden === 'number' ? entry.fahrtstunden : 
-        parseFloat(String(entry.fahrtstunden || (entry as any).fahrt || 0)) || 0;
-      return sum + fahrtstunden;
+      const fahrtstunden = typeof entry.fahrtstunden === 'number'
+        ? entry.fahrtstunden
+        : parseFloat(String(entry.fahrtstunden || entry.fahrt || 0)) || 0;
+      const multiplier = entry?.isExternal
+        ? (() => {
+            const count = typeof entry.externalCount === 'number' ? entry.externalCount : parseFloat(String(entry.externalCount || 1));
+            return Number.isFinite(count) && count > 0 ? count : 1;
+          })()
+        : 1;
+      return sum + fahrtstunden * multiplier;
     }, 0);
-
-    // Eindeutige Projekte (fallback, wenn projectName fehlt)
-    const uniqueProjects = new Set((timeEntries as any[]).map((entry) => (entry as any).projectName || '')).size;
+    const uniqueProjects = new Set(
+      timeEntries
+        .map((entry) => String(entry.projectName || '').trim())
+        .filter(Boolean)
+    ).size;
 
     return {
       totalEntries,
       totalWorkHours,
       totalTravelHours,
-      uniqueProjects
+      uniqueProjects,
     };
   }, [timeEntries]);
 
+  const statCards: StatCard[] = [
+    {
+      label: 'Eintraege',
+      value: statsData.totalEntries,
+      icon: FileText,
+      tone: 'text-blue-600',
+      iconShell: 'bg-blue-50 ring-blue-100',
+      accent: 'from-blue-500 via-sky-400 to-cyan-300',
+    },
+    {
+      label: 'Arbeitsstunden',
+      value: formatHours(statsData.totalWorkHours),
+      icon: Clock,
+      tone: 'text-emerald-600',
+      iconShell: 'bg-emerald-50 ring-emerald-100',
+      accent: 'from-emerald-500 via-lime-400 to-green-300',
+    },
+    {
+      label: 'Fahrtstunden',
+      value: formatHours(statsData.totalTravelHours),
+      icon: Car,
+      tone: 'text-fuchsia-600',
+      iconShell: 'bg-fuchsia-50 ring-fuchsia-100',
+      accent: 'from-fuchsia-500 via-violet-400 to-purple-300',
+    },
+    {
+      label: 'Projekte',
+      value: statsData.uniqueProjects,
+      icon: Building2,
+      tone: 'text-amber-600',
+      iconShell: 'bg-amber-50 ring-amber-100',
+      accent: 'from-amber-500 via-orange-400 to-yellow-300',
+    },
+  ];
+
   return (
-    <>
-      {/* Statistik-Karten */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
-        <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Einträge</p>
-                <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{statsData.totalEntries}</p>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {statCards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <Card
+            key={card.label}
+            className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/70 ring-1 ring-white"
+          >
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${card.tone}`}>{card.label}</p>
+                  <p className="mt-3 text-3xl font-semibold text-slate-900">{card.value}</p>
+                </div>
+                <div className={`rounded-2xl p-3 ring-1 ${card.iconShell}`}>
+                  <Icon className={`h-5 w-5 ${card.tone}`} />
+                </div>
               </div>
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-                <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-600 dark:text-green-400">Arbeitsstunden</p>
-                <p className="text-2xl font-bold text-green-900 dark:text-green-100">{formatHours(statsData.totalWorkHours)}</p>
-              </div>
-              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-xl">
-                <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Fahrtstunden</p>
-                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{formatHours(statsData.totalTravelHours)}</p>
-              </div>
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
-                <User className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Projekte</p>
-                <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">{statsData.uniqueProjects}</p>
-              </div>
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
-                <Building2 className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </>
+              <div className={`mt-5 h-1.5 rounded-full bg-gradient-to-r ${card.accent}`} />
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
-} 
+}

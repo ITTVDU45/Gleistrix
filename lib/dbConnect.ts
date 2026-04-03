@@ -38,17 +38,18 @@ async function dbConnect(): Promise<typeof mongoose> {
   if (!cached.promise) {
     const mongoUri = getMongoUri()
     console.log('Verbindung zur MongoDB herstellen...')
-    console.log('URI:', mongoUri.substring(0, 20) + '...')
 
-    // Serverless-optimierte MongoDB-Optionen
-    // maxPoolSize: 5 verhindert Connection-Limit bei M0 Atlas Cluster
+    // Halte den Pool fuer M0 bewusst klein, damit mehrere Serverless-Instanzen
+    // das Cluster nicht gemeinsam an die Verbindungsgrenze fahren.
     const options: mongoose.ConnectOptions = {
       bufferCommands: false,
       dbName: 'MHZeiterfassung',
-      maxPoolSize: 5,                    // M0-Cluster kompatibel
+      maxPoolSize: 1,
       minPoolSize: 0,                    // Keine Idle-Connections in Serverless
+      maxIdleTimeMS: 10000,              // Idle-Connections schnell abbauen
       serverSelectionTimeoutMS: 5000,    // Schnelleres Timeout bei Problemen
       socketTimeoutMS: 45000,            // Socket-Timeout
+      waitQueueTimeoutMS: 10000,         // Requests nicht endlos auf freie Sockets warten lassen
     }
 
     // Retry logic for transient DNS/timeout errors (e.g. querySrv ETIMEOUT)

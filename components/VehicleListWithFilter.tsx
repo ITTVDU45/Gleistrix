@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import type { Vehicle, Project } from '../types';
+import DynamicVehicleStats from './DynamicVehicleStats';
 import VehicleFilterSection from './VehicleFilterSection';
 import VehicleTableClient from './VehicleTableClient';
 
@@ -12,7 +13,6 @@ interface VehicleListWithFilterProps {
 export default function VehicleListWithFilter({ vehicles, projects }: VehicleListWithFilterProps) {
   const [filteredVehicles, setFilteredVehicles] = React.useState<Vehicle[]>(vehicles);
 
-  // Aktualisiere gefilterte Fahrzeuge wenn sich vehicles ändert
   React.useEffect(() => {
     setFilteredVehicles(vehicles);
   }, [vehicles]);
@@ -23,18 +23,18 @@ export default function VehicleListWithFilter({ vehicles, projects }: VehicleLis
 
   return (
     <div className="space-y-6">
-      {/* Filter-Sektion */}
-      <VehicleFilterSection 
-        vehicles={vehicles} 
+      <DynamicVehicleStats vehicles={filteredVehicles} projects={projects} />
+
+      <VehicleFilterSection
+        vehicles={vehicles}
         onFilterChange={handleFilterChange}
       />
-      
-      {/* Fahrzeug-Tabelle */}
-      <VehicleTableClient 
-        vehicles={filteredVehicles} 
-        projects={projects} 
+
+      <VehicleTableClient
+        vehicles={filteredVehicles}
+        projects={projects}
         allVehicles={vehicles}
       />
     </div>
   );
-} 
+}

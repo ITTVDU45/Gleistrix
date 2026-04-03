@@ -7,15 +7,14 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { 
-  Activity, 
-  Search, 
-  Filter, 
-  Download, 
-  ChevronLeft, 
+import {
+  Activity,
+  Search,
+  Filter,
+  Download,
+  ChevronLeft,
   ChevronRight,
   AlertCircle,
-  Calendar,
   User,
   Settings,
   Car,
@@ -23,12 +22,10 @@ import {
   FileText,
   Clock,
   ChevronDown,
-  X,
   Check
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import MultiSelectDropdown from './ui/MultiSelectDropdown';
 
 interface ActivityLog {
   id: string;
@@ -67,51 +64,40 @@ const MODULE_OPTIONS = [
 ];
 
 const ACTION_TYPE_OPTIONS = [
-  // Projekt Aktionen
   { value: 'project_created', label: 'Projekt erstellt' },
   { value: 'project_updated', label: 'Projekt bearbeitet' },
-  { value: 'project_deleted', label: 'Projekt gelöscht' },
-  { value: 'project_status_changed', label: 'Projektstatus geändert' },
+  { value: 'project_deleted', label: 'Projekt geloescht' },
+  { value: 'project_status_changed', label: 'Projektstatus geaendert' },
   { value: 'project_billed', label: 'Projekt abgerechnet' },
   { value: 'billing_partial', label: 'Teilweise abgerechnet' },
   { value: 'billing_full', label: 'Komplett abgerechnet' },
-  { value: 'project_technology_added', label: 'Technik hinzugefügt' },
-  { value: 'project_time_entry_added', label: 'Zeiteintrag hinzugefügt' },
+  { value: 'project_technology_added', label: 'Technik hinzugefuegt' },
+  { value: 'project_time_entry_added', label: 'Zeiteintrag hinzugefuegt' },
   { value: 'project_vehicle_assigned', label: 'Fahrzeug zugewiesen' },
   { value: 'project_export_pdf', label: 'Projekt PDF Export' },
   { value: 'project_export_csv', label: 'Projekt CSV Export' },
-  
-  // Mitarbeiter Aktionen
   { value: 'employee_created', label: 'Mitarbeiter angelegt' },
   { value: 'employee_updated', label: 'Mitarbeiter bearbeitet' },
-  { value: 'employee_deleted', label: 'Mitarbeiter gelöscht' },
-  { value: 'employee_status_changed', label: 'Status geändert' },
-  { value: 'employee_vacation_added', label: 'Urlaub hinzugefügt' },
-  { value: 'employee_vacation_deleted', label: 'Urlaub gelöscht' },
+  { value: 'employee_deleted', label: 'Mitarbeiter geloescht' },
+  { value: 'employee_status_changed', label: 'Status geaendert' },
+  { value: 'employee_vacation_added', label: 'Urlaub hinzugefuegt' },
+  { value: 'employee_vacation_deleted', label: 'Urlaub geloescht' },
   { value: 'employee_export_pdf', label: 'Mitarbeiter PDF Export' },
-  
-  // Fahrzeug Aktionen
-  { value: 'vehicle_created', label: 'Fahrzeug hinzugefügt' },
+  { value: 'vehicle_created', label: 'Fahrzeug hinzugefuegt' },
   { value: 'vehicle_updated', label: 'Fahrzeug bearbeitet' },
-  { value: 'vehicle_deleted', label: 'Fahrzeug gelöscht' },
+  { value: 'vehicle_deleted', label: 'Fahrzeug geloescht' },
   { value: 'vehicle_export_pdf', label: 'Fahrzeug PDF Export' },
-  
-  // Zeiterfassung Aktionen
   { value: 'time_tracking_export_pdf', label: 'Zeiterfassung PDF Export' },
   { value: 'time_tracking_export_csv', label: 'Zeiterfassung CSV Export' },
-  
-  // Einstellungen Aktionen
-  { value: 'settings_updated', label: 'Einstellungen geändert' },
+  { value: 'settings_updated', label: 'Einstellungen geaendert' },
   { value: 'user_created', label: 'Benutzer angelegt' },
   { value: 'user_invited', label: 'Benutzer eingeladen' },
-  { value: 'user_status_changed', label: 'Benutzerstatus geändert' },
-  { value: 'user_role_changed', label: 'Benutzerrolle geändert' },
-  { value: 'user_deleted', label: 'Benutzer gelöscht' },
-  
-  // System Aktionen
+  { value: 'user_status_changed', label: 'Benutzerstatus geaendert' },
+  { value: 'user_role_changed', label: 'Benutzerrolle geaendert' },
+  { value: 'user_deleted', label: 'Benutzer geloescht' },
   { value: 'login', label: 'Anmeldung' },
   { value: 'logout', label: 'Abmeldung' },
-  { value: 'password_changed', label: 'Passwort geändert' },
+  { value: 'password_changed', label: 'Passwort geaendert' },
   { value: 'profile_updated', label: 'Profil aktualisiert' }
 ];
 
@@ -125,8 +111,8 @@ export default function ActivityLogTable() {
     total: 0,
     pages: 0
   });
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
-  // Filter State
   const [filters, setFilters] = useState({
     search: '',
     modules: [] as string[],
@@ -135,7 +121,9 @@ export default function ActivityLogTable() {
     dateTo: ''
   });
 
-  // Lade Activity Logs
+  const [isModuleOpen, setIsModuleOpen] = useState(false);
+  const [isActionTypeOpen, setIsActionTypeOpen] = useState(false);
+
   const fetchLogs = async () => {
     try {
       setLoading(true);
@@ -146,28 +134,14 @@ export default function ActivityLogTable() {
         limit: pagination.limit.toString()
       });
 
-      if (filters.search) {
-        params.append('search', filters.search);
-      }
-
-      if (filters.modules.length > 0) {
-        params.append('module', filters.modules.join(','));
-      }
-
-      if (filters.actionTypes.length > 0) {
-        params.append('actionType', filters.actionTypes.join(','));
-      }
-
-      if (filters.dateFrom) {
-        params.append('dateFrom', filters.dateFrom);
-      }
-
-      if (filters.dateTo) {
-        params.append('dateTo', filters.dateTo);
-      }
+      if (filters.search) params.append('search', filters.search);
+      if (filters.modules.length > 0) params.append('module', filters.modules.join(','));
+      if (filters.actionTypes.length > 0) params.append('actionType', filters.actionTypes.join(','));
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+      if (filters.dateTo) params.append('dateTo', filters.dateTo);
 
       const data = await ActivityLogApi.list(params)
-      
+
       if (data.success) {
         setLogs(data.logs);
         setPagination(data.pagination);
@@ -181,29 +155,25 @@ export default function ActivityLogTable() {
     }
   };
 
-  // Lade Logs beim ersten Laden und bei Filter-Änderungen
   useEffect(() => {
     fetchLogs();
   }, [pagination.page, filters]);
 
-  // Filter-Handler
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, page: 1 })); // Zurück zur ersten Seite
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
-  // Pagination-Handler
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
   };
 
-  // CSV Export
   const handleExportCSV = () => {
     if (typeof document === 'undefined' || !document.body) {
       console.warn('CSV Export abgebrochen: Dokument noch nicht bereit');
       return;
     }
-    const headers = ['Datum', 'Modul', 'Aktion', 'Ausgeführt von', 'Details'];
+    const headers = ['Datum', 'Modul', 'Aktion', 'Ausgefuehrt von', 'Details'];
     const csvContent = [
       headers.join(','),
       ...logs.map(log => [
@@ -222,7 +192,6 @@ export default function ActivityLogTable() {
     link.click();
   };
 
-  // Hilfsfunktion: Modul-Icon
   const getModuleIcon = (module: string) => {
     switch (module) {
       case 'project': return <FileText className="h-4 w-4" />;
@@ -236,7 +205,6 @@ export default function ActivityLogTable() {
     }
   };
 
-  // Hilfsfunktion: Modul-Badge-Farbe
   const getModuleBadgeColor = (module: string) => {
     switch (module) {
       case 'project': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
@@ -250,34 +218,27 @@ export default function ActivityLogTable() {
     }
   };
 
-  // Hilfsfunktion: Label für Modul finden
   const getModuleLabel = (value: string) => {
     const option = MODULE_OPTIONS.find(opt => opt.value === value);
     return option ? option.label : value;
   };
 
-  // Hilfsfunktion: Label für ActionType finden
   const getActionTypeLabel = (value: string) => {
     const option = ACTION_TYPE_OPTIONS.find(opt => opt.value === value);
     return option ? option.label : value;
   };
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [isModuleOpen, setIsModuleOpen] = useState(false);
-  const [isActionTypeOpen, setIsActionTypeOpen] = useState(false);
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
             <Activity className="h-6 w-6 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Aktivitäts-Log</h2>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Aktivitaets-Log</h2>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Alle Aktivitäten im System nachverfolgen
+              Alle Aktivitaeten im System nachverfolgen
             </p>
           </div>
         </div>
@@ -291,183 +252,196 @@ export default function ActivityLogTable() {
         </Button>
       </div>
 
-      {/* Filter */}
       <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <Filter className="h-5 w-5 text-slate-600" />
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Filter</h3>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Filter className="h-5 w-5 text-slate-600" />
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Filter</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Suche, Module, Aktionstypen und Zeitraum</p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFilterCollapsed((prev) => !prev)}
+              aria-expanded={!isFilterCollapsed}
+              aria-controls="activity-log-filters"
+              className="shrink-0"
+            >
+              {isFilterCollapsed ? 'Filter anzeigen' : 'Filter einklappen'}
+              <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${isFilterCollapsed ? "" : "rotate-180"}`} />
+            </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {/* Suchfeld */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Suche
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+        {!isFilterCollapsed && (
+          <CardContent id="activity-log-filters">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Suche
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Suchen..."
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Modul
+                </label>
+                <div className="relative">
+                  <div
+                    className="w-full border border-slate-200 dark:border-slate-600 rounded-xl h-10 min-h-[40px] bg-white dark:bg-slate-800 flex items-center justify-between px-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
+                    onClick={() => setIsModuleOpen(!isModuleOpen)}
+                  >
+                    <div className="flex flex-wrap gap-1 flex-1">
+                      {filters.modules.length === 0 ? (
+                        <span className="text-slate-500">Module waehlen</span>
+                      ) : (
+                        <span className="text-slate-700 dark:text-slate-300 text-sm">{filters.modules.length} ausgewaehlt</span>
+                      )}
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isModuleOpen ? 'rotate-180' : ''}`} />
+                  </div>
+
+                  {isModuleOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div className="p-2">
+                        {filters.modules.length > 0 && (
+                          <div className="mb-2">
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('modules', [])}
+                              className="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded-md hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30"
+                            >
+                              Alle entfernen
+                            </button>
+                          </div>
+                        )}
+
+                        {MODULE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between ${
+                              filters.modules.includes(option.value) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : ''
+                            }`}
+                            onClick={() => {
+                              if (filters.modules.includes(option.value)) {
+                                handleFilterChange('modules', filters.modules.filter(item => item !== option.value));
+                              } else {
+                                handleFilterChange('modules', [...filters.modules, option.value]);
+                              }
+                            }}
+                          >
+                            <span className="truncate">{option.label}</span>
+                            {filters.modules.includes(option.value) && (
+                              <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Aktionstyp
+                </label>
+                <div className="relative">
+                  <div
+                    className="w-full border border-slate-200 dark:border-slate-600 rounded-xl h-10 min-h-[40px] bg-white dark:bg-slate-800 flex items-center justify-between px-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
+                    onClick={() => setIsActionTypeOpen(!isActionTypeOpen)}
+                  >
+                    <div className="flex flex-wrap gap-1 flex-1">
+                      {filters.actionTypes.length === 0 ? (
+                        <span className="text-slate-500">Aktionen waehlen</span>
+                      ) : (
+                        <span className="text-slate-700 dark:text-slate-300 text-sm">{filters.actionTypes.length} ausgewaehlt</span>
+                      )}
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isActionTypeOpen ? 'rotate-180' : ''}`} />
+                  </div>
+
+                  {isActionTypeOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div className="p-2">
+                        {filters.actionTypes.length > 0 && (
+                          <div className="mb-2">
+                            <button
+                              type="button"
+                              onClick={() => handleFilterChange('actionTypes', [])}
+                              className="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded-md hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30"
+                            >
+                              Alle entfernen
+                            </button>
+                          </div>
+                        )}
+
+                        {ACTION_TYPE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between ${
+                              filters.actionTypes.includes(option.value) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : ''
+                            }`}
+                            onClick={() => {
+                              if (filters.actionTypes.includes(option.value)) {
+                                handleFilterChange('actionTypes', filters.actionTypes.filter(item => item !== option.value));
+                              } else {
+                                handleFilterChange('actionTypes', [...filters.actionTypes, option.value]);
+                              }
+                            }}
+                          >
+                            <span className="truncate">{option.label}</span>
+                            {filters.actionTypes.includes(option.value) && (
+                              <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Datum von
+                </label>
                 <Input
-                  placeholder="Suchen..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="pl-10"
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Datum bis
+                </label>
+                <Input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => handleFilterChange('dateTo', e.target.value)}
                 />
               </div>
             </div>
-
-            {/* Modul-Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Modul
-              </label>
-              <div className="relative">
-                <div
-                  className="w-full border border-slate-200 dark:border-slate-600 rounded-xl h-10 min-h-[40px] bg-white dark:bg-slate-800 flex items-center justify-between px-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
-                  onClick={() => setIsModuleOpen(!isModuleOpen)}
-                >
-                  <div className="flex flex-wrap gap-1 flex-1">
-                    {filters.modules.length === 0 ? (
-                      <span className="text-slate-500">Module wählen</span>
-                    ) : (
-                      <span className="text-slate-700 dark:text-slate-300 text-sm">{filters.modules.length} ausgewählt</span>
-                    )}
-                  </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isModuleOpen ? 'rotate-180' : ''}`} />
-                </div>
-
-                {isModuleOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    <div className="p-2">
-                      {filters.modules.length > 0 && (
-                        <div className="mb-2">
-                          <button
-                            type="button"
-                            onClick={() => handleFilterChange('modules', [])}
-                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 px-2 py-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30"
-                          >
-                            Alle entfernen
-                          </button>
-                        </div>
-                      )}
-                      
-                      {MODULE_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between ${
-                            filters.modules.includes(option.value) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : ''
-                          }`}
-                          onClick={() => {
-                            if (filters.modules.includes(option.value)) {
-                              handleFilterChange('modules', filters.modules.filter(item => item !== option.value));
-                            } else {
-                              handleFilterChange('modules', [...filters.modules, option.value]);
-                            }
-                          }}
-                        >
-                          <span className="truncate">{option.label}</span>
-                          {filters.modules.includes(option.value) && (
-                            <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Aktionstyp-Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Aktionstyp
-              </label>
-              <div className="relative">
-                <div
-                  className="w-full border border-slate-200 dark:border-slate-600 rounded-xl h-10 min-h-[40px] bg-white dark:bg-slate-800 flex items-center justify-between px-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
-                  onClick={() => setIsActionTypeOpen(!isActionTypeOpen)}
-                >
-                  <div className="flex flex-wrap gap-1 flex-1">
-                    {filters.actionTypes.length === 0 ? (
-                      <span className="text-slate-500">Aktionen wählen</span>
-                    ) : (
-                      <span className="text-slate-700 dark:text-slate-300 text-sm">{filters.actionTypes.length} ausgewählt</span>
-                    )}
-                  </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isActionTypeOpen ? 'rotate-180' : ''}`} />
-                </div>
-
-                {isActionTypeOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    <div className="p-2">
-                      {filters.actionTypes.length > 0 && (
-                        <div className="mb-2">
-                          <button
-                            type="button"
-                            onClick={() => handleFilterChange('actionTypes', [])}
-                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 px-2 py-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30"
-                          >
-                            Alle entfernen
-                          </button>
-                        </div>
-                      )}
-                      
-                      {ACTION_TYPE_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between ${
-                            filters.actionTypes.includes(option.value) ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : ''
-                          }`}
-                          onClick={() => {
-                            if (filters.actionTypes.includes(option.value)) {
-                              handleFilterChange('actionTypes', filters.actionTypes.filter(item => item !== option.value));
-                            } else {
-                              handleFilterChange('actionTypes', [...filters.actionTypes, option.value]);
-                            }
-                          }}
-                        >
-                          <span className="truncate">{option.label}</span>
-                          {filters.actionTypes.includes(option.value) && (
-                            <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Datum-Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Datum von
-              </label>
-              <Input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Datum bis
-              </label>
-              <Input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-              />
-            </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
-      {/* Fehlermeldung */}
       {error && (
         <Alert variant="destructive" className="rounded-xl">
           <AlertCircle className="h-4 w-4" />
@@ -475,7 +449,6 @@ export default function ActivityLogTable() {
         </Alert>
       )}
 
-      {/* Tabelle */}
       <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
         <CardContent className="p-0">
           {loading ? (
@@ -485,7 +458,7 @@ export default function ActivityLogTable() {
           ) : logs.length === 0 ? (
             <div className="text-center py-12">
               <Activity className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-              <p className="text-slate-600 dark:text-slate-400">Keine Aktivitäten gefunden</p>
+              <p className="text-slate-600 dark:text-slate-400">Keine Aktivitaeten gefunden</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -495,7 +468,7 @@ export default function ActivityLogTable() {
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Datum/Uhrzeit</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Modul</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Aktion</TableHead>
-                    <TableHead className="font-medium text-slate-700 dark:text-slate-300">Ausgeführt von</TableHead>
+                    <TableHead className="font-medium text-slate-700 dark:text-slate-300">Ausgefuehrt von</TableHead>
                     <TableHead className="font-medium text-slate-700 dark:text-slate-300">Details</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -552,11 +525,10 @@ export default function ActivityLogTable() {
         </CardContent>
       </Card>
 
-      {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-slate-600 dark:text-slate-400">
-            Zeige {((pagination.page - 1) * pagination.limit) + 1} bis {Math.min(pagination.page * pagination.limit, pagination.total)} von {pagination.total} Einträgen
+            Zeige {((pagination.page - 1) * pagination.limit) + 1} bis {Math.min(pagination.page * pagination.limit, pagination.total)} von {pagination.total} Eintraegen
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -566,7 +538,7 @@ export default function ActivityLogTable() {
               disabled={pagination.page <= 1}
             >
               <ChevronLeft className="h-4 w-4" />
-              Zurück
+              Zurueck
             </Button>
             <span className="text-sm text-slate-600 dark:text-slate-400">
               Seite {pagination.page} von {pagination.pages}
@@ -585,4 +557,4 @@ export default function ActivityLogTable() {
       )}
     </div>
   );
-} 
+}

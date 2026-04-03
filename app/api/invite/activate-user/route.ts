@@ -2,42 +2,21 @@ import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import InviteToken from "../../../../lib/models/InviteToken"
 import User from "../../../../lib/models/User"
-import { getToken } from "next-auth/jwt"
-import mongoose from "mongoose"
 import { hash } from "bcryptjs"
 import { z } from "zod"
+import { requireAdminUser } from "../../../../lib/auth/requireAdminUser"
 
-/**
- * Admin aktiviert eine ausstehende Einladung: erstellt den User mit dem angegebenen
- * Passwort und markiert den InviteToken als verwendet.
- */
 export async function POST(req: NextRequest) {
   try {
-    await dbConnect()
+    const adminAuth = await requireAdminUser(req)
+    if (!adminAuth.ok) {
+      return NextResponse.json(
+        { error: adminAuth.status === 403 ? "Nur Admins können Einladungen aktivieren" : adminAuth.error },
+        { status: adminAuth.status }
+      )
+    }
 
-    const sessionToken = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-    if (!sessionToken) {
-      return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 })
-    }
-    const db = mongoose.connection?.db
-    if (!db) {
-      return NextResponse.json({ error: "DB nicht verbunden" }, { status: 500 })
-    }
-    const usersCollection = db.collection("users")
-    const currentUserId = sessionToken.id as string | undefined
-    if (!currentUserId) {
-      return NextResponse.json({ error: "Ungültiges Token" }, { status: 401 })
-    }
-    let objectId: mongoose.Types.ObjectId
-    try {
-      objectId = new mongoose.Types.ObjectId(String(currentUserId))
-    } catch {
-      return NextResponse.json({ error: "Ungültige Benutzer-ID" }, { status: 401 })
-    }
-    const currentUser = await usersCollection.findOne({ _id: objectId })
-    if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "superadmin")) {
-      return NextResponse.json({ error: "Nur Admins können Einladungen aktivieren" }, { status: 403 })
-    }
+    await dbConnect()
 
     const csrf = req.headers.get("x-csrf-intent")
     if (process.env.NODE_ENV === "production" && csrf !== "invite:activate-user") {
@@ -53,6 +32,7 @@ export async function POST(req: NextRequest) {
       const msg = parsed.error.errors.map((e) => e.message).join("; ")
       return NextResponse.json({ error: msg }, { status: 400 })
     }
+
     const { email, password } = parsed.data
 
     const inviteToken = await InviteToken.findOne({
@@ -72,15 +52,11 @@ export async function POST(req: NextRequest) {
     if (existingUser) {
       inviteToken.used = true
       await inviteToken.save()
-      return NextResponse.json(
-        { error: "Ein Benutzer mit dieser E-Mail existiert bereits." },
-        { status: 409 }
-      )
+      return NextResponse.json({ error: "Ein Benutzer mit dieser E-Mail existiert bereits." }, { status: 409 })
     }
 
     const hashedPassword = await hash(password, 12)
-    const fullName =
-      inviteToken.name || `${inviteToken.firstName || ""} ${inviteToken.lastName || ""}`.trim()
+    const fullName = inviteToken.name || `${inviteToken.firstName || ""} ${inviteToken.lastName || ""}`.trim()
 
     const newUser = new User({
       email: inviteToken.email,

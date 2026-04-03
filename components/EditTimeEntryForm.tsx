@@ -10,12 +10,15 @@ import { format, parseISO, addDays } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Checkbox } from './ui/checkbox'
 import { Label } from './ui/label'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs'
 import { useProjects } from '../hooks/useProjects'
 import { Alert } from './ui/alert'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import MultiSelectDropdown from './ui/MultiSelectDropdown'
 import { BreakSegmentEditor } from './BreakSegmentEditor'
 import { HolidaysApi } from '@/lib/api/holidays'
+import { useSubcompanies } from '../hooks/useSubcompanies'
+import { MITARBEITER_FUNKTION_OPTIONS } from '@/types/constants'
 
 // Typen für Multi-Day Edit
 export interface MultiDayEditData {
@@ -51,6 +54,11 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     return '';
   }
 
+  const { subcompanies } = useSubcompanies();
+  const [activeTab, setActiveTab] = React.useState<'internal' | 'external'>(
+    entry?.isExternal ? 'external' : 'internal'
+  );
+
   const [formData, setFormData] = React.useState({
     name: entry.name,
     funktion: entry.funktion,
@@ -63,6 +71,22 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     sonntag: entry.sonntag === 1,
     bemerkung: entry.bemerkung
   })
+  const [externalCompanyId, setExternalCompanyId] = React.useState(entry?.externalCompanyId || '')
+  const [externalCount, setExternalCount] = React.useState<number>(
+    typeof entry?.externalCount === 'number' && entry.externalCount > 0 ? entry.externalCount : 1
+  )
+
+  const selectedExternalCompany = React.useMemo(
+    () => subcompanies.find((company) => company.id === externalCompanyId),
+    [subcompanies, externalCompanyId]
+  )
+
+  React.useEffect(() => {
+    if (!externalCompanyId && entry?.externalCompanyName) {
+      const match = subcompanies.find((company) => company.name === entry.externalCompanyName)
+      if (match) setExternalCompanyId(match.id)
+    }
+  }, [externalCompanyId, entry?.externalCompanyName, subcompanies])
 
   const { projects: allProjects } = useProjects();
   const [apiError, setApiError] = React.useState<string | null>(null)
@@ -73,6 +97,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   const [breakSegments, setBreakSegments] = React.useState<BreakSegment[]>(entry.breakSegments || [])
 
   function isEmployeeAssignedElsewhere(employeeName: string, day: string, currentProjectId: string, projects: Project[], ownEntryId?: string): boolean {
+    if (activeTab === 'external') return false;
     return projects.some(p => {
       if (p.id === currentProjectId) return false;
       if (!p.mitarbeiterZeiten || !p.mitarbeiterZeiten[day]) return false;
@@ -82,6 +107,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
   // Prüfe, ob ein Mitarbeiter an einem der ausgewählten Tage bereits eingetragen ist (projektübergreifend, außer beim eigenen Eintrag)
   function isEmployeeBlockedGlobally(employee: Employee): boolean {
+    if (activeTab === 'external') return false;
     return selectedDays.some(day =>
       allProjects.some(p =>
         p.mitarbeiterZeiten?.[day]?.some((e: any) => e.name === employee.name && e.id !== entry.id)
@@ -91,6 +117,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
   // Gibt den Namen des Projekts zurück, in dem der Mitarbeiter an einem der ausgewählten Tage eingetragen ist (außer beim eigenen Eintrag)
   function getBlockingProjectName(employee: Employee): string | null {
+    if (activeTab === 'external') return null;
     for (const day of selectedDays) {
       for (const p of allProjects) {
         if (p.mitarbeiterZeiten?.[day]?.some((e: any) => e.name === employee.name && e.id !== entry.id)) {
@@ -179,10 +206,14 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   const handleSelectAllDays = (checked: boolean) => {
     setSelectAllDays(checked)
     if (checked) {
-      setSelectedDays(projectDays.filter(day => {
-        if (!formData.name) return false;
-        return !isEmployeeAssignedElsewhere(formData.name, day, project.id, allProjects, entry.id);
-      }))
+      if (activeTab === 'external') {
+        setSelectedDays(projectDays)
+      } else {
+        setSelectedDays(projectDays.filter(day => {
+          if (!formData.name) return false;
+          return !isEmployeeAssignedElsewhere(formData.name, day, project.id, allProjects, entry.id);
+        }))
+      }
     } else {
       setSelectedDays([])
     }
@@ -190,17 +221,28 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
   // Synchronisiere selectAllDays-Checkbox wenn manuell alle Tage ausgewählt werden
   React.useEffect(() => {
+    if (activeTab === 'external') {
+      setSelectAllDays(selectedDays.length === projectDays.length && projectDays.length > 0);
+      return;
+    }
     const availableDays = projectDays.filter(day => {
       if (!formData.name) return true;
       return !isEmployeeAssignedElsewhere(formData.name, day, project.id, allProjects, entry.id);
     });
     const allSelected = availableDays.length > 0 && availableDays.every(day => selectedDays.includes(day));
     setSelectAllDays(allSelected);
-  }, [selectedDays, projectDays, formData.name, project.id, allProjects, entry.id]);
+  }, [activeTab, selectedDays, projectDays, formData.name, project.id, allProjects, entry.id]);
 
   // State für Kopierfunktion
   const [copyMode, setCopyMode] = React.useState(false);
   const [selectedCopyEntry, setSelectedCopyEntry] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    if (activeTab === 'external') {
+      setCopyMode(false);
+      setSelectedCopyEntry(null);
+    }
+  }, [activeTab]);
 
   // Alle bisherigen Zeiteinträge anderer Mitarbeiter (außer aktuelle Auswahl)
   const allOtherEntries = React.useMemo(() => {
@@ -297,6 +339,16 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
   // Hilfsfunktion: Sind alle Pflichtfelder ausgefüllt?
   function isFormValid() {
+    if (activeTab === 'external') {
+      return (
+        !!selectedExternalCompany &&
+        externalCount > 0 &&
+        formData.funktion &&
+        formData.start &&
+        formData.ende &&
+        selectedDays.length > 0
+      );
+    }
     return (
       formData.name &&
       formData.funktion &&
@@ -322,12 +374,17 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   // Hilfsfunktion: Finde existierenden Eintrag des Mitarbeiters an einem Tag
   function findExistingEntryForDay(day: string): { id: string; entry: any } | null {
     const entriesForDay = project.mitarbeiterZeiten?.[day] || [];
-    const found = entriesForDay.find((e: any) => e.name === formData.name);
+    const targetName = activeTab === 'external' && selectedExternalCompany
+      ? selectedExternalCompany.name
+      : formData.name;
+    const found = entriesForDay.find((e: any) => e.name === targetName);
     return found ? { id: found.id, entry: found } : null;
   }
 
   // Erstelle einen TimeEntry für einen spezifischen Tag
   function buildEntryForDay(day: string, existingId?: string): TimeEntry {
+    const isExternalEntry = activeTab === 'external' && selectedExternalCompany;
+    const nameForId = isExternalEntry ? selectedExternalCompany!.name : formData.name;
     const startISO = `${day}T${formData.start}`;
     // Wenn die Endzeit < Startzeit ist, ist es über Mitternacht → Endtag = Folgetag
     let endDay = day;
@@ -381,8 +438,8 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     }
     
     return {
-      id: existingId || `${Date.now().toString()}-${formData.name}-${day}`,
-      name: formData.name,
+      id: existingId || `${Date.now().toString()}-${nameForId}-${day}`,
+      name: isExternalEntry ? selectedExternalCompany!.name : formData.name,
       funktion: formData.funktion,
       start: startISO,
       ende: endISO,
@@ -394,7 +451,15 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       sonntag: formData.sonntag ? 1 : 0,
       sonntagsstunden,
       bemerkung: formData.bemerkung,
-      nachtzulage: calculateNightBonus(startISO, endISO, formData.pause).toString()
+      nachtzulage: calculateNightBonus(startISO, endISO, formData.pause).toString(),
+      ...(isExternalEntry
+        ? {
+            isExternal: true,
+            externalCompanyId: selectedExternalCompany!.id,
+            externalCompanyName: selectedExternalCompany!.name,
+            externalCount
+          }
+        : {})
     } as TimeEntry;
   }
 
@@ -405,6 +470,16 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     setApiError(null);
 
     try {
+      if (activeTab === 'external') {
+        if (!selectedExternalCompany) {
+          setApiError('Bitte ein Subunternehmen auswählen.');
+          return;
+        }
+        if (!externalCount || externalCount < 1) {
+          setApiError('Bitte eine gültige Mitarbeiteranzahl angeben.');
+          return;
+        }
+      }
       const updates: Array<{ day: string; entryId: string; entry: TimeEntry }> = [];
       const newEntries: Array<{ day: string; entry: TimeEntry }> = [];
 
@@ -438,56 +513,126 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm font-semibold text-slate-700">
-            Mitarbeiter *
-          </Label>
-          <Select value={formData.name} onValueChange={(value) => setFormData(prev => ({ ...prev, name: value }))}>
-            <SelectTrigger className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12">
-              <SelectValue placeholder="Mitarbeiter wählen" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              {employees.map((employee) => {
-                const blocked = isEmployeeBlockedGlobally(employee);
-                const blockingProject = blocked ? getBlockingProjectName(employee) : null;
-                return (
-                  <SelectItem
-                    key={employee.id}
-                    value={employee.name}
-                    disabled={blocked}
-                    className={blocked ? 'opacity-50 pointer-events-none bg-slate-100' : ''}
-                  >
-                    {employee.name}
-                    {blocked && blockingProject && (
-                      <span className="ml-2 text-xs text-slate-500">(eingetragen im Projekt: {blockingProject})</span>
-                    )}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'internal' | 'external')} className="space-y-4">
+          <TabsList className="bg-slate-100 rounded-xl p-1">
+            <TabsTrigger value="internal" className="rounded-lg">Interne Mitarbeiter</TabsTrigger>
+            <TabsTrigger value="external" className="rounded-lg">Externe Mitarbeiter</TabsTrigger>
+          </TabsList>
 
-        <div className="space-y-2">
-          <Label htmlFor="funktion" className="text-sm font-semibold text-slate-700">
-            Funktion *
-          </Label>
-          <Select value={formData.funktion} onValueChange={(value) => setFormData(prev => ({ ...prev, funktion: value as MitarbeiterFunktion }))}>
-            <SelectTrigger className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12">
-              <SelectValue placeholder="Funktion wählen" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="SIPO">SIPO</SelectItem>
-              <SelectItem value="HFE">HFE</SelectItem>
-              <SelectItem value="Monteur/bediener">Monteur/bediener</SelectItem>
-              <SelectItem value="Sakra">Sakra</SelectItem>
-              <SelectItem value="BüP">BüP</SelectItem>
-              <SelectItem value="HiBa">HiBa</SelectItem>
-              <SelectItem value="SAS">SAS</SelectItem>
-              <SelectItem value="Bahnerder">Bahnerder</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <TabsContent value="internal" className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm font-semibold text-slate-700">
+                Mitarbeiter *
+              </Label>
+              <Select value={formData.name} onValueChange={(value) => setFormData(prev => ({ ...prev, name: value }))}>
+                <SelectTrigger className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12">
+                  <SelectValue placeholder="Mitarbeiter wählen" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {employees.map((employee) => {
+                    const blocked = isEmployeeBlockedGlobally(employee);
+                    const blockingProject = blocked ? getBlockingProjectName(employee) : null;
+                    return (
+                      <SelectItem
+                        key={employee.id}
+                        value={employee.name}
+                        disabled={blocked}
+                        className={blocked ? 'opacity-50 pointer-events-none bg-slate-100' : ''}
+                      >
+                        {employee.name}
+                        {blocked && blockingProject && (
+                          <span className="ml-2 text-xs text-slate-500">(eingetragen im Projekt: {blockingProject})</span>
+                        )}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="funktion" className="text-sm font-semibold text-slate-700">
+                Funktion *
+              </Label>
+              <Select value={formData.funktion} onValueChange={(value) => setFormData(prev => ({ ...prev, funktion: value as MitarbeiterFunktion }))}>
+                <SelectTrigger className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12">
+                  <SelectValue placeholder="Funktion wählen" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="SIPO">SIPO</SelectItem>
+                  <SelectItem value="HFE">HFE</SelectItem>
+                  <SelectItem value="Monteur/bediener">Monteur/bediener</SelectItem>
+                  <SelectItem value="Sakra">Sakra</SelectItem>
+                  <SelectItem value="BüP">BüP</SelectItem>
+                  <SelectItem value="HiBa">HiBa</SelectItem>
+                  <SelectItem value="SAS">SAS</SelectItem>
+                  <SelectItem value="Bahnerder">Bahnerder</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="external" className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              Externe Eintraege werden als ein Eintrag mit Anzahl gespeichert. Stunden und Summen werden mit der Anzahl multipliziert.
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-700">Subunternehmen *</Label>
+              <Select value={externalCompanyId} onValueChange={setExternalCompanyId} disabled={subcompanies.length === 0}>
+                <SelectTrigger className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12">
+                  <SelectValue placeholder={subcompanies.length === 0 ? 'Keine Subunternehmen vorhanden' : 'Subunternehmen wählen'} />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {subcompanies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {subcompanies.length === 0 && (
+                <p className="text-xs text-slate-500">Bitte zuerst ein Subunternehmen in der Mitarbeiterseite anlegen.</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-700">Mitarbeiteranzahl *</Label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                value={externalCount}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  setExternalCount(Number.isFinite(value) && value > 0 ? value : 1);
+                }}
+                className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12"
+              />
+              {selectedExternalCompany && (
+                <p className="text-xs text-slate-500">Aktuell im Subunternehmen hinterlegt: {selectedExternalCompany.employeeCount} Mitarbeiter.</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="funktion-external" className="text-sm font-semibold text-slate-700">
+                Funktion *
+              </Label>
+              <Select value={formData.funktion} onValueChange={(value) => setFormData(prev => ({ ...prev, funktion: value as MitarbeiterFunktion }))}>
+                <SelectTrigger className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12">
+                  <SelectValue placeholder="Funktion wählen" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {MITARBEITER_FUNKTION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -697,7 +842,9 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
         <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl max-h-32 overflow-y-auto">
           {projectDays.map(day => {
-            const assignedElsewhere = formData.name && isEmployeeAssignedElsewhere(formData.name, day, project.id, allProjects, entry.id);
+            const assignedElsewhere = activeTab === 'external'
+              ? false
+              : (formData.name && isEmployeeAssignedElsewhere(formData.name, day, project.id, allProjects, entry.id));
             return (
               <Button
                 key={day}
@@ -719,28 +866,32 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
             );
           })}
         </div>
-        {/* Zeiten kopieren Checkbox und Auswahl */}
-        <div className="flex items-center space-x-3 mt-2">
-          <Checkbox id="copyMode" checked={copyMode} onCheckedChange={checked => setCopyMode(!!checked)} className="rounded" />
-          <Label htmlFor="copyMode" className="text-sm font-medium text-slate-700">Zeiten kopieren</Label>
-        </div>
-        {copyMode && (
-          <div className="mt-2">
-            <Label className="text-xs text-slate-600 mb-1 block">Vorhandene Zeiteinträge auswählen:</Label>
-            <Select value={selectedCopyEntry?.id || ''} onValueChange={id => setSelectedCopyEntry(allOtherEntries.find(e => e.id === id))}>
-              <SelectTrigger className="rounded-xl border-slate-200 h-10">
-                <SelectValue placeholder="Eintrag wählen" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl max-h-60 overflow-y-auto">
-                {allOtherEntries.length === 0 && <div className="px-3 py-2 text-slate-400 text-sm">Keine Einträge vorhanden</div>}
-                {allOtherEntries.map(e => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name} | {e.funktion} | {e.day} | {e.start} - {e.ende}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {activeTab !== 'external' && (
+          <>
+            {/* Zeiten kopieren Checkbox und Auswahl */}
+            <div className="flex items-center space-x-3 mt-2">
+              <Checkbox id="copyMode" checked={copyMode} onCheckedChange={checked => setCopyMode(!!checked)} className="rounded" />
+              <Label htmlFor="copyMode" className="text-sm font-medium text-slate-700">Zeiten kopieren</Label>
+            </div>
+            {copyMode && (
+              <div className="mt-2">
+                <Label className="text-xs text-slate-600 mb-1 block">Vorhandene Zeiteinträge auswählen:</Label>
+                <Select value={selectedCopyEntry?.id || ''} onValueChange={id => setSelectedCopyEntry(allOtherEntries.find(e => e.id === id))}>
+                  <SelectTrigger className="rounded-xl border-slate-200 h-10">
+                    <SelectValue placeholder="Eintrag wählen" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl max-h-60 overflow-y-auto">
+                    {allOtherEntries.length === 0 && <div className="px-3 py-2 text-slate-400 text-sm">Keine Einträge vorhanden</div>}
+                    {allOtherEntries.map(e => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.name} | {e.funktion} | {e.day} | {e.start} - {e.ende}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </>
         )}
       </div>
 

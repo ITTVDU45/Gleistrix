@@ -72,6 +72,11 @@ export interface TimeEntryWithSunday {
   sonntagsstunden: number
   bemerkung: string
   nachtzulage: string
+  // Externe Mitarbeiter (Subunternehmen)
+  isExternal?: boolean
+  externalCompanyId?: string
+  externalCompanyName?: string
+  externalCount?: number
   // Neue Felder für automatische Pausenberechnung
   breakSegments?: BreakSegment[]
   breakTotalMinutes?: number

@@ -14,36 +14,42 @@ export default function ProjectListWithFilter({ projects }: ProjectListWithFilte
   const [filteredProjects, setFilteredProjects] = useState<Project[]>(projects);
   const [lockedProjectId, setLockedProjectId] = useState<string | null>(null);
 
-  // Aktualisiere filteredProjects wenn sich projects ändert
   React.useEffect(() => {
     setFilteredProjects(projects);
   }, [projects]);
 
-  // Callback für Filter-Änderungen
-  const handleFilterChange = useCallback((filteredProjects: Project[]) => {
-    setFilteredProjects(filteredProjects);
+  const handleFilterChange = useCallback((nextProjects: Project[]) => {
+    setFilteredProjects(nextProjects);
   }, []);
 
   return (
-    <>
-      {/* Zeige Blockierungsdialog falls wir von einer gesperrten Detailseite zurückgeleitet wurden */}
+    <div className="space-y-8 lg:space-y-10">
       <LockedProjectDialog lockedProjectId={lockedProjectId} onClose={() => setLockedProjectId(null)} />
-      {/* Dynamische Projektstatistiken */}
-      <DynamicProjectStats projects={filteredProjects} />
 
-      {/* Projektliste mit Filter */}
-      <ProjectListFilter 
-        projects={projects} 
-        onFilterChange={handleFilterChange} 
-      />
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900">Projektmonitor</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Kennzahlen, Filter und Tabelle sind klar voneinander getrennt und ruhiger gruppiert.
+          </p>
+        </div>
+        <DynamicProjectStats projects={filteredProjects} />
+      </section>
 
-      {/* Projektliste */}
-      <ProjectTableClient projects={filteredProjects} />
-    </>
+      <section className="space-y-4">
+        <ProjectListFilter
+          projects={projects}
+          onFilterChange={handleFilterChange}
+        />
+      </section>
+
+      <section className="space-y-4">
+        <ProjectTableClient projects={filteredProjects} />
+      </section>
+    </div>
   );
-} 
+}
 
-// Inline-Komponente für den Blockierungsdialog basierend auf Query-Param
 function LockedProjectDialog({ lockedProjectId, onClose }: { lockedProjectId: string | null, onClose: () => void }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lockInfo, setLockInfo] = useState<any>({ isLocked: false, isOwnLock: false });
@@ -52,7 +58,6 @@ function LockedProjectDialog({ lockedProjectId, onClose }: { lockedProjectId: st
     const params = new URLSearchParams(window.location.search);
     const locked = params.get('locked');
     if (locked) {
-      // Entferne Query Param aus der URL (clean)
       const url = new URL(window.location.href);
       url.searchParams.delete('locked');
       window.history.replaceState({}, '', url.toString());
@@ -72,7 +77,6 @@ function LockedProjectDialog({ lockedProjectId, onClose }: { lockedProjectId: st
   const dummy = { isLocked: true, isOwnLock: false, ...lockInfo };
 
   const onRetry = async () => {
-    // No-op: Nutzer kann Tabelle erneut versuchen/neu laden
     const status = await LocksApi.check('project', lockedProjectId!)
     if (!status.isLocked || status.isOwnLock) {
       setDialogOpen(false);

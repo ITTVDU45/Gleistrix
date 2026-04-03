@@ -62,6 +62,37 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     return `${wholeHours}:${minutes.toString().padStart(2, '0')}`;
   };
 
+  const getEntryMultiplier = (entry: any): number => {
+    if (!entry?.isExternal) return 1;
+    const count = typeof entry.externalCount === 'number' ? entry.externalCount : parseFloat(String(entry.externalCount || 1));
+    return Number.isFinite(count) && count > 0 ? count : 1;
+  };
+
+  const getEntryBaseName = (entry: any): string => {
+    if (entry?.isExternal) {
+      return String(entry.externalCompanyName || entry.name || '').trim();
+    }
+    return String(entry?.name || '').trim();
+  };
+
+  const getEntryDisplayName = (entry: any): string => {
+    const base = getEntryBaseName(entry) || '-';
+    const multiplier = getEntryMultiplier(entry);
+    return entry?.isExternal ? `${base} (x${multiplier})` : base;
+  };
+
+  const getExternalHeadcount = (entries: any[]): number => {
+    const byCompany = new Map<string, number>();
+    entries.forEach((entry) => {
+      if (!entry?.isExternal) return;
+      const name = getEntryBaseName(entry) || 'Extern';
+      const count = getEntryMultiplier(entry);
+      const current = byCompany.get(name) || 0;
+      if (count > current) byCompany.set(name, count);
+    });
+    return Array.from(byCompany.values()).reduce((sum, value) => sum + value, 0);
+  };
+
   const router = useRouter();
   const id = projectId || '';
   const { projects, fetchProjects } = useProjects();
@@ -1301,6 +1332,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                                endStr = entry.ende.slice(11,16);
                              }
                            }
+                           const multiplier = getEntryMultiplier(entry);
                            return (
                             <TableRow 
                               key={idx} 
@@ -1315,17 +1347,17 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                                             text-blue-600 focus:ring-blue-500 cursor-pointer"
                                />
                              </TableCell>
-                             <TableCell className="dark:text-white">{entry.name}</TableCell>
+                             <TableCell className="dark:text-white">{getEntryDisplayName(entry)}</TableCell>
                               <TableCell className="dark:text-white">{entry.funktion}</TableCell>
                               <TableCell className="dark:text-white">{startStr === '00:00' ? '00:00' : startStr}</TableCell>
                               <TableCell className="dark:text-white">{endStr === '24:00' ? '24:00' : endStr}</TableCell>
-                              <TableCell className="dark:text-white">{formatHours(entry.stunden)}</TableCell>
+                              <TableCell className="dark:text-white">{formatHours((entry.stunden || 0) * multiplier)}</TableCell>
                               <TableCell className="dark:text-white">{entry.pause}</TableCell>
-                              <TableCell className="dark:text-white">{entry.fahrtstunden || '-'}</TableCell>
-                              <TableCell className="dark:text-white">{entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ? parseFloat(entry.nachtzulage).toFixed(2) + 'h' : '-'}</TableCell>
-                              <TableCell className="dark:text-white">{entry.feiertag > 0 ? `${entry.feiertag}h` : '-'}</TableCell>
-                              <TableCell className="dark:text-white">{entry.sonntagsstunden !== undefined && entry.sonntagsstunden !== null && entry.sonntagsstunden !== 0 ? parseFloat(entry.sonntagsstunden).toFixed(2) + 'h' : '-'}</TableCell>
-                              <TableCell className="dark:text-white">{entry.extra ?? '-'}</TableCell>
+                              <TableCell className="dark:text-white">{entry.fahrtstunden ? (entry.fahrtstunden * multiplier) : '-'}</TableCell>
+                              <TableCell className="dark:text-white">{entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ? (parseFloat(entry.nachtzulage) * multiplier).toFixed(2) + 'h' : '-'}</TableCell>
+                              <TableCell className="dark:text-white">{entry.feiertag > 0 ? `${(entry.feiertag * multiplier).toFixed(2)}h` : '-'}</TableCell>
+                              <TableCell className="dark:text-white">{entry.sonntagsstunden !== undefined && entry.sonntagsstunden !== null && entry.sonntagsstunden !== 0 ? (parseFloat(entry.sonntagsstunden) * multiplier).toFixed(2) + 'h' : '-'}</TableCell>
+                              <TableCell className="dark:text-white">{typeof entry.extra === 'number' ? (entry.extra * multiplier).toFixed(2) : (entry.extra ?? '-')}</TableCell>
                               <TableCell className="dark:text-white">{entry.bemerkung}</TableCell>
                               <TableCell className="dark:text-white">
                                 <Button size="icon" variant="ghost" onClick={() => handleEditTimeEntry(selectedZeitTag, entry)}>
@@ -1384,7 +1416,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                   <ResponsiveContainer>
                     <AreaChart data={getProjectDays().map(day => ({
                       date: format(parseISO(day), 'dd.MM.yyyy', { locale: de }),
-                      stunden: (project.mitarbeiterZeiten?.[day] || []).reduce((sum, e) => sum + (e.stunden || 0), 0)
+                      stunden: (project.mitarbeiterZeiten?.[day] || []).reduce((sum, e) => sum + ((e.stunden || 0) * getEntryMultiplier(e)), 0)
                     }))}>
                       <defs>
                         <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
@@ -1437,9 +1469,10 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                       const mitarbeiterMap: Record<string, { stunden: number, tage: number }> = {};
                       Object.entries(project.mitarbeiterZeiten || {}).forEach(([_day, entries]: any) => {
                         entries.forEach((e: any) => {
-                          if (!mitarbeiterMap[e.name]) mitarbeiterMap[e.name] = { stunden: 0, tage: 0 };
-                          mitarbeiterMap[e.name].stunden += e.stunden || 0;
-                          mitarbeiterMap[e.name].tage += 1;
+                          const displayName = getEntryDisplayName(e);
+                          if (!mitarbeiterMap[displayName]) mitarbeiterMap[displayName] = { stunden: 0, tage: 0 };
+                          mitarbeiterMap[displayName].stunden += (e.stunden || 0) * getEntryMultiplier(e);
+                          mitarbeiterMap[displayName].tage += 1;
                         });
                       });
                       return Object.entries(mitarbeiterMap)
@@ -1616,11 +1649,15 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               <div>
                 <h4 className="font-semibold mb-2 mt-8">Projektzusammenfassung</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><span className="font-medium">Gesamtarbeitsstunden:</span> {Object.values(project.mitarbeiterZeiten || {}).flat().reduce((sum, e: any) => sum + (e.stunden || 0), 0).toFixed(2)}</div>
-                  <div><span className="font-medium">Gesamtfahrstunden:</span> {Object.values(project.mitarbeiterZeiten || {}).flat().reduce((sum, e: any) => sum + (e.fahrtstunden || 0), 0).toFixed(2)}</div>
+                  <div><span className="font-medium">Gesamtarbeitsstunden:</span> {Object.values(project.mitarbeiterZeiten || {}).flat().reduce((sum, e: any) => sum + ((e.stunden || 0) * getEntryMultiplier(e)), 0).toFixed(2)}</div>
+                  <div><span className="font-medium">Gesamtfahrstunden:</span> {Object.values(project.mitarbeiterZeiten || {}).flat().reduce((sum, e: any) => sum + ((e.fahrtstunden || 0) * getEntryMultiplier(e)), 0).toFixed(2)}</div>
                   <div><span className="font-medium">Eingesetzte Mitarbeiter:</span> {(() => {
-                    const mitarbeiterSet = Object.values(project.mitarbeiterZeiten || {}).flat().reduce((acc: Set<string>, e: any) => acc.add(e.name), new Set());
-                    return mitarbeiterSet.size;
+                    const entries = Object.values(project.mitarbeiterZeiten || {}).flat();
+                    const internalSet = entries.reduce((acc: Set<string>, e: any) => {
+                      if (!e?.isExternal) acc.add(e.name);
+                      return acc;
+                    }, new Set());
+                    return internalSet.size + getExternalHeadcount(entries);
                   })()}</div>
                   <div><span className="font-medium">Eingesetzte Funktionen:</span> {(() => {
                     const funktionenSet = Object.values(project.mitarbeiterZeiten || {}).flat().reduce((acc: Set<string>, e: any) => acc.add(e.funktion), new Set());
@@ -1725,7 +1762,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
             </DialogTitle>
             <div className="space-y-4">
               <p className="text-slate-600">
-                Möchten Sie den Zeiteintrag von <strong>{deleteTimeEntry.entry.name}</strong> am <strong>{deleteTimeEntry.date}</strong> wirklich löschen?
+                Möchten Sie den Zeiteintrag von <strong>{getEntryDisplayName(deleteTimeEntry.entry)}</strong> am <strong>{deleteTimeEntry.date}</strong> wirklich löschen?
               </p>
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setDeleteTimeEntry(null)} className="rounded-lg border-slate-200 hover:bg-slate-50">Abbrechen</Button>
@@ -1828,8 +1865,14 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               <div><span className="font-semibold">Status:</span> {project?.status}</div>
               <div><span className="font-semibold">Zeitraum:</span> {project?.datumBeginn} - {project?.datumEnde}</div>
               <div><span className="font-semibold">Eingesetzte Mitarbeiter:</span> {(() => {
-                const mitarbeiterSet = Object.entries(project?.mitarbeiterZeiten || {}).filter(([day]) => exportSelectedDays.includes(day)).flatMap(([, entries]: any) => entries).reduce((acc: Set<string>, e: any) => acc.add(e.name), new Set());
-                return mitarbeiterSet.size;
+                const entries = Object.entries(project?.mitarbeiterZeiten || {})
+                  .filter(([day]) => exportSelectedDays.includes(day))
+                  .flatMap(([, entries]: any) => entries);
+                const internalSet = entries.reduce((acc: Set<string>, e: any) => {
+                  if (!e?.isExternal) acc.add(e.name);
+                  return acc;
+                }, new Set());
+                return internalSet.size + getExternalHeadcount(entries);
               })()}</div>
               <div><span className="font-semibold">Eingesetzte Funktionen:</span> {(() => {
                 const funktionenSet = Object.entries(project?.mitarbeiterZeiten || {}).filter(([day]) => exportSelectedDays.includes(day)).flatMap(([, entries]: any) => entries).reduce((acc: Set<string>, e: any) => acc.add(e.funktion), new Set());
@@ -1886,11 +1929,11 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                   (entries || []).map((e: any, idx: number) => (
                     <TableRow key={day + e.id + idx}>
                       <TableCell>{day}</TableCell>
-                      <TableCell>{e.name}</TableCell>
+                      <TableCell>{getEntryDisplayName(e)}</TableCell>
                       <TableCell>{e.funktion}</TableCell>
                       <TableCell>{e.start}</TableCell>
                       <TableCell>{e.ende}</TableCell>
-                      <TableCell>{formatHours(e.stunden)}</TableCell>
+                      <TableCell>{formatHours((e.stunden || 0) * getEntryMultiplier(e))}</TableCell>
                       <TableCell>{e.pause || '-'}</TableCell>
                     </TableRow>
                   ))

@@ -7,7 +7,7 @@ import { VehiclesApi } from '@/lib/api/vehicles'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { User } from 'lucide-react';
+import { User, ChevronDown, ChevronUp } from 'lucide-react';
 import DynamicDashboard from '../../components/DynamicDashboard';
 import ProjectStatistics from '../../components/ProjectStatistics';
 import type { Project, Employee, Vehicle } from '../../types';
@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [isUserInfoCollapsed, setIsUserInfoCollapsed] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,18 +44,16 @@ export default function DashboardPage() {
 
   const checkAuth = async () => {
     try {
-      // Zuerst NextAuth-Session überprüfen
       const sessionData = await AuthApi.session()
-      
+
       console.log('NextAuth Session:', sessionData);
-      
+
       if (!sessionData || !sessionData.user) {
-        console.log('Keine gültige NextAuth-Session gefunden');
+        console.log('Keine gueltige NextAuth-Session gefunden');
         router.push('/login');
         return;
       }
-      
-      // Dann detaillierte Benutzerdaten laden
+
       const data = await AuthApi.me()
       if (data?.user) {
         console.log('Benutzerdaten geladen:', data.user);
@@ -74,19 +73,16 @@ export default function DashboardPage() {
   const loadDashboardData = async () => {
     try {
       console.log('Dashboard - Starte Datenladung...');
-      
-      // Projekte laden (inkl. Zeiten/Fahrzeuge/Technik für Statistiken)
+
       const projectsData = await ProjectsApi.list(0, 500, '', { includeTimes: true, includeVehicles: true, includeTechnik: true })
       setProjects((projectsData as any).projects || [])
 
-      // Mitarbeiter laden
       const employeesData = await EmployeesApi.list()
       setEmployees((employeesData as any).employees || [])
 
-      // Fahrzeuge laden
       const vehiclesData = await VehiclesApi.list()
       setVehicles((vehiclesData as any).vehicles || [])
-      
+
       console.log('Dashboard - Datenladung abgeschlossen');
     } catch (err) {
       console.error('Dashboard data loading error:', err);
@@ -114,7 +110,7 @@ export default function DashboardPage() {
           <CardContent>
             <p className="text-slate-600 mb-4">{error}</p>
             <Button onClick={() => router.push('/login')}>
-              Zurück zum Login
+              Zurueck zum Login
             </Button>
           </CardContent>
         </Card>
@@ -135,57 +131,70 @@ export default function DashboardPage() {
         {user && (
           <Card className="mb-6 border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
             <CardHeader>
-              <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
-                <User className="h-5 w-5" />
-                Benutzer-Informationen
-              </h2>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Name</p>
-                  <p className="font-medium dark:text-white">{user.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">E-Mail</p>
-                  <p className="font-medium dark:text-white">{user.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Rolle</p>
-                  <p className="font-medium capitalize dark:text-white">{user.role}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Status</p>
-                  <p className="font-medium text-green-600 dark:text-green-400">Aktiv</p>
-                </div>
-                {user.lastLogin && (
-                  <div className="md:col-span-2">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Letzter Login</p>
-                    <p className="font-medium dark:text-white">{new Date(user.lastLogin).toLocaleString('de-DE')}</p>
-                  </div>
-                )}
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+                  <User className="h-5 w-5" />
+                  Benutzer-Informationen
+                </h2>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsUserInfoCollapsed((prev) => !prev)}
+                  aria-expanded={!isUserInfoCollapsed}
+                  aria-controls="dashboard-user-info"
+                >
+                  {isUserInfoCollapsed ? 'Anzeigen' : 'Einklappen'}
+                  {isUserInfoCollapsed ? <ChevronDown className="ml-2 h-4 w-4" /> : <ChevronUp className="ml-2 h-4 w-4" />}
+                </Button>
               </div>
-            </CardContent>
+            </CardHeader>
+            {!isUserInfoCollapsed && (
+              <CardContent id="dashboard-user-info">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Name</p>
+                    <p className="font-medium dark:text-white">{user.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">E-Mail</p>
+                    <p className="font-medium dark:text-white">{user.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Rolle</p>
+                    <p className="font-medium capitalize dark:text-white">{user.role}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Status</p>
+                    <p className="font-medium text-green-600 dark:text-green-400">Aktiv</p>
+                  </div>
+                  {user.lastLogin && (
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Letzter Login</p>
+                      <p className="font-medium dark:text-white">{new Date(user.lastLogin).toLocaleString('de-DE')}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            )}
           </Card>
         )}
 
-        {/* DynamicDashboard Komponente */}
         <div className="dashboard-cards">
-        <DynamicDashboard 
-          projects={projects}
-          employees={employees}
-          vehicles={vehicles}
-        />
-        </div>
-
-        {/* ProjectStatistics Komponente */}
-        <div className="mt-8">
-          <div className="project-statistics">
-          <ProjectStatistics 
+          <DynamicDashboard
             projects={projects}
             employees={employees}
             vehicles={vehicles}
           />
+        </div>
+
+        <div className="mt-8">
+          <div className="project-statistics">
+            <ProjectStatistics
+              projects={projects}
+              employees={employees}
+              vehicles={vehicles}
+            />
           </div>
         </div>
       </div>

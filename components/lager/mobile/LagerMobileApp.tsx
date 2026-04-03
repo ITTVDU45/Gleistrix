@@ -35,7 +35,8 @@ import {
   Trash2,
   Plus,
   Tag,
-  X
+  X,
+  Check
 } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
 import { ProjectsApi } from '@/lib/api/projects'
@@ -342,6 +343,14 @@ export default function LagerMobileApp() {
   const [isDeliveryQrActionOpen, setIsDeliveryQrActionOpen] = useState(false)
   const [isPrefillFromDeliveryLoading, setIsPrefillFromDeliveryLoading] = useState(false)
   const [movementDetail, setMovementDetail] = useState<StockMovement | null>(null)
+
+  const [movementUnitsMap, setMovementUnitsMap] = useState<Record<string, ArticleUnit[]>>({})
+  const [movementUnitsLoading, setMovementUnitsLoading] = useState<Record<string, boolean>>({})
+  const [movementSelectedUnitIds, setMovementSelectedUnitIds] = useState<Record<string, string[]>>({})
+  const [movementNewSerials, setMovementNewSerials] = useState<Record<string, string[]>>({})
+  const [outgoingUnits, setOutgoingUnits] = useState<ArticleUnit[]>([])
+  const [outgoingUnitsLoading, setOutgoingUnitsLoading] = useState(false)
+  const [outgoingSelectedUnitIds, setOutgoingSelectedUnitIds] = useState<string[]>([])
 
 
   const selectedArticle = useMemo(
@@ -1051,6 +1060,53 @@ export default function LagerMobileApp() {
     setOpenOutgoingDeliveryNotes([])
     setDeliveryFile(null)
     setMovementDetail(null)
+    setMovementUnitsMap({})
+    setMovementUnitsLoading({})
+    setMovementSelectedUnitIds({})
+    setMovementNewSerials({})
+    setOutgoingUnits([])
+    setOutgoingUnitsLoading(false)
+    setOutgoingSelectedUnitIds([])
+  }
+
+  async function loadIncomingUnitsForArticle(artikelId: string) {
+    if (!artikelId) return
+    const art = articles.find(a => getArticleId(a) === artikelId)
+    if (art?.serialTracking !== 'individual') return
+    if (movementUnitsMap[artikelId] || movementUnitsLoading[artikelId]) return
+    setMovementUnitsLoading(prev => ({ ...prev, [artikelId]: true }))
+    try {
+      const res = await LagerApi.units.list(artikelId, { status: 'ausgegeben' })
+      setMovementUnitsMap(prev => ({ ...prev, [artikelId]: res.units ?? [] }))
+    } catch {
+      setMovementUnitsMap(prev => ({ ...prev, [artikelId]: [] }))
+    } finally {
+      setMovementUnitsLoading(prev => ({ ...prev, [artikelId]: false }))
+    }
+  }
+
+  async function loadOutgoingUnitsForArticle(artikelId: string) {
+    if (!artikelId) {
+      setOutgoingUnits([])
+      setOutgoingSelectedUnitIds([])
+      return
+    }
+    const art = articles.find(a => getArticleId(a) === artikelId)
+    if (art?.serialTracking !== 'individual') {
+      setOutgoingUnits([])
+      setOutgoingSelectedUnitIds([])
+      return
+    }
+    setOutgoingUnitsLoading(true)
+    try {
+      const res = await LagerApi.units.list(artikelId, { status: 'verfuegbar' })
+      setOutgoingUnits(res.units ?? [])
+      setOutgoingSelectedUnitIds([])
+    } catch {
+      setOutgoingUnits([])
+    } finally {
+      setOutgoingUnitsLoading(false)
+    }
   }
 
   function setStatusMessage(message: string) {
@@ -1255,9 +1311,15 @@ export default function LagerMobileApp() {
   async function createMovement(bewegungstyp: 'eingang' | 'ausgang') {
     if (bewegungstyp === 'ausgang') {
       if (!selectedArticleId) return setErrorMessage('Bitte zuerst einen Artikel auswaehlen oder scannen')
-      if (menge <= 0) return setErrorMessage('Menge muss groesser als 0 sein')
-      if (selectedArticle && menge > (selectedArticle.bestand ?? 0)) {
-        return setErrorMessage('Menge groesser als verfuegbarer Bestand')
+      const outArt = articles.find(a => getArticleId(a) === selectedArticleId)
+      const isOutIndividual = outArt?.serialTracking === 'individual'
+      if (isOutIndividual) {
+        if (outgoingSelectedUnitIds.length === 0) return setErrorMessage('Bitte mindestens eine Unit auswaehlen')
+      } else {
+        if (menge <= 0) return setErrorMessage('Menge muss groesser als 0 sein')
+        if (selectedArticle && menge > (selectedArticle.bestand ?? 0)) {
+          return setErrorMessage('Menge groesser als verfuegbarer Bestand')
+        }
       }
       if (!outgoingPhoto) {
         return setErrorMessage('Bitte Produktfoto fuer den Warenausgang erfassen')
@@ -1316,17 +1378,44 @@ export default function LagerMobileApp() {
 
         for (const item of incomingItems) {
           const itemPhoto = incomingItemPhotos[item.id]
+          const art = articles.find(a => getArticleId(a) === item.artikelId)
+          const isIndividual = art?.serialTracking === 'individual'
+          let itemUnitIds: string[] | undefined
+
+          if (isIndividual) {
+            const returning = movementSelectedUnitIds[item.artikelId] ?? []
+            const newSerials = (movementNewSerials[item.artikelId] ?? []).filter(s => s.trim())
+
+            if (newSerials.length > 0) {
+              const bulkRes = await LagerApi.units.bulkCreate(item.artikelId, newSerials.map(s => ({ seriennummer: s.trim() })))
+              if (!(bulkRes as { success?: boolean })?.success) {
+                throw new Error('Fehler beim Anlegen neuer Units')
+              }
+            }
+
+            itemUnitIds = returning.length > 0 ? returning : undefined
+          }
+
+          const effectiveMenge = isIndividual
+            ? (movementSelectedUnitIds[item.artikelId]?.length ?? 0) + (movementNewSerials[item.artikelId] ?? []).filter(s => s.trim()).length
+            : item.menge
+
           await LagerApi.movements.create({
             artikelId: item.artikelId,
             bewegungstyp,
-            menge: item.menge,
+            menge: effectiveMenge || item.menge,
             datum: new Date().toISOString(),
             lieferscheinId: generatedDeliveryId || selectedIncomingDeliveryNoteId || undefined,
             bemerkung: metaPieces.join(' | '),
-            evidencePhotos: itemPhoto ? [itemPhoto] : undefined
+            evidencePhotos: itemPhoto ? [itemPhoto] : undefined,
+            unitIds: itemUnitIds
           })
         }
       } else {
+        const outArt = articles.find(a => getArticleId(a) === selectedArticleId)
+        const isOutIndividual = outArt?.serialTracking === 'individual'
+        const effectiveMenge = isOutIndividual ? outgoingSelectedUnitIds.length : menge
+
         const deliveryResponse = await LagerApi.deliveryNotes.create({
           typ: 'ausgang',
           datum: new Date().toISOString(),
@@ -1334,11 +1423,21 @@ export default function LagerMobileApp() {
             name: outgoingLabel || 'Unbekannter Empfaenger',
             adresse: ''
           },
-          positionen: [{
-            artikelId: selectedArticleId,
-            bezeichnung: selectedArticle?.bezeichnung ?? selectedArticle?.artikelnummer ?? 'Artikel',
-            menge
-          }]
+          positionen: isOutIndividual
+            ? outgoingSelectedUnitIds.map(uid => {
+                const unit = outgoingUnits.find(u => (u.id ?? u._id) === uid)
+                return {
+                  artikelId: selectedArticleId,
+                  bezeichnung: selectedArticle?.bezeichnung ?? selectedArticle?.artikelnummer ?? 'Artikel',
+                  menge: 1,
+                  seriennummer: unit?.seriennummer ?? ''
+                }
+              })
+            : [{
+                artikelId: selectedArticleId,
+                bezeichnung: selectedArticle?.bezeichnung ?? selectedArticle?.artikelnummer ?? 'Artikel',
+                menge: effectiveMenge
+              }]
         })
         const rawId = (deliveryResponse as { data?: { _id?: unknown; id?: string } })?.data?._id
           ?? (deliveryResponse as { data?: { _id?: string; id?: string } })?.data?.id
@@ -1347,12 +1446,13 @@ export default function LagerMobileApp() {
         await LagerApi.movements.create({
           artikelId: selectedArticleId,
           bewegungstyp,
-          menge,
+          menge: effectiveMenge,
           datum: new Date().toISOString(),
           empfaenger: outgoingEmployeeId,
           lieferscheinId: generatedDeliveryId,
           bemerkung: metaPieces.join(' | '),
-          evidencePhotos: outgoingPhoto ? [outgoingPhoto] : undefined
+          evidencePhotos: outgoingPhoto ? [outgoingPhoto] : undefined,
+          unitIds: isOutIndividual ? outgoingSelectedUnitIds : undefined
         })
       }
 
@@ -1757,6 +1857,7 @@ export default function LagerMobileApp() {
                                 delete next[item.id]
                                 return next
                               })
+                              loadIncomingUnitsForArticle(value)
                             }}
                             articles={articles}
                             placeholder={`Artikel ${index + 1} waehlen`}
@@ -1814,6 +1915,85 @@ export default function LagerMobileApp() {
                             <p className="text-xs text-slate-500">Foto erfasst: {incomingItemPhotos[item.id]?.filename || 'produkt.jpg'}</p>
                           )}
                         </div>
+                        {(() => {
+                          const art = articles.find(a => getArticleId(a) === item.artikelId)
+                          if (art?.serialTracking !== 'individual' || !item.artikelId) return null
+                          return (
+                            <div className="space-y-2 ml-1 pl-3 border-l-2 border-blue-200 dark:border-blue-800">
+                              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Individuelles Tracking</p>
+                              {movementUnitsLoading[item.artikelId] ? (
+                                <p className="text-xs text-slate-500">Lade Units...</p>
+                              ) : (movementUnitsMap[item.artikelId] ?? []).length > 0 ? (
+                                <div className="space-y-1">
+                                  <p className="text-xs text-slate-500">Ausgegebene Units zuruecknehmen:</p>
+                                  <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-slate-200 dark:border-slate-700 p-1.5">
+                                    {(movementUnitsMap[item.artikelId] ?? []).map(unit => {
+                                      const uid = unit.id ?? unit._id ?? ''
+                                      const isSelected = (movementSelectedUnitIds[item.artikelId] ?? []).includes(uid)
+                                      return (
+                                        <button
+                                          key={uid}
+                                          type="button"
+                                          className={`flex items-center gap-2 w-full text-left px-2 py-1.5 rounded text-xs transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                          onClick={() => {
+                                            setMovementSelectedUnitIds(prev => {
+                                              const current = prev[item.artikelId] ?? []
+                                              const next = isSelected ? current.filter(id => id !== uid) : [...current, uid]
+                                              return { ...prev, [item.artikelId]: next }
+                                            })
+                                          }}
+                                        >
+                                          <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
+                                            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                                          </div>
+                                          <span className="font-mono">{unit.seriennummer}</span>
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              ) : null}
+                              <div className="space-y-1">
+                                <p className="text-xs text-slate-500">Neue Units mit Seriennummern:</p>
+                                <div className="space-y-1">
+                                  {(movementNewSerials[item.artikelId] ?? []).map((serial, sIdx) => (
+                                    <div key={sIdx} className="flex gap-1 items-center">
+                                      <Input
+                                        value={serial}
+                                        onChange={e => {
+                                          setMovementNewSerials(prev => {
+                                            const arr = [...(prev[item.artikelId] ?? [])]
+                                            arr[sIdx] = e.target.value
+                                            return { ...prev, [item.artikelId]: arr }
+                                          })
+                                        }}
+                                        placeholder={`Neue SN ${sIdx + 1}`}
+                                        className="rounded-lg h-8 text-xs flex-1"
+                                      />
+                                      <Button
+                                        type="button" variant="ghost" size="icon" className="h-8 w-8"
+                                        onClick={() => setMovementNewSerials(prev => {
+                                          const arr = [...(prev[item.artikelId] ?? [])]
+                                          arr.splice(sIdx, 1)
+                                          return { ...prev, [item.artikelId]: arr }
+                                        })}
+                                      ><Trash2 className="h-3 w-3" /></Button>
+                                    </div>
+                                  ))}
+                                  <Button
+                                    type="button" variant="outline" size="sm" className="rounded-lg text-xs h-7"
+                                    onClick={() => setMovementNewSerials(prev => ({
+                                      ...prev,
+                                      [item.artikelId]: [...(prev[item.artikelId] ?? []), '']
+                                    }))}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" /> Neue Unit
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -1893,7 +2073,10 @@ export default function LagerMobileApp() {
                   <ArticleSelect
                     id="bewegung-artikel"
                     value={selectedArticleId}
-                    onValueChange={setSelectedArticleId}
+                    onValueChange={(value) => {
+                      setSelectedArticleId(value)
+                      loadOutgoingUnitsForArticle(value)
+                    }}
                     articles={articles}
                     placeholder="Artikel waehlen"
                     searchPlaceholder="Artikel suchen..."
@@ -1902,10 +2085,46 @@ export default function LagerMobileApp() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="menge">Menge</Label>
-                  <Input id="menge" type="number" min={1} className="h-12 rounded-xl text-base" value={menge} onChange={(event) => setMenge(parseInt(event.target.value, 10) || 1)} />
-                </div>
+                {(() => {
+                  const outArt = articles.find(a => getArticleId(a) === selectedArticleId)
+                  if (outArt?.serialTracking !== 'individual' || !selectedArticleId) return (
+                    <div className="space-y-2">
+                      <Label htmlFor="menge">Menge</Label>
+                      <Input id="menge" type="number" min={1} className="h-12 rounded-xl text-base" value={menge} onChange={(event) => setMenge(parseInt(event.target.value, 10) || 1)} />
+                    </div>
+                  )
+                  return (
+                    <div className="space-y-2 ml-1 pl-3 border-l-2 border-blue-200 dark:border-blue-800">
+                      <Label>Units auswaehlen * {outgoingSelectedUnitIds.length > 0 && `(${outgoingSelectedUnitIds.length} gewaehlt)`}</Label>
+                      {outgoingUnitsLoading ? (
+                        <p className="text-xs text-slate-500">Lade Units...</p>
+                      ) : outgoingUnits.length === 0 ? (
+                        <p className="text-xs text-slate-500">Keine verfuegbaren Units</p>
+                      ) : (
+                        <div className="max-h-40 overflow-y-auto space-y-1 rounded-xl border border-slate-200 dark:border-slate-700 p-2">
+                          {outgoingUnits.map(unit => {
+                            const uid = unit.id ?? unit._id ?? ''
+                            const isSelected = outgoingSelectedUnitIds.includes(uid)
+                            return (
+                              <button
+                                key={uid}
+                                type="button"
+                                className={`flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                onClick={() => setOutgoingSelectedUnitIds(prev => isSelected ? prev.filter(id => id !== uid) : [...prev, uid])}
+                              >
+                                <div className={`h-4 w-4 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 dark:border-slate-600'}`}>
+                                  {isSelected && <Check className="h-3 w-3 text-white" />}
+                                </div>
+                                <span className="font-mono text-xs">{unit.seriennummer}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-500">Menge: {outgoingSelectedUnitIds.length} Unit(s)</p>
+                    </div>
+                  )
+                })()}
               </>
             )}
             {view === 'ausgang' && (
