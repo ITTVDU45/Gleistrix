@@ -40,6 +40,17 @@ export interface Employee {
   vacationDays?: VacationDay[]
 }
 
+
+export interface Subcompany {
+  id: string
+  name: string
+  employeeCount: number
+  address?: string
+  phone?: string
+  email?: string
+  bankAccount?: string
+  notes?: string
+}
 export type EmployeeStatus = 'aktiv' | 'nicht aktiv' | 'urlaub'
 
 export interface EmployeeAssignment {
@@ -84,6 +95,11 @@ export interface TimeEntry {
   holidayMinutes?: number
   nightHolidayMinutes?: number
   normalMinutes?: number
+  // Externe Mitarbeiter (Subunternehmen)
+  isExternal?: boolean
+  externalCompanyId?: string
+  externalCompanyName?: string
+  externalCount?: number
 }
 
 export interface TechnikEntry {

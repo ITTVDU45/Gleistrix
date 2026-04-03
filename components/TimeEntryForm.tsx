@@ -5,17 +5,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Label } from './ui/label'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs'
+import Link from 'next/link'
 import type { Project, TimeEntry, MitarbeiterFunktion, Employee } from '../types'
 import type { BreakSegment } from '@/lib/timeEntry'
 import { format, parseISO, addDays } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useProjects } from '../hooks/useProjects'
 import { Alert } from './ui/alert'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, Plus } from 'lucide-react'
 import MultiSelectDropdown from './ui/MultiSelectDropdown';
 import { useEmployees } from '../hooks/useEmployees';
 import { BreakSegmentEditor } from './BreakSegmentEditor'
 import { HolidaysApi } from '@/lib/api/holidays'
+import { useSubcompanies } from '../hooks/useSubcompanies'
+import { MITARBEITER_FUNKTION_OPTIONS } from '@/types/constants'
 
 // Modulare TimeEntry-Utilities importieren
 import {
@@ -42,6 +46,10 @@ interface TimeEntryFormProps {
 
 export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees = [], initialEntry, hasExistingTimeEntries = false }: TimeEntryFormProps) {
   const { isEmployeeOnVacationDuringPeriod } = useEmployees();
+  const { subcompanies } = useSubcompanies();
+  const [activeTab, setActiveTab] = React.useState<'internal' | 'external'>(
+    initialEntry?.isExternal ? 'external' : 'internal'
+  );
   const [formData, setFormData] = React.useState({
     name: initialEntry?.name || '',
     funktion: (initialEntry?.funktion as MitarbeiterFunktion) || '',
@@ -54,6 +62,22 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     sonntag: !!initialEntry?.sonntag,
     bemerkung: initialEntry?.bemerkung || ''
   })
+  const [externalCompanyId, setExternalCompanyId] = React.useState(initialEntry?.externalCompanyId || '')
+  const [externalCount, setExternalCount] = React.useState<number>(
+    typeof initialEntry?.externalCount === 'number' && initialEntry.externalCount > 0 ? initialEntry.externalCount : 1
+  )
+
+  const selectedExternalCompany = React.useMemo(
+    () => subcompanies.find((company) => company.id === externalCompanyId),
+    [subcompanies, externalCompanyId]
+  )
+
+  React.useEffect(() => {
+    if (!externalCompanyId && initialEntry?.externalCompanyName) {
+      const match = subcompanies.find((company) => company.name === initialEntry.externalCompanyName)
+      if (match) setExternalCompanyId(match.id)
+    }
+  }, [externalCompanyId, initialEntry?.externalCompanyName, subcompanies])
 
   // Wenn initialEntry sich ändert (z.B. beim Bearbeiten), setze die Formulardaten neu
   React.useEffect(() => {
@@ -263,6 +287,10 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
   const handleSelectAllDays = (checked: boolean) => {
     setSelectAllDays(checked)
     if (checked) {
+      if (activeTab === 'external') {
+        setSelectedDays(projectDays)
+        return
+      }
       // Wähle nur Tage aus, an denen der ausgewählte Mitarbeiter nicht im Urlaub ist
       const availableDays = projectDays.filter(day => {
         if (selectedEmployees.length === 0) return false;
@@ -294,6 +322,11 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
         ? prev.filter(d => d !== day)
         : [...prev, day]
       
+      if (activeTab === 'external') {
+        setSelectAllDays(newSelected.length === projectDays.length && projectDays.length > 0);
+        return newSelected;
+      }
+
       // Prüfe, ob alle verfügbaren Tage ausgewählt sind
       const availableDays = projectDays.filter(day => {
         if (selectedEmployees.length === 0) return false;
@@ -318,6 +351,13 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
   // State für Kopierfunktion
   const [copyMode, setCopyMode] = useState(false);
   const [selectedCopyEntry, setSelectedCopyEntry] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'external') {
+      setCopyMode(false);
+      setSelectedCopyEntry(null);
+    }
+  }, [activeTab]);
 
   // Label für aktuell ausgewählten Eintrag im Zeiten-kopieren-Select
   const selectedCopyEntryLabel = selectedCopyEntry
@@ -377,6 +417,7 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
 
   // 1. Berechne belegte Tage für den aktuell gewählten Mitarbeiter (projektübergreifend)
   const belegteTage = useMemo(() => {
+    if (activeTab === 'external') return [];
     if (!formData.name) return [];
     const tage: string[] = [];
     allProjects.forEach(p => {
@@ -491,6 +532,10 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
 
   // Aktualisiere selectAllDays, wenn sich selectedEmployees ändert
   useEffect(() => {
+    if (activeTab === 'external') {
+      setSelectAllDays(selectedDays.length === projectDays.length && projectDays.length > 0);
+      return;
+    }
     if (selectedEmployees.length === 0) {
       setSelectAllDays(false);
       return;
@@ -511,7 +556,7 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     });
     
     setSelectAllDays(selectedDays.length === availableDays.length && availableDays.length > 0);
-  }, [selectedEmployees, selectedDays, projectDays, availableEmployees, allProjects, project.id]);
+  }, [activeTab, selectedEmployees, selectedDays, projectDays, availableEmployees, allProjects, project.id]);
 
   // Setze Start- und Endtage automatisch, wenn nicht tagübergreifend
   useEffect(() => {
@@ -577,9 +622,11 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
 
   // Wenn sich selectedDays ändert, setze den ersten freien Tag als Startzeit-Tag (nur bei nicht-tagübergreifenden Einträgen)
   useEffect(() => {
-    if (!isMultiDay && selectedDays.length > 0 && formData.name) {
+    if (!isMultiDay && selectedDays.length > 0 && (activeTab === 'external' || formData.name)) {
       // Finde den ersten Tag aus selectedDays, der nicht in belegteTage ist
-      const firstFreeDay = selectedDays.find(day => !belegteTage.includes(day));
+      const firstFreeDay = activeTab === 'external'
+        ? selectedDays[0]
+        : selectedDays.find(day => !belegteTage.includes(day));
       if (firstFreeDay && firstFreeDay !== startDay) {
         setStartDay(firstFreeDay);
         // Wenn der aktuelle endDay belegt ist oder nicht gesetzt, auch endDay aktualisieren
@@ -588,7 +635,7 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
         }
       }
     }
-  }, [selectedDays, formData.name, belegteTage, isMultiDay]);
+  }, [selectedDays, formData.name, belegteTage, isMultiDay, activeTab, startDay, endDay]);
 
   // State für Mitarbeitersuche
   const [employeeSearch, setEmployeeSearch] = useState('');
@@ -596,6 +643,9 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
 
   // Hilfsfunktion: Schnittmenge der Funktionen aller ausgewählten Mitarbeiter
   function getCommonFunctions() {
+    if (activeTab === 'external') {
+      return MITARBEITER_FUNKTION_OPTIONS.map((option) => option.value);
+    }
     if (selectedEmployees.length === 0) return [];
     const selected = availableEmployees.filter(e => selectedEmployees.includes(e.name));
     const allFunctions = selected.map(e =>
@@ -609,6 +659,21 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
 
   // Hilfsfunktion: Sind alle Pflichtfelder ausgefüllt?
   function isFormValid() {
+    // Pruefe auf negative Stunden (Endzeit vor Startzeit am gleichen Tag) - nur bei nicht-taguebergreifenden Eintraegen
+    const hasNegativeHours = !isMultiDay && startTime && endTime && endTime <= startTime;
+
+    if (activeTab === 'external') {
+      return (
+        !!selectedExternalCompany &&
+        externalCount > 0 &&
+        formData.funktion &&
+        startTime &&
+        endTime &&
+        selectedDays.length > 0 &&
+        !hasNegativeHours
+      );
+    }
+
     // Prüfe, ob ausgewählte Tage mit Urlaubstagen der Mitarbeiter kollidieren
     const daysToCheck = (() => {
       if (copyMode && selectedCopyEntry && selectedDays.length === 0) {
@@ -638,9 +703,6 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
         return employee && isEmployeeOnVacationOnDay(employee, day);
       })
     );
-
-    // Prüfe auf negative Stunden (Endzeit vor Startzeit am gleichen Tag) - nur bei nicht-tagübergreifenden Einträgen
-    const hasNegativeHours = !isMultiDay && startTime && endTime && endTime <= startTime;
 
     // Wenn Zeiten kopieren aktiviert ist und ein Eintrag ausgewählt ist, prüfe nur die grundlegenden Felder
     if (copyMode && selectedCopyEntry) {
@@ -739,12 +801,11 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (plausiError) return;
-    if (selectedEmployees.length === 0) return;
     if (isSubmitting) return; // Doppel-Submit verhindern
     
     setIsSubmitting(true);
     setApiError(null);
-    setSubmitProgress({ current: 0, total: selectedEmployees.length });
+    setSubmitProgress({ current: 0, total: activeTab === 'external' ? 1 : selectedEmployees.length });
     
     try {
       const baseParams = getBaseEntryParams();
@@ -754,6 +815,41 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
         setApiError('Bitte mindestens einen Tag auswählen.');
         return;
       }
+
+      if (activeTab === 'external') {
+        if (!selectedExternalCompany) {
+          setApiError('Bitte ein Subunternehmen auswählen.');
+          return;
+        }
+        if (!externalCount || externalCount < 1) {
+          setApiError('Bitte eine gültige Mitarbeiteranzahl angeben.');
+          return;
+        }
+
+        const entries = buildTimeEntriesForDays(
+          selectedExternalCompany.name,
+          daysToUse,
+          baseParams,
+          selectedHolidayDays
+        ).map((entry) => ({
+          ...entry,
+          isExternal: true,
+          externalCompanyId: selectedExternalCompany.id,
+          externalCompanyName: selectedExternalCompany.name,
+          externalCount
+        }));
+
+        const payload = entries.map((entry, index) => ({
+          day: daysToUse[index],
+          entry
+        }));
+
+        await onAdd(payload);
+        onClose();
+        return;
+      }
+
+      if (selectedEmployees.length === 0) return;
       
       // Erstelle Tasks für jeden Mitarbeiter - PARALLEL statt SEQUENTIELL
       // Jeder Task macht NUR EINEN API-Call für ALLE Tage
@@ -811,38 +907,123 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     <div className="overflow-y-auto py-4">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-sm font-semibold text-slate-700">
-              Mitarbeiter *
-            </Label>
-            <MultiSelectDropdown
-              label="Mitarbeiter"
-              options={availableEmployees.map(e => e.name)}
-              selected={selectedEmployees}
-              onChange={setSelectedEmployees}
-              placeholder="Mitarbeiter wählen"
-            />
-          </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'internal' | 'external')} className="space-y-4">
+            <TabsList className="bg-slate-100 rounded-xl p-1">
+              <TabsTrigger value="internal" className="rounded-lg">Interne Mitarbeiter</TabsTrigger>
+              <TabsTrigger value="external" className="rounded-lg">Externe Mitarbeiter</TabsTrigger>
+            </TabsList>
 
-          <div className="space-y-2">
-            <Label htmlFor="funktion" className="text-sm font-semibold text-slate-700">
-              Funktion *
-            </Label>
-            <Select
-              value={formData.funktion}
-              onValueChange={value => setFormData(prev => ({ ...prev, funktion: value as MitarbeiterFunktion }))}
-              disabled={commonFunctions.length === 0}
-            >
-              <SelectTrigger className="rounded-xl border-slate-200 h-12">
-                <SelectValue placeholder={selectedEmployees.length === 0 || commonFunctions.length === 0 ? 'Bitte Mitarbeiter wählen' : 'Funktion wählen'} />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {commonFunctions.map(f => (
-                  <SelectItem key={f} value={f}>{f}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <TabsContent value="internal" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-semibold text-slate-700">
+                  Mitarbeiter *
+                </Label>
+                <MultiSelectDropdown
+                  label="Mitarbeiter"
+                  options={availableEmployees.map(e => e.name)}
+                  selected={selectedEmployees}
+                  onChange={setSelectedEmployees}
+                  placeholder="Mitarbeiter wählen"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="funktion" className="text-sm font-semibold text-slate-700">
+                  Funktion *
+                </Label>
+                <Select
+                  value={formData.funktion}
+                  onValueChange={value => setFormData(prev => ({ ...prev, funktion: value as MitarbeiterFunktion }))}
+                  disabled={commonFunctions.length === 0}
+                >
+                  <SelectTrigger className="rounded-xl border-slate-200 h-12">
+                    <SelectValue placeholder={selectedEmployees.length === 0 || commonFunctions.length === 0 ? 'Bitte Mitarbeiter wählen' : 'Funktion wählen'} />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {commonFunctions.map(f => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="external" className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                Externe Eintraege werden als ein Eintrag mit Anzahl gespeichert. Stunden und Summen werden mit der Anzahl multipliziert.
+                {subcompanies.length === 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                    <span>Lege zuerst ein Subunternehmen an.</span>
+                    <Link
+                      href="/mitarbeiter?tab=employees&addEmployee=1&employeeTab=external"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm ring-1 ring-blue-500/20 transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Subunternehmen hinzufuegen
+                    </Link>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-slate-700">Subunternehmen *</Label>
+                <Select value={externalCompanyId} onValueChange={setExternalCompanyId} disabled={subcompanies.length === 0}>
+                  <SelectTrigger className="rounded-xl border-slate-200 h-12">
+                    <SelectValue placeholder={subcompanies.length === 0 ? 'Keine Subunternehmen vorhanden' : 'Subunternehmen wählen'} />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {subcompanies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {subcompanies.length === 0 && (
+                  <p className="text-xs text-slate-500">Bitte zuerst ein Subunternehmen in der Mitarbeiterseite anlegen.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-slate-700">Mitarbeiteranzahl *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={externalCount}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10);
+                    setExternalCount(Number.isFinite(value) && value > 0 ? value : 1);
+                  }}
+                  className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12"
+                />
+                {selectedExternalCompany && (
+                  <p className="text-xs text-slate-500">Aktuell im Subunternehmen hinterlegt: {selectedExternalCompany.employeeCount} Mitarbeiter.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="funktion-external" className="text-sm font-semibold text-slate-700">
+                  Funktion *
+                </Label>
+                <Select
+                  value={formData.funktion}
+                  onValueChange={value => setFormData(prev => ({ ...prev, funktion: value as MitarbeiterFunktion }))}
+                >
+                  <SelectTrigger className="rounded-xl border-slate-200 h-12">
+                    <SelectValue placeholder="Funktion wählen" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {MITARBEITER_FUNKTION_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Tag-Auswahl direkt unter Funktion */}
           <div className="space-y-2">
@@ -870,34 +1051,36 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
                   Tagübergreifend
                 </Label>
               </div>
-              <div className="flex items-center space-x-3">
-                <Checkbox 
-                  id="copyMode" 
-                  checked={copyMode} 
-                  onCheckedChange={checked => setCopyMode(!!checked)} 
-                  disabled={!hasExistingTimeEntries}
-                  className="rounded"
-                />
-                <Label htmlFor="copyMode" className={`text-sm font-medium ${!hasExistingTimeEntries ? 'text-slate-400' : 'text-slate-700'}`}>
-                  Zeiten kopieren
-                </Label>
-              </div>
+              {activeTab !== 'external' && (
+                <div className="flex items-center space-x-3">
+                  <Checkbox 
+                    id="copyMode" 
+                    checked={copyMode} 
+                    onCheckedChange={checked => setCopyMode(!!checked)} 
+                    disabled={!hasExistingTimeEntries}
+                    className="rounded"
+                  />
+                  <Label htmlFor="copyMode" className={`text-sm font-medium ${!hasExistingTimeEntries ? 'text-slate-400' : 'text-slate-700'}`}>
+                    Zeiten kopieren
+                  </Label>
+                </div>
+              )}
             </div>
             {!copyMode && (
               <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-none max-h-32 overflow-y-auto project-times-add">
                 {projectDays.map(day => {
                   // Prüfe, ob der ausgewählte Mitarbeiter an diesem Tag im Urlaub ist
-                  const isSelectedEmployeeOnVacation = selectedEmployees.length > 0 && 
+                  const isSelectedEmployeeOnVacation = activeTab === 'external' ? false : selectedEmployees.length > 0 && 
                     selectedEmployees.some(employeeName => {
                       const employee = availableEmployees.find(e => e.name === employeeName);
                       return employee && isEmployeeOnVacationOnDay(employee, day);
                     });
                   
                   // Prüfe, ob der Tag belegt ist (durch andere Einträge)
-                  const isBelegt = belegteTage.includes(day);
+                  const isBelegt = activeTab === 'external' ? false : belegteTage.includes(day);
                   
                   // Tag ist disabled wenn: im copyMode und belegt, ODER Mitarbeiter ist im Urlaub
-                  const isDisabled = copyMode ? isBelegt : isSelectedEmployeeOnVacation;
+                  const isDisabled = activeTab === 'external' ? false : (copyMode ? isBelegt : isSelectedEmployeeOnVacation);
                   
                   // Bestimme die Button-Variante basierend auf Status
                   let buttonVariant: "default" | "outline" = selectedDays.includes(day) ? 'default' : 'outline';
@@ -1209,7 +1392,7 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {submitProgress.total > 0 
-                  ? `${submitProgress.current}/${submitProgress.total} Mitarbeiter...`
+                  ? `${submitProgress.current}/${submitProgress.total} ${activeTab === 'external' ? 'Eintrag' : 'Mitarbeiter'}...`
                   : 'Wird gespeichert...'}
               </span>
             ) : (
@@ -1236,3 +1419,4 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     </div>
   )
 } 
+

@@ -25,6 +25,18 @@ export interface Employee {
   einsaetze: EmployeeAssignment[]
 }
 
+export interface Subcompany {
+  id: string
+  name: string
+  employeeCount: number
+  address?: string
+  phone?: string
+  email?: string
+  bankAccount?: string
+  notes?: string
+}
+
+
 export interface EmployeeAssignment {
   projektId: string
   datum: string
@@ -54,10 +66,18 @@ export interface TimeEntry {
   extra: number
   nachtzulage: string
   sonntag: number
+  sonntagsstunden?: number
   feiertag: number
   bemerkung: string
   // Pausensegmente für automatische Berechnung
   breakSegments?: Array<{ start: string; end: string }>
+  breakTotalMinutes?: number
+  overrideBreaks?: boolean
+  // Externe Mitarbeiter (Subunternehmen)
+  isExternal?: boolean
+  externalCompanyId?: string
+  externalCompanyName?: string
+  externalCount?: number
 }
 
 export interface TechnikEntry {
