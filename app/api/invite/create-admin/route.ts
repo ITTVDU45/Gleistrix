@@ -4,23 +4,33 @@ import InviteToken from "../../../../lib/models/InviteToken"
 import User from "../../../../lib/models/User"
 import { nanoid } from "nanoid"
 import { sendInviteEmailResult } from "../../../../lib/mailer"
-import { getCurrentUser } from "../../../../lib/auth/getCurrentUser"
+import { requireAdminUser } from "../../../../lib/auth/requireAdminUser"
+import { resolveInviteCreatorId } from "../../../../lib/auth/resolveInviteCreatorId"
 import { z } from 'zod'
 
 export async function POST(req: NextRequest) {
   try {
-    await dbConnect();
-    
-    const currentUser = await getCurrentUser(req);
-    if (!currentUser) {
-      return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
-    }
-    // Prüfen ob eingeloggter Benutzer Superadmin oder Admin ist
-    if (!currentUser || (currentUser.role !== 'superadmin' && currentUser.role !== 'admin')) {
-      return NextResponse.json({ error: "Nur Superadmins und Admins können Admins einladen" }, { status: 403 });
+    const adminAuth = await requireAdminUser(req)
+    if (!adminAuth.ok) {
+      return NextResponse.json(
+        { error: adminAuth.status === 403 ? "Nur Superadmins und Admins können Admins einladen" : adminAuth.error },
+        { status: adminAuth.status }
+      )
     }
 
-    // Request-Body parsen
+    await dbConnect()
+
+    const createdBy = await resolveInviteCreatorId(adminAuth.user.id)
+    if (!createdBy) {
+      return NextResponse.json(
+        {
+          error:
+            "Für den Superadmin konnte kein Admin-Benutzer in der Datenbank als Ersteller der Einladung zugeordnet werden. Bitte legen Sie mindestens einen Admin in der Datenbank an.",
+        },
+        { status: 500 }
+      )
+    }
+
     const csrf = req.headers.get('x-csrf-intent');
     if (process.env.NODE_ENV === 'production' && csrf !== 'invite:create-admin') {
       return NextResponse.json({ error: 'Ungültige Anforderung' }, { status: 400 });
@@ -90,7 +100,7 @@ export async function POST(req: NextRequest) {
       token,
       used: false,
       expiresAt,
-      createdBy: currentUser._id,
+      createdBy,
       name: `${firstName} ${lastName}`,
       firstName,
       lastName,
