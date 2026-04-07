@@ -10,7 +10,8 @@ const InviteTokenSchema = new Schema({
   token: { type: String, required: true, unique: true },
   used: { type: Boolean, default: false },
   expiresAt: { type: Date, required: true },
-  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  /** Optional: fehlt bei Einladungen durch ENV-Super-Admin ohne zugeordneten DB-User */
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   name: { type: String },
   firstName: { type: String },
   lastName: { type: String },

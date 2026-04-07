@@ -34,7 +34,12 @@ export async function GET(req: NextRequest) {
           used: invite.used,
           expiresAt: invite.expiresAt,
           createdAt: invite.createdAt,
-          createdBy: invite.createdBy?.name || "Unbekannt",
+          createdBy: (() => {
+            const cb = (invite as { createdBy?: { name?: string } | null }).createdBy
+            if (cb == null) return "Super-Admin (Umgebung)"
+            const n = typeof cb === "object" && cb && "name" in cb ? String(cb.name ?? "").trim() : ""
+            return n || "Unbekannt"
+          })(),
         })),
       },
       { status: 200 }

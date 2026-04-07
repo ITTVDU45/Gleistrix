@@ -21,12 +21,6 @@ export async function POST(req: NextRequest) {
     await dbConnect()
 
     const createdBy = await resolveInviteCreatorId(adminAuth.user.id)
-    if (!createdBy) {
-      return NextResponse.json(
-        { error: "Für den Superadmin konnte kein Admin-Benutzer in der Datenbank als Ersteller zugeordnet werden." },
-        { status: 500 }
-      )
-    }
 
     const csrf = req.headers.get("x-csrf-intent")
     if (process.env.NODE_ENV === "production" && csrf !== "invite:create-user") {
@@ -87,7 +81,7 @@ export async function POST(req: NextRequest) {
       token: inviteTokenValue,
       used: false,
       expiresAt,
-      createdBy,
+      ...(createdBy ? { createdBy } : {}),
       name: `${firstName} ${lastName}`,
       firstName,
       lastName,

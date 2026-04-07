@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       lastName: inviteToken.lastName,
       phone: inviteToken.phone,
       isActive: true,
+      ...(inviteToken.createdBy ? { createdBy: inviteToken.createdBy } : {}),
       modules: inviteToken.modules ?? [],
     });
 
