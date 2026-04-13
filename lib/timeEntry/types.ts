@@ -13,6 +13,11 @@ export interface BreakSegment {
   end: string    // ISO-String
 }
 
+export interface ExternalWorkerFunction {
+  workerIndex: number
+  funktion: MitarbeiterFunktion | string
+}
+
 /**
  * Berechnete Zuschläge (in Minuten)
  */
@@ -77,6 +82,8 @@ export interface TimeEntryWithSunday {
   externalCompanyId?: string
   externalCompanyName?: string
   externalCount?: number
+  externalWorkerFunctions?: ExternalWorkerFunction[]
+  externalFunctionSummary?: string
   // Neue Felder für automatische Pausenberechnung
   breakSegments?: BreakSegment[]
   breakTotalMinutes?: number

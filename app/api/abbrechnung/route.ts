@@ -8,6 +8,8 @@ import NotificationSettings from '@/lib/models/NotificationSettings'
 import { DEFAULT_NOTIFICATION_DEFS } from '@/lib/notificationDefs'
 import NotificationLog from '@/lib/models/NotificationLog'
 import ActivityLog from '@/lib/models/ActivityLog'
+import BillingPosition from '@/lib/models/BillingPosition'
+import { normalizeProjectTimeEntriesToBillingRows } from '@/lib/timeEntry/billingRows'
 import mongoose from 'mongoose'
 
 export async function POST(req: NextRequest){
@@ -28,17 +30,84 @@ export async function POST(req: NextRequest){
     }
     const days: string[] = toStringArray(body.days)
     const copyDays: string[] = toStringArray(body.copyDays)
+    const selectedRowKeys: string[] = toStringArray(body.selectedRowKeys)
     if (!projectId) return NextResponse.json({ message: 'projectId fehlt' }, { status: 400 })
 
     const project = await Project.findById(projectId).lean()
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 })
+
+    const allRows = normalizeProjectTimeEntriesToBillingRows((project as any)?.mitarbeiterZeiten || {}, days)
+    const selectedRows = selectedRowKeys.length > 0
+      ? allRows.filter((row) => selectedRowKeys.includes(row.rowKey))
+      : allRows
+    if (selectedRows.length === 0) {
+      return NextResponse.json({ message: 'Keine abrechenbaren Positionen ausgewählt' }, { status: 400 })
+    }
+
+    const tokenUserId = String((auth as any).token?.id || '')
+    const billedByUserId = mongoose.isValidObjectId(tokenUserId)
+      ? new mongoose.Types.ObjectId(tokenUserId)
+      : undefined
+
+    const alreadyBilledDocs: any[] = selectedRows.length > 0
+      ? await BillingPosition.find({ projectId, rowKey: { $in: selectedRows.map((r) => r.rowKey) } }).lean()
+      : []
+    const alreadyBilledSet = new Set(alreadyBilledDocs.map((d: any) => String(d.rowKey)))
+
+    const billingDocsPayload = selectedRows.map((row) => ({
+      projectId: (project as any)._id,
+      day: row.day,
+      rowKey: row.rowKey,
+      sourceEntryId: row.sourceEntryId,
+      funktion: row.funktion,
+      count: row.count,
+      hoursPerUnit: row.stundenPerUnit,
+      hoursTotal: row.stundenTotal,
+      isExternal: row.isExternal,
+      companyName: row.companyName,
+      employeeName: row.employeeName,
+      status: (alreadyBilledSet.has(row.rowKey) || copyDays.includes(row.day)) ? 'copied' : 'billed',
+      billedAt: new Date(),
+      billedBy: {
+        userId: billedByUserId,
+        name: (auth as any).token?.name || (auth as any).token?.email || 'system',
+        role: (auth as any).token?.role || 'user',
+      }
+    }))
+
+    if (billingDocsPayload.length > 0) {
+      await BillingPosition.insertMany(billingDocsPayload)
+    }
 
     // Erzeuge PDF(s) via helper (wird in lib/pdfExport erwartet)
     const pdfBuffers: Array<{ filename: string; buffer: Buffer }> = []
     try {
       console.debug('Abrechnung request', { projectId, days: Array.isArray(days) ? days.length : 0, copyDays: Array.isArray(copyDays) ? copyDays.length : 0 })
       if (typeof createPDFForProjectDays === 'function'){
-        const buf = await createPDFForProjectDays(project as any, days)
+        const pseudoTimesByDay: Record<string, any[]> = {}
+        selectedRows.forEach((row) => {
+          if (!pseudoTimesByDay[row.day]) pseudoTimesByDay[row.day] = []
+          pseudoTimesByDay[row.day].push({
+            id: row.rowKey,
+            name: row.isExternal ? row.companyName : row.employeeName,
+            funktion: row.funktion,
+            count: row.count,
+            externalCount: row.count,
+            start: row.start,
+            ende: row.ende,
+            stunden: row.stundenTotal,
+            fahrtstunden: row.fahrtstundenTotal,
+            pause: row.pause,
+            extra: row.extraTotal,
+            nachtzulage: String(row.nachtzulageTotal),
+            sonntag: row.sonntagsstundenTotal,
+            sonntagsstunden: row.sonntagsstundenTotal,
+            feiertag: row.feiertagTotal,
+            bemerkung: row.bemerkung,
+          })
+        })
+        const pdfProject = { ...(project as any), mitarbeiterZeiten: pseudoTimesByDay }
+        const buf = await createPDFForProjectDays(pdfProject as any, Array.from(new Set(selectedRows.map((r) => r.day))))
         const projectName = ((project as any)?.name ?? 'projekt') as string
         pdfBuffers.push({ filename: `${projectName}-abrechnung.pdf`, buffer: buf })
       }
@@ -57,7 +126,9 @@ export async function POST(req: NextRequest){
     const notifKey = 'Abrechnung erstellt – E-Mail an Buchhaltung';
     const isEnabled = Boolean(enabledByKey.get(notifKey));
     const cfg = configByKey.get(notifKey) || {};
-    const to = isEnabled ? (cfg.to || (DEFAULT_NOTIFICATION_DEFS as any)[notifKey].defaultConfig.to) : (process.env.ABBRECHNUNG_EMAIL || process.env.EMAIL_FROM || 'admin@example.com');
+    const defaultNotif = (DEFAULT_NOTIFICATION_DEFS as any)[notifKey];
+    const defaultRecipient = defaultNotif?.defaultConfig?.to || process.env.ABBRECHNUNG_EMAIL || process.env.EMAIL_FROM || 'admin@example.com';
+    const to = isEnabled ? (cfg.to || defaultRecipient) : defaultRecipient;
 
     // Attach project documents from MinIO if present
     const emailAttachments: any[] = []
@@ -83,33 +154,32 @@ export async function POST(req: NextRequest){
       }
     }
 
-    // Compose informative email body: number of selected days, unique employees, total hours
-    let totalHours = 0
+    // Compose informative email body using normalized billing rows
+    const totalHours = selectedRows.reduce((sum, row) => sum + row.stundenTotal, 0)
     const uniqueEmployees = new Set<string>()
-    try {
-      const timesAny: any = (project as any)?.mitarbeiterZeiten || {}
-      for (const d of (days || [])) {
-        const entries = timesAny?.[d] || []
-        for (const e of entries) {
-          if (typeof e.stunden === 'number') totalHours += e.stunden
-          if (e.name) uniqueEmployees.add(e.name)
-        }
+    selectedRows.forEach((row) => {
+      if (row.isExternal) {
+        if (row.companyName) uniqueEmployees.add(row.companyName)
+      } else {
+        if (row.employeeName) uniqueEmployees.add(row.employeeName)
       }
-    } catch (e) {}
+    })
 
-    // Build detailed HTML with per-day breakdown
-    const timesAny: any = (project as any)?.mitarbeiterZeiten || {}
+    // Build detailed HTML with per-day + function breakdown
     const copySet = new Set(Array.isArray(copyDays) ? copyDays : [])
     const dayRows: string[] = []
-    for (const d of (days || [])) {
-      const entries = timesAny?.[d] || []
+    const daysFromRows = Array.from(new Set(selectedRows.map((row) => row.day))).sort()
+    for (const d of daysFromRows) {
+      const rowsForDay = selectedRows.filter((row) => row.day === d)
       const perEmp: Record<string, number> = {}
       let dayTotal = 0
-      for (const e of entries) {
-        const name = e.name || 'Unbekannt'
-        const hrs = typeof e.stunden === 'number' ? e.stunden : parseFloat(e.stunden || 0) || 0
+      for (const row of rowsForDay) {
+        const who = row.isExternal
+          ? `${row.companyName || 'Extern'} (${row.count}x ${row.funktion})`
+          : `${row.employeeName || 'Unbekannt'} (${row.funktion})`
+        const hrs = row.stundenTotal || 0
         dayTotal += hrs
-        perEmp[name] = (perEmp[name] || 0) + hrs
+        perEmp[who] = (perEmp[who] || 0) + hrs
       }
       const empLines = Object.entries(perEmp).map(([name, h]) => `<li>${name}: ${h.toFixed(2)}h</li>`).join('')
       const copyNote = copySet.has(d) ? ' <strong style="color:#b45309">(Kopie)</strong>' : ''
@@ -144,7 +214,7 @@ export async function POST(req: NextRequest){
         <h4 style="margin-bottom:6px">🔎 Projektübersicht:</h4>
         <ul style="margin-top:0;margin-bottom:8px;font-size:13px">
           <li><strong>Projektname:</strong> ${(project as any).name}</li>
-          <li><strong>Erfasste Tage:</strong> ${(days || []).length}</li>
+          <li><strong>Erfasste Tage:</strong> ${daysFromRows.length}</li>
           <li><strong>Beteiligte Mitarbeitende:</strong> ${uniqueEmployees.size}</li>
           <li><strong>Gesamteinsatzzeit:</strong> ${totalHours.toFixed(2)} Stunden</li>
         </ul>
@@ -189,68 +259,47 @@ export async function POST(req: NextRequest){
         projectId: (project as any)._id,
         projectName: (project as any).name,
         attachmentsCount: emailAttachments.length,
-        meta: { days: days || [], copyDays: Array.from(copySet), performedBy: (auth as any).token?.email || 'system' }
+        meta: { days: daysFromRows, copyDays: Array.from(copySet), selectedRowKeys, performedBy: (auth as any).token?.email || 'system' }
       })
     } catch (logErr) {
       console.error('Failed to create notification log:', logErr)
     }
 
-    // Update project's billed days and status
+    // Update project's billed days and status based on billed billing positions
     try {
-      if (Array.isArray(days) && days.length > 0) {
-        const existing: string[] = Array.isArray((project as any).abgerechneteTage) ? (project as any).abgerechneteTage : []
-        const merged = Array.from(new Set([...(existing || []), ...days]))
-        
-        // Alle Tage mit Einträgen UND die Folgetage bei tagübergreifenden Einträgen
-        const allDaysSet = new Set<string>()
-        
-        // Zuerst Tage mit Einträgen sammeln
-        Object.entries((project as any).mitarbeiterZeiten || {}).forEach(([day, arr]: any) => {
-          if (Array.isArray(arr) && arr.length > 0) {
-            allDaysSet.add(day)
-            
-            // Dann Folgetage für tagübergreifende Einträge
-            for (const e of arr) {
-              const endStr = e?.ende || e?.end
-              if (typeof endStr === 'string' && endStr.includes('T')) {
-                const endDay = endStr.slice(0,10)
-                if (endDay && endDay !== day) {
-                  allDaysSet.add(endDay)
-                }
-              }
-            }
-          }
-        })
-        
-        const allDays = Array.from(allDaysSet)
-        console.log('Projektstatus-Berechnung:', {
-          projektId: (project as any)._id,
-          allDays,
-          merged,
-          allDaysLength: allDays.length,
-          mergedLength: merged.length,
-          isComplete: allDays.length > 0 && merged.length >= allDays.length
-        })
-        
-        let newStatus = (project as any).status
-        if (merged.length > 0 && allDays.length > 0 && merged.length < allDays.length) {
-          newStatus = 'teilweise_abgerechnet'
-        }
-        if (allDays.length > 0 && merged.length >= allDays.length) {
-          newStatus = 'geleistet'
-        }
-        
-        console.log('Setze neuen Status:', newStatus)
-        await Project.findByIdAndUpdate((project as any)._id, { $set: { abgerechneteTage: merged, status: newStatus } })
+      const allRows = normalizeProjectTimeEntriesToBillingRows((project as any).mitarbeiterZeiten || {}, undefined)
+      const allPositions: any[] = await BillingPosition.find({ projectId: (project as any)._id }).lean()
+      const billedKeys = new Set(allPositions.map((p: any) => String(p.rowKey)))
+
+      const allDays = Array.from(new Set(allRows.map((r) => r.day))).sort()
+      const fullyBilledDays = allDays.filter((day) => {
+        const dayRows = allRows.filter((r) => r.day === day)
+        if (dayRows.length === 0) return false
+        return dayRows.every((r) => billedKeys.has(String(r.rowKey)))
+      })
+
+      let newStatus = (project as any).status
+      if (billedKeys.size > 0 && fullyBilledDays.length < allDays.length) {
+        newStatus = 'teilweise_abgerechnet'
+      }
+      if (allDays.length > 0 && fullyBilledDays.length === allDays.length) {
+        newStatus = 'geleistet'
+      }
+
+      await Project.findByIdAndUpdate(
+        (project as any)._id,
+        { $set: { abgerechneteTage: fullyBilledDays, status: newStatus } }
+      )
 
         // Aktivitäten-Logs schreiben
         try {
           const token = (auth as any).token;
-          const userId = token?.id ? new mongoose.Types.ObjectId(String(token.id)) : undefined;
+          const tokenLogUserId = String(token?.id || '')
+          const userId = mongoose.isValidObjectId(tokenLogUserId) ? new mongoose.Types.ObjectId(tokenLogUserId) : undefined;
           // 1) Abrechnung-Log mit Tagen (inkl. Kopie-Tage)
           await ActivityLog.create({
             timestamp: new Date(),
-            actionType: merged.length >= allDays.length ? 'billing_full' : 'billing_partial',
+            actionType: fullyBilledDays.length >= allDays.length ? 'billing_full' : 'billing_partial',
             module: 'billing',
             performedBy: {
               userId: userId!,
@@ -259,12 +308,13 @@ export async function POST(req: NextRequest){
             },
             details: {
               entityId: (project as any)._id,
-              description: `Abrechnung durchgeführt für Projekt "${(project as any).name}" (${days.length} Tag(e))`,
-              before: { abgerechneteTage: existing },
-              after: { abgerechneteTage: merged },
+              description: `Abrechnung durchgeführt für Projekt "${(project as any).name}" (${daysFromRows.length} Tag(e), ${selectedRows.length} Position(en))`,
+              before: { abgerechneteTage: (project as any).abgerechneteTage || [] },
+              after: { abgerechneteTage: fullyBilledDays },
               context: {
-                days: Array.isArray(days) ? days : [],
+                days: daysFromRows,
                 copyDays: Array.from(copySet),
+                selectedRowKeys,
               }
             }
           })
@@ -291,12 +341,21 @@ export async function POST(req: NextRequest){
         } catch (logErr) {
           console.warn('ActivityLog for billing/status failed:', logErr)
         }
-      }
     } catch (e) {
       console.warn('Could not update project billed days/status', e)
     }
 
-    return NextResponse.json({ success: true })
+    const firstPdf = pdfBuffers[0]
+    return NextResponse.json({
+      success: true,
+      pdf: firstPdf
+        ? {
+            filename: firstPdf.filename,
+            mimeType: 'application/pdf',
+            base64: firstPdf.buffer.toString('base64'),
+          }
+        : null,
+    })
   }catch(e){
     console.error('Abrechnung failed', e)
     return NextResponse.json({ message: 'Fehler bei Abrechnung' }, { status: 500 })

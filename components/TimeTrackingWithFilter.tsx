@@ -8,6 +8,7 @@ import type { Project, Employee, TimeEntry } from '../types';
 import TimeTrackingFilters from './TimeTrackingFilters';
 import TimeTrackingExport from './TimeTrackingExport';
 import DynamicTimeTrackingStats from './DynamicTimeTrackingStats';
+import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows';
 
 interface TimeTrackingWithFilterProps {
   projects: Project[];
@@ -49,11 +50,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
     return `${s} - ${e}`;
   };
 
-  const getEntryMultiplier = (entry: any): number => {
-    if (!entry?.isExternal) return 1;
-    const count = typeof entry.externalCount === 'number' ? entry.externalCount : parseFloat(String(entry.externalCount || 1));
-    return Number.isFinite(count) && count > 0 ? count : 1;
-  };
+  const getEntryMultiplier = (_entry?: any): number => 1;
 
   const getEntryBaseName = (entry: any): string => {
     if (entry?.isExternal) {
@@ -63,52 +60,42 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
   };
 
   const getEntryDisplayName = (entry: any): string => {
-    const base = getEntryBaseName(entry) || '-';
-    const multiplier = getEntryMultiplier(entry);
-    return entry?.isExternal ? `${base} (x${multiplier})` : base;
+    return getEntryBaseName(entry) || '-';
   };
 
-  // Alle Zeiteinträge aus allen Projekten sammeln
-  const allTimeEntriesRaw: TimeEntry[] = projects.flatMap((project: Project) => 
+  // Alle Zeiteinträge aus allen Projekten sammeln (externe Einträge je Funktion als eigene Zeile)
+  const allTimeEntriesRaw: TimeEntry[] = projects.flatMap((project: Project) =>
     Object.entries(project.mitarbeiterZeiten || {}).flatMap(([date, entries]) =>
-      entries.map((entry: TimeEntry) => ({
-        // explicitly map known fields so downstream components always receive them
-        id: `${project.id}-${date}-${entry.id || Math.random()}`,
-        projectName: project.name,
-        date,
-        orderNumber: project.auftragsnummer,
-        sapNumber: project.sapNummer,
-        client: project.auftraggeber,
-        status: project.status as any,
-        ort: (project as any).baustelle || '-',
-        name: entry.name || (entry as any).mitarbeiter || '-',
-        funktion: entry.funktion || (entry as any).role || '-',
-        start: entry.start || (entry as any).beginn || '-',
-        ende: entry.ende || (entry as any).end || '-',
-        stunden: typeof entry.stunden === 'number' ? entry.stunden : (parseFloat(String(entry.stunden || 0)) || 0),
-        pause: entry.pause || '-',
-        nachtzulage: (entry as any).nachtzulage !== undefined ? (entry as any).nachtzulage : ((entry as any).nachtstunden !== undefined ? (entry as any).nachtstunden : 0),
-        // Bevorzuge explizite Sonntagsstunden; fallback auf evtl. numerisches sonntag-Feld
-        sonntagsstunden: (entry as any).sonntagsstunden !== undefined
-          ? (entry as any).sonntagsstunden
-          : (entry as any).sonntag !== undefined
-            ? (typeof (entry as any).sonntag === 'number' ? (entry as any).sonntag : parseFloat(String((entry as any).sonntag)) || 0)
-            : 0,
-        // keep legacy `sonntag` number field for compatibility with types
-        sonntag: (entry as any).sonntagsstunden !== undefined
-          ? (entry as any).sonntagsstunden
-          : (entry as any).sonntag !== undefined
-            ? (typeof (entry as any).sonntag === 'number' ? (entry as any).sonntag : parseFloat(String((entry as any).sonntag)) || 0)
-            : 0,
-        feiertag: entry.feiertag !== undefined ? entry.feiertag : 0,
-        fahrtstunden: entry.fahrtstunden !== undefined ? entry.fahrtstunden : ((entry as any).fahrt || 0),
-        extra: entry.extra || (entry as any).extraInfo || '-',
-        bemerkung: entry.bemerkung || (entry as any).note || '',
-        isExternal: (entry as any).isExternal,
-        externalCompanyId: (entry as any).externalCompanyId,
-        externalCompanyName: (entry as any).externalCompanyName,
-        externalCount: (entry as any).externalCount,
-      }))
+      (entries || []).flatMap((entry: TimeEntry) => {
+        const rows = normalizeTimeEntryToBillingRows(date, entry as any)
+        return rows.map((row) => ({
+          id: `${project.id}-${row.rowKey}`,
+          projectName: project.name,
+          date,
+          orderNumber: project.auftragsnummer,
+          sapNumber: project.sapNummer,
+          client: project.auftraggeber,
+          status: project.status as any,
+          ort: (project as any).baustelle || '-',
+          name: row.isExternal ? (row.companyName || 'Extern') : (row.employeeName || '-'),
+          funktion: row.funktion,
+          start: row.start || '-',
+          ende: row.ende || '-',
+          stunden: row.stundenTotal,
+          pause: row.pause || '-',
+          nachtzulage: String(row.nachtzulageTotal),
+          sonntagsstunden: row.sonntagsstundenTotal,
+          sonntag: row.sonntagsstundenTotal,
+          feiertag: row.feiertagTotal,
+          fahrtstunden: row.fahrtstundenTotal,
+          extra: row.extraTotal,
+          bemerkung: row.bemerkung || '',
+          isExternal: row.isExternal,
+          externalCompanyId: (entry as any).externalCompanyId,
+          externalCompanyName: row.companyName,
+          externalCount: row.count,
+        }))
+      })
     )
   );
 

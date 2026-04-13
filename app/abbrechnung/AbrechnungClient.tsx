@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader } from '../../components/ui/card'
 import { Calendar, MapPin, User, Clock } from 'lucide-react'
 import InlineStatusSelect from '../../components/InlineStatusSelect'
 import { ProjectsApi } from '@/lib/api/projects'
+import { normalizeProjectTimeEntriesToBillingRows } from '@/lib/timeEntry/billingRows'
 
 type Props = { projects?: any[] }
 
@@ -54,12 +55,8 @@ export default function AbrechnungClient({ projects = [] }: Props){
 
   function getTotalHours(project: any) {
     try {
-      const vals = Object.values(project.mitarbeiterZeiten || {}) as any[]
-      const total = vals.reduce((sum: number, entries: any) => {
-        const arr = Array.isArray(entries) ? entries : []
-        return sum + arr.reduce((es: number, e: any) => es + (e.stunden || 0), 0)
-      }, 0)
-      return total
+      const rows = normalizeProjectTimeEntriesToBillingRows(project.mitarbeiterZeiten || {}, undefined)
+      return rows.reduce((sum: number, row: any) => sum + (row.stundenTotal || 0), 0)
     } catch {
       return 0
     }

@@ -69,6 +69,28 @@ export interface BreakSegment {
   end: string    // ISO-String
 }
 
+export interface ExternalWorkerFunction {
+  workerIndex: number
+  funktion: string | MitarbeiterFunktion
+}
+
+export interface BillingPosition {
+  id: string
+  projectId: string
+  day: string
+  rowKey: string
+  sourceEntryId: string
+  funktion: string
+  count: number
+  hoursPerUnit: number
+  hoursTotal: number
+  isExternal: boolean
+  companyName?: string
+  employeeName?: string
+  status: 'billed' | 'copied'
+  billedAt: string
+}
+
 export interface TimeEntry {
   id: string
   name: string
@@ -100,6 +122,8 @@ export interface TimeEntry {
   externalCompanyId?: string
   externalCompanyName?: string
   externalCount?: number
+  externalWorkerFunctions?: ExternalWorkerFunction[]
+  externalFunctionSummary?: string
 }
 
 export interface TechnikEntry {

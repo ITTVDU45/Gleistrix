@@ -3,7 +3,7 @@ import React from 'react'
 import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Button } from './ui/button'
-import type { Project, TimeEntry, MitarbeiterFunktion, Employee } from '../types'
+import type { Project, TimeEntry, MitarbeiterFunktion, Employee, ExternalWorkerFunction } from '../types'
 import type { BreakSegment } from '@/lib/timeEntry'
 import { calculateRequiredBreakMinutes, calculateBreakSegments } from '@/lib/timeEntry'
 import { format, parseISO, addDays } from 'date-fns'
@@ -33,6 +33,41 @@ interface EditTimeEntryFormProps {
   onEdit: (data: MultiDayEditData) => Promise<void> | void
   onClose: () => void
   employees?: Employee[]
+}
+
+const buildExternalWorkerFunctions = (
+  count: number,
+  previousRows: ExternalWorkerFunction[] = [],
+  fallbackFunction?: string
+): ExternalWorkerFunction[] => {
+  const safeCount = Number.isFinite(count) && count > 0 ? Math.floor(count) : 1
+  return Array.from({ length: safeCount }, (_, idx) => {
+    const workerIndex = idx + 1
+    const previous = previousRows[idx]
+    return {
+      workerIndex,
+      funktion: previous?.funktion || fallbackFunction || ''
+    }
+  })
+}
+
+const getExternalFallbackFunction = (rows: ExternalWorkerFunction[]): string => {
+  const unique = Array.from(new Set(rows.map((row) => String(row.funktion || '').trim()).filter(Boolean)))
+  if (unique.length === 1) return unique[0]
+  return unique.length > 1 ? 'Gemischt' : ''
+}
+
+const summarizeExternalWorkerFunctions = (rows: ExternalWorkerFunction[]): string => {
+  const counters = new Map<string, number>()
+  rows.forEach((row) => {
+    const key = String(row.funktion || '').trim()
+    if (!key) return
+    counters.set(key, (counters.get(key) || 0) + 1)
+  })
+  return Array.from(counters.entries())
+    .sort((a, b) => a[0].localeCompare(b[0], 'de'))
+    .map(([funktion, count]) => `${count}x ${funktion}`)
+    .join(', ')
 }
 
 export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClose, employees = [] }: EditTimeEntryFormProps) {
@@ -75,6 +110,13 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   const [externalCount, setExternalCount] = React.useState<number>(
     typeof entry?.externalCount === 'number' && entry.externalCount > 0 ? entry.externalCount : 1
   )
+  const [externalWorkerFunctions, setExternalWorkerFunctions] = React.useState<ExternalWorkerFunction[]>(
+    buildExternalWorkerFunctions(
+      typeof entry?.externalCount === 'number' && entry.externalCount > 0 ? entry.externalCount : 1,
+      (entry?.externalWorkerFunctions as ExternalWorkerFunction[] | undefined) || [],
+      typeof entry?.funktion === 'string' ? entry.funktion : ''
+    )
+  )
 
   const selectedExternalCompany = React.useMemo(
     () => subcompanies.find((company) => company.id === externalCompanyId),
@@ -87,6 +129,24 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       if (match) setExternalCompanyId(match.id)
     }
   }, [externalCompanyId, entry?.externalCompanyName, subcompanies])
+
+  React.useEffect(() => {
+    if (!entry) return
+    const count = typeof entry?.externalCount === 'number' && entry.externalCount > 0 ? entry.externalCount : 1
+    setExternalCount(count)
+    setExternalWorkerFunctions(
+      buildExternalWorkerFunctions(
+        count,
+        (entry?.externalWorkerFunctions as ExternalWorkerFunction[] | undefined) || [],
+        typeof entry?.funktion === 'string' ? entry.funktion : ''
+      )
+    )
+  }, [entry])
+
+  React.useEffect(() => {
+    if (activeTab !== 'external') return
+    setExternalWorkerFunctions((prev) => buildExternalWorkerFunctions(externalCount, prev))
+  }, [activeTab, externalCount])
 
   const { projects: allProjects } = useProjects();
   const [apiError, setApiError] = React.useState<string | null>(null)
@@ -340,10 +400,13 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   // Hilfsfunktion: Sind alle Pflichtfelder ausgefüllt?
   function isFormValid() {
     if (activeTab === 'external') {
+      const hasAllExternalFunctions =
+        externalWorkerFunctions.length === externalCount &&
+        externalWorkerFunctions.every((row) => String(row.funktion || '').trim().length > 0)
       return (
         !!selectedExternalCompany &&
         externalCount > 0 &&
-        formData.funktion &&
+        hasAllExternalFunctions &&
         formData.start &&
         formData.ende &&
         selectedDays.length > 0
@@ -384,6 +447,13 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   // Erstelle einen TimeEntry für einen spezifischen Tag
   function buildEntryForDay(day: string, existingId?: string): TimeEntry {
     const isExternalEntry = activeTab === 'external' && selectedExternalCompany;
+    const normalizedExternalFunctions = isExternalEntry
+      ? buildExternalWorkerFunctions(externalCount, externalWorkerFunctions)
+      : []
+    const externalFallbackFunction = isExternalEntry
+      ? getExternalFallbackFunction(normalizedExternalFunctions)
+      : ''
+    const functionValue = isExternalEntry ? externalFallbackFunction : formData.funktion
     const nameForId = isExternalEntry ? selectedExternalCompany!.name : formData.name;
     const startISO = `${day}T${formData.start}`;
     // Wenn die Endzeit < Startzeit ist, ist es über Mitternacht → Endtag = Folgetag
@@ -440,7 +510,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     return {
       id: existingId || `${Date.now().toString()}-${nameForId}-${day}`,
       name: isExternalEntry ? selectedExternalCompany!.name : formData.name,
-      funktion: formData.funktion,
+      funktion: functionValue,
       start: startISO,
       ende: endISO,
       stunden: totalHours,
@@ -457,7 +527,9 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
             isExternal: true,
             externalCompanyId: selectedExternalCompany!.id,
             externalCompanyName: selectedExternalCompany!.name,
-            externalCount
+            externalCount,
+            externalWorkerFunctions: normalizedExternalFunctions,
+            externalFunctionSummary: summarizeExternalWorkerFunctions(normalizedExternalFunctions)
           }
         : {})
     } as TimeEntry;
@@ -477,6 +549,14 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
         }
         if (!externalCount || externalCount < 1) {
           setApiError('Bitte eine gültige Mitarbeiteranzahl angeben.');
+          return;
+        }
+        const normalizedExternalFunctions = buildExternalWorkerFunctions(externalCount, externalWorkerFunctions)
+        const hasMissingFunction = normalizedExternalFunctions.some(
+          (row) => String(row.funktion || '').trim().length === 0
+        )
+        if (hasMissingFunction) {
+          setApiError('Bitte für jeden externen Mitarbeiter eine Funktion auswählen.');
           return;
         }
       }
@@ -615,21 +695,56 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="funktion-external" className="text-sm font-semibold text-slate-700">
-                Funktion *
-              </Label>
-              <Select value={formData.funktion} onValueChange={(value) => setFormData(prev => ({ ...prev, funktion: value as MitarbeiterFunktion }))}>
-                <SelectTrigger className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-12">
-                  <SelectValue placeholder="Funktion wählen" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {MITARBEITER_FUNKTION_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm font-semibold text-slate-700">Funktionen pro Mitarbeiter *</Label>
+              <div className="rounded-xl border border-slate-200 bg-white">
+                <div className="max-h-64 overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-700 w-40">Mitarbeiter</th>
+                        <th className="px-3 py-2 text-left font-semibold text-slate-700">Funktion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {externalWorkerFunctions.map((row, idx) => (
+                        <tr key={`external-worker-${row.workerIndex}`} className="border-t border-slate-100">
+                          <td className="px-3 py-2 text-slate-700">Mitarbeiter {row.workerIndex}</td>
+                          <td className="px-3 py-2">
+                            <Select
+                              value={String(row.funktion || '')}
+                              onValueChange={(value) =>
+                                setExternalWorkerFunctions((prev) =>
+                                  prev.map((item, itemIdx) =>
+                                    itemIdx === idx
+                                      ? { ...item, funktion: value as MitarbeiterFunktion }
+                                      : item
+                                  )
+                                )
+                              }
+                            >
+                              <SelectTrigger className="rounded-xl border-slate-200 focus:border-blue-500 focus:ring-blue-500 h-10">
+                                <SelectValue placeholder="Funktion wählen" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                {MITARBEITER_FUNKTION_OPTIONS.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {externalWorkerFunctions.some((row) => !String(row.funktion || '').trim()) && (
+                  <p className="px-3 py-2 text-xs text-red-600">
+                    Bitte für jeden externen Mitarbeiter eine Funktion auswählen.
+                  </p>
+                )}
+              </div>
             </div>
           </TabsContent>
         </Tabs>
@@ -922,3 +1037,4 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     </form>
   )
 } 
+

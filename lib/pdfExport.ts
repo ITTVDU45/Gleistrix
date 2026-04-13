@@ -261,6 +261,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
           date: d,
           name: e.name || e.mitarbeiter || '-',
           funktion: e.funktion || '-',
+          count: Number(e.count ?? e.externalCount ?? 1) || 1,
           start: e.start || e.beginn || '-',
           ende: e.ende || e.end || '-',
           stunden: readNumberField(e, ['stunden', 'stunde']),
@@ -276,7 +277,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
       if (entries.length > 0) {
         doc.setFontSize(14); doc.text('Zeiten', margin, y)
         // Timetracking-style table (match components/TimeTrackingExport.tsx)
-        const timeHead = ['Datum','Projektname','Ort','Mitarbeiter','Zeit','Gesamtstunden','Pause','Nachtstunden','Sonntagsstunden','Feiertagsstunden','Fahrtstunden','Extra']
+        const timeHead = ['Datum','Projektname','Ort','Mitarbeiter','Funktion','Anzahl','Zeit','Gesamtstunden','Pause','Nachtstunden','Sonntagsstunden','Feiertagsstunden','Fahrtstunden','Extra']
         const formatIsoDate = (iso: string) => {
           try {
             if (!iso) return '-'
@@ -289,6 +290,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
           const d = formatIsoDate(row.date)
           const name = row.name || '-'
           const funktion = row.funktion || '-'
+          const count = Number(row.count || 1)
           const start = row.start || '-'
           const ende = row.ende || '-'
           const stunden = (typeof row.stunden === 'number') ? formatHoursDot(row.stunden) : String(row.stunden || '-')
@@ -312,15 +314,15 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
           const zeit = (start && ende && start !== '-' && ende !== '-') ? formatZeit(start, ende) : (start ? formatDateTime(start) : (ende ? formatDateTime(ende) : '-'))
           const projName = project.name || '-'
           const ort = project.baustelle || project.ort || '-'
-          return [d, projName, ort, name, zeit, stunden, pause, nacht, sonntag, feiertag, fahrt, extra]
+          return [d, projName, ort, name, funktion, String(count), zeit, stunden, pause, nacht, sonntag, feiertag, fahrt, extra]
         })
 
         // Let autoTable compute widths and use a smaller font/padding so all columns fit on landscape A4
         // compute column widths proportionally to fit the available page width
         const pageWidth = doc.internal.pageSize.getWidth()
         const availWidth = pageWidth - 12 - 12 // left/right margins used below
-        // relative weights for columns: Datum, Projektname, Ort, Mitarbeiter, Zeit, Gesamtstunden, Pause, Nacht, Sonntag, Feiertag, Fahrt, Extra
-        const weights = [8, 18, 14, 12, 22, 6, 6, 6, 6, 6, 6, 6]
+        // relative weights for columns: Datum, Projektname, Ort, Mitarbeiter, Funktion, Anzahl, Zeit, Gesamtstunden, Pause, Nacht, Sonntag, Feiertag, Fahrt, Extra
+        const weights = [8, 16, 12, 11, 10, 5, 18, 6, 6, 6, 6, 6, 6, 5]
         const weightSum = weights.reduce((s,w)=>s+w,0)
         const colWidths: number[] = weights.map(w => Math.max(10, Math.round((w / weightSum) * availWidth)))
 
