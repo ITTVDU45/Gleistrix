@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from './ui/card';
 import { ChevronDown, ChevronUp, Filter, RefreshCw } from 'lucide-react';
 import type { Project } from '../types';
 import MultiSelectDropdown from './ui/MultiSelectDropdown';
+import { getProjectTotalHours } from '@/lib/timeEntry/projectHours'
 
 interface ProjectListFilterProps {
   projects: Project[];
@@ -95,9 +96,8 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
     if (hoursFrom || hoursTo) {
       const hoursNames = new Set<string>();
       projects.forEach(project => {
-        const totalHours = Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-          return sum + entries.reduce((entrySum: number, entry: any) => entrySum + entry.stunden, 0);
-        }, 0);
+        const totalHours = getProjectTotalHours(project);
+
 
         let includeProject = true;
         if (hoursFrom && totalHours < parseFloat(hoursFrom)) includeProject = false;
@@ -169,9 +169,8 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
     if (hoursFrom || hoursTo) {
       const hoursAuftraggeber = new Set<string>();
       projects.forEach(project => {
-        const totalHours = Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-          return sum + entries.reduce((entrySum: number, entry: any) => entrySum + entry.stunden, 0);
-        }, 0);
+        const totalHours = getProjectTotalHours(project);
+
 
         let includeProject = true;
         if (hoursFrom && totalHours < parseFloat(hoursFrom)) includeProject = false;
@@ -243,9 +242,8 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
     if (hoursFrom || hoursTo) {
       const hoursBaustellen = new Set<string>();
       projects.forEach(project => {
-        const totalHours = Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-          return sum + entries.reduce((entrySum: number, entry: any) => entrySum + entry.stunden, 0);
-        }, 0);
+        const totalHours = getProjectTotalHours(project);
+
 
         let includeProject = true;
         if (hoursFrom && totalHours < parseFloat(hoursFrom)) includeProject = false;
@@ -317,9 +315,8 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
     if (hoursFrom || hoursTo) {
       const hoursStatuses = new Set<string>();
       projects.forEach(project => {
-        const totalHours = Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-          return sum + entries.reduce((entrySum: number, entry: any) => entrySum + entry.stunden, 0);
-        }, 0);
+        const totalHours = getProjectTotalHours(project);
+
 
         let includeProject = true;
         if (hoursFrom && totalHours < parseFloat(hoursFrom)) includeProject = false;
@@ -374,9 +371,8 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
 
     if (hoursFrom || hoursTo) {
       filtered = filtered.filter(project => {
-        const totalHours = Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-          return sum + entries.reduce((entrySum: number, entry: any) => entrySum + entry.stunden, 0);
-        }, 0);
+        const totalHours = getProjectTotalHours(project);
+
 
         if (hoursFrom && totalHours < parseFloat(hoursFrom)) return false;
         if (hoursTo && totalHours > parseFloat(hoursTo)) return false;
@@ -543,3 +539,4 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
     </Card>
   );
 }
+

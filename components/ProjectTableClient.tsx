@@ -8,6 +8,7 @@ import { Calendar, MapPin, User, Clock, Building2, Trash2, Loader2 } from 'lucid
 import type { Project, ProjectStatus } from '../types';
 import { ProjectsApi } from '@/lib/api/projects'
 import { ActivityLogApi } from '@/lib/api/activityLog'
+import { getProjectTotalHours } from '@/lib/timeEntry/projectHours'
 import ProjectActions from './ProjectActions';
 import InlineStatusSelect from './InlineStatusSelect';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
@@ -26,9 +27,7 @@ function getStatusColor(status: string) {
 }
 
 function getTotalHours(project: Project) {
-  return Object.values(project.mitarbeiterZeiten || {}).reduce((sum: number, entries: any[]) => {
-    return sum + entries.reduce((entrySum: number, entry: any) => entrySum + entry.stunden, 0);
-  }, 0);
+  return getProjectTotalHours(project);
 }
 
 // Limit-Optionen für die Anzeige

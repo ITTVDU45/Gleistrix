@@ -3,6 +3,7 @@ import React from 'react';
 import { Building2, Clock, CheckCircle, User } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import type { Project } from '../types';
+import { getProjectTotalHours } from '@/lib/timeEntry/projectHours'
 
 interface DynamicProjectStatsProps {
   projects: Project[];
@@ -25,9 +26,7 @@ export default function DynamicProjectStats({ projects }: DynamicProjectStatsPro
       ['abgeschlossen', 'fertiggestellt', 'geleistet'].includes(project.status)
     ).length;
     const totalHours = projects.reduce((sum, project) => {
-      return sum + Object.values(project.mitarbeiterZeiten || {}).reduce((projectSum, entries) => {
-        return projectSum + entries.reduce((entrySum, entry) => entrySum + entry.stunden, 0);
-      }, 0);
+      return sum + getProjectTotalHours(project)
     }, 0);
 
     return {
