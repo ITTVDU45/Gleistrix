@@ -234,19 +234,29 @@ LockSchema.statics.releaseLock = async function(resourceType: string, resourceId
 
 // Statische Methode zum Aktualisieren der Aktivität
 LockSchema.statics.updateActivity = async function(resourceType: string, resourceId: string, userId: string) {
-  const lock = await this.findOne({
-    resourceType,
-    resourceId,
-    'lockedBy.userId': userId
-  });
-  
-  if (lock) {
-    lock.lastActivity = new Date();
-    await lock.save();
-    return true;
+  try {
+    if (!mongoose.isValidObjectId(userId)) {
+      return false;
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const lock = await this.findOne({
+      resourceType,
+      resourceId,
+      'lockedBy.userId': userObjectId
+    });
+
+    if (lock) {
+      lock.lastActivity = new Date();
+      await lock.save();
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.warn('Lock.updateActivity failed:', error);
+    return false;
   }
-  
-  return false;
 };
 
 // Statische Methode zum Bereinigen abgelaufener Sperren

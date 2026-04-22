@@ -17,6 +17,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
     const description = formData.get('description') as string | null;
+    const descriptionList = formData.getAll('descriptions').map((v) => String(v ?? ''));
+    const descriptionsJsonRaw = formData.get('descriptionsJson') as string | null;
+    let descriptionsJson: string[] = [];
+    if (descriptionsJsonRaw) {
+      try {
+        const parsed = JSON.parse(descriptionsJsonRaw);
+        if (Array.isArray(parsed)) descriptionsJson = parsed.map((v) => String(v ?? ''));
+      } catch {
+        // ignore malformed descriptionsJson
+      }
+    }
 
     // Server-side validation
     const MAX_BYTES = Number(process.env.MAX_UPLOAD_SIZE_BYTES || 50 * 1024 * 1024); // default 50 MB
@@ -60,7 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    for (const f of files as any) {
+    for (const [index, f] of (files as any[]).entries()) {
       const idStr = Date.now().toString() + Math.random().toString(36).slice(2);
       const name = (f as any).name || 'file';
       const key = getProjectObjectKey(project, name);
@@ -75,7 +86,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       } catch (e) {
         console.error('MinIO upload failed for', name, e);
       }
-      const docMeta = { id: idStr, name, description: description || '', url: `minio://${bucketName}/${key}` };
+      const resolvedDescription =
+        descriptionList[index] ??
+        descriptionsJson[index] ??
+        description ??
+        '';
+      const docMeta = { id: idStr, name, description: resolvedDescription, url: `minio://${bucketName}/${key}` };
       if (!(project as any).dokumente['all']) (project as any).dokumente['all'] = [];
       (project as any).dokumente['all'].push(docMeta);
       uploaded.push(docMeta);

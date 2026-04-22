@@ -3,6 +3,7 @@ export const runtime = 'nodejs'
 import dbConnect from '../../../../lib/dbConnect'
 import Lock from '../../../../lib/models/Lock'
 import { resolveLockUser } from '../../../../lib/auth/resolveLockUser'
+import mongoose from 'mongoose'
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,10 +21,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ressourcentyp und Ressourcen-ID erforderlich' }, { status: 400 })
     }
 
+    const effectiveUserId = String(resolvedUser.effectiveUserId)
+    if (!mongoose.isValidObjectId(effectiveUserId)) {
+      return NextResponse.json({
+        success: true,
+        updated: false,
+        message: 'Aktivitaet nicht aktualisiert (ungueltige Benutzer-ID)',
+      })
+    }
+
     const updated = await Lock.updateActivity(
       String(resourceType),
       String(resourceId),
-      String(resolvedUser.effectiveUserId)
+      effectiveUserId
     )
 
     return NextResponse.json({

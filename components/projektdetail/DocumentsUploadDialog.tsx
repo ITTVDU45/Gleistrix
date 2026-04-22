@@ -82,9 +82,17 @@ export default function DocumentsUploadDialog({ open, onOpenChange, onUpload, pr
     setIsUploading(true);
     try {
       const formData = new FormData();
-      files.forEach((f) => formData.append('files', f));
-      const firstKey = files[0] ? getFileKey(files[0]) : '';
-      formData.set('description', descriptions[firstKey] ?? '');
+      const descriptionsByIndex: string[] = [];
+      files.forEach((f) => {
+        formData.append('files', f);
+        const fileKey = getFileKey(f);
+        const description = descriptions[fileKey] ?? '';
+        formData.append('descriptions', description);
+        descriptionsByIndex.push(description);
+      });
+      // Backward compatibility for old server handlers + explicit structured payload
+      formData.set('description', descriptionsByIndex[0] ?? '');
+      formData.set('descriptionsJson', JSON.stringify(descriptionsByIndex));
       const res = await fetch(`/api/projects/${projectId}/documents`, {
         method: 'POST',
         credentials: 'include',
