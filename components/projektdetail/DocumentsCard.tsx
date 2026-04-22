@@ -230,17 +230,20 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <a href={doc.url || '#'} target="_blank" rel="noreferrer" className="text-blue-600" onClick={async (e) => {
-                        e.preventDefault();
-                        try {
-                          const res = await fetch(`/api/projects/${projectId}/documents/${doc.id}/presign`, { credentials: 'include' });
-                          const json = await res.json();
-                          if (json?.url) window.open(json.url, '_blank');
-                        } catch (err) {
-                          console.error('Presign failed', err);
-                          window.open(doc.url || '#', '_blank');
-                        }
-                      }}>Anzeigen</a>
+                      <a
+                        href={`/api/projects/${projectId}/documents/${doc.id}/content?disposition=inline`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600"
+                      >
+                        Anzeigen
+                      </a>
+                      <a
+                        href={`/api/projects/${projectId}/documents/${doc.id}/content?disposition=attachment`}
+                        className="text-slate-700"
+                      >
+                        Download
+                      </a>
                       <button onClick={() => handleDelete(doc.id)} className="text-red-600">Löschen</button>
                     </div>
                   </TableCell>
@@ -286,5 +289,6 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
     </Card>
   );
 }
+
 
 
