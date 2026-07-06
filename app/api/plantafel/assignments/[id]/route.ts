@@ -25,6 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.bestaetigt !== undefined) updateFields.bestaetigt = body.bestaetigt
   if (body.setupDate !== undefined) updateFields.setupDate = body.setupDate
   if (body.dismantleDate !== undefined) updateFields.dismantleDate = body.dismantleDate
+  if (body.einsatzLinkId !== undefined) updateFields.einsatzLinkId = body.einsatzLinkId
 
   const db = mongoose.connection.db
   if (db) {

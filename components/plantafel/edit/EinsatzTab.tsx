@@ -30,6 +30,8 @@ interface EinsatzTabProps {
     entriesOrDates: Array<{ day: string; entry: unknown }> | string[] | string,
     entry?: unknown
   ) => Promise<void>
+  /** Löscht den verknüpften Projekt-Zeiteintrag beim Bearbeiten/Löschen eines Einsatzes */
+  onDeleteTimeEntry: (date: string, entryId: string) => Promise<void>
 }
 
 type AddPayload =
@@ -37,16 +39,26 @@ type AddPayload =
   | string[]
   | string
 
-/** onAdd-Eingaben von TimeEntryForm auf eine flache Liste von Zeiteinträgen normalisieren */
-function normalizeEntries(entriesOrDates: AddPayload, entry?: TimeEntry): TimeEntry[] {
+/** onAdd-Eingaben von TimeEntryForm auf {day, entry}-Paare normalisieren */
+function toPayloadItems(entriesOrDates: AddPayload, entry?: TimeEntry): Array<{ day: string; entry: TimeEntry }> {
   if (Array.isArray(entriesOrDates) && entriesOrDates.length > 0 && typeof entriesOrDates[0] === 'object') {
-    return (entriesOrDates as Array<{ day: string; entry: TimeEntry }>).map((x) => x.entry)
+    return entriesOrDates as Array<{ day: string; entry: TimeEntry }>
   }
   if (entry) {
     const days = Array.isArray(entriesOrDates) ? (entriesOrDates as string[]) : [entriesOrDates as string]
-    return days.map(() => entry)
+    return days.map((day) => ({ day, entry }))
   }
   return []
+}
+
+/** Eindeutige Verknüpfungs-ID für ein Einsatz/Zeiteintrag-Paar */
+function genLinkId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+  } catch {
+    /* fallback unten */
+  }
+  return `link-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 export default function EinsatzTab({
@@ -61,6 +73,7 @@ export default function EinsatzTab({
   onUpdate,
   onDelete,
   onAddTimeEntries,
+  onDeleteTimeEntry,
 }: EinsatzTabProps) {
   const [editTarget, setEditTarget] = useState<PlantafelEvent | null>(einsatz || null)
   const [showForm, setShowForm] = useState(Boolean(einsatz || defaults?.start))
@@ -135,34 +148,69 @@ export default function EinsatzTab({
     [employeeByName, projektId]
   )
 
+  // Verknüpfte Projekt-Zeiteinträge zu einer einsatzLinkId finden (day + entryId)
+  const findLinkedTimeEntries = useCallback(
+    (linkId: string): Array<{ day: string; id: string }> => {
+      const zeiten =
+        ((project as { mitarbeiterZeiten?: Record<string, unknown[]> }).mitarbeiterZeiten) || {}
+      const out: Array<{ day: string; id: string }> = []
+      for (const [day, arr] of Object.entries(zeiten)) {
+        if (!Array.isArray(arr)) continue
+        for (const e of arr as Array<Record<string, unknown>>) {
+          if (e && e['einsatzLinkId'] === linkId && typeof e['id'] === 'string') {
+            out.push({ day, id: e['id'] as string })
+          }
+        }
+      }
+      return out
+    },
+    [project]
+  )
+
   const resetForm = useCallback(() => {
     setEditTarget(null)
     setShowForm(false)
     setConfirmDeleteId(null)
   }, [])
 
-  // Formular-Absenden: pro Tag/Mitarbeiter einen Einsatz anlegen; im Edit-Modus
-  // den bearbeiteten Einsatz aktualisieren, weitere als neue anlegen.
+  // Formular-Absenden: Anlegen erzeugt verknüpfte Paare (Zeiteintrag + Balken);
+  // Bearbeiten aktualisiert Balken und ersetzt den verknüpften Zeiteintrag.
   const handleFormAdd = useCallback(
     async (entriesOrDates: AddPayload, entry?: TimeEntry) => {
-      const entries = normalizeEntries(entriesOrDates, entry)
-      if (entries.length === 0) return
+      const items = toPayloadItems(entriesOrDates, entry)
+      if (items.length === 0) return
       setIsSaving(true)
       try {
         if (editTarget) {
-          // Bearbeiten: nur den Einsatz-Balken aktualisieren (kein Link zum Zeiteintrag)
-          const [first, ...rest] = entries
-          // bestätigt-Status des Einsatzes beim Bearbeiten erhalten
+          const [firstItem, ...restItems] = items
+          // bestätigt-Status erhalten
           await onUpdate(editTarget.sourceId, {
-            ...entryToAssignment(first),
+            ...entryToAssignment(firstItem.entry),
             bestaetigt: editTarget.bestaetigt ?? false,
           })
-          for (const e of rest) await onCreate(entryToAssignment(e))
+          // Verknüpften Zeiteintrag ersetzen (alte löschen, neuen mit gleicher LinkId anlegen)
+          if (editTarget.einsatzLinkId) {
+            const linked = findLinkedTimeEntries(editTarget.einsatzLinkId)
+            for (const l of linked) await onDeleteTimeEntry(l.day, l.id)
+            await onAddTimeEntries([
+              { day: firstItem.day, entry: { ...firstItem.entry, einsatzLinkId: editTarget.einsatzLinkId } },
+            ])
+          }
+          // Zusätzlich gewählte Tage → jeweils neues verknüpftes Paar
+          for (const it of restItems) {
+            const linkId = genLinkId()
+            await onAddTimeEntries([{ day: it.day, entry: { ...it.entry, einsatzLinkId: linkId } }])
+            await onCreate({ ...entryToAssignment(it.entry), einsatzLinkId: linkId })
+          }
         } else {
-          // Anlegen: echten Projekt-Zeiteintrag (alle Felder → Abrechnung/KPI)
-          // UND Einsatz-Balken erstellen
-          await onAddTimeEntries(entriesOrDates, entry)
-          for (const e of entries) await onCreate(entryToAssignment(e))
+          // Anlegen: pro Tag/Mitarbeiter ein verknüpftes Paar (Zeiteintrag + Balken)
+          const stamped = items.map((it) => ({ ...it, linkId: genLinkId() }))
+          await onAddTimeEntries(
+            stamped.map((s) => ({ day: s.day, entry: { ...s.entry, einsatzLinkId: s.linkId } }))
+          )
+          for (const s of stamped) {
+            await onCreate({ ...entryToAssignment(s.entry), einsatzLinkId: s.linkId })
+          }
         }
         await loadEinsaetze()
         setSuccess(true)
@@ -171,16 +219,32 @@ export default function EinsatzTab({
         setIsSaving(false)
       }
     },
-    [editTarget, entryToAssignment, onCreate, onUpdate, onAddTimeEntries, resetForm, loadEinsaetze]
+    [
+      editTarget,
+      entryToAssignment,
+      onCreate,
+      onUpdate,
+      onAddTimeEntries,
+      onDeleteTimeEntry,
+      findLinkedTimeEntries,
+      resetForm,
+      loadEinsaetze,
+    ]
   )
 
-  const handleDelete = async (sourceId: string) => {
+  const handleDelete = async (event: PlantafelEvent) => {
+    const sourceId = event.sourceId
     if (confirmDeleteId !== sourceId) {
       setConfirmDeleteId(sourceId)
       return
     }
     setIsSaving(true)
     try {
+      // Verknüpften Zeiteintrag mitlöschen
+      if (event.einsatzLinkId) {
+        const linked = findLinkedTimeEntries(event.einsatzLinkId)
+        for (const l of linked) await onDeleteTimeEntry(l.day, l.id)
+      }
       await onDelete(sourceId)
       await loadEinsaetze()
       if (editTarget?.sourceId === sourceId) resetForm()
@@ -257,7 +321,7 @@ export default function EinsatzTab({
                       size="sm"
                       disabled={isSaving}
                       className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                      onClick={() => handleDelete(e.sourceId)}
+                      onClick={() => handleDelete(e)}
                     >
                       {confirmDeleteId === e.sourceId ? (
                         <span className="text-xs">Wirklich?</span>

@@ -79,6 +79,9 @@ export interface PlantafelEvent {
 
   setupDate?: string
   dismantleDate?: string
+
+  /** Verknüpfung zum automatisch erzeugten Projekt-Zeiteintrag (Dual-Write) */
+  einsatzLinkId?: string
 }
 
 export interface PlantafelResource {
@@ -217,6 +220,7 @@ export interface CreatePlantafelAssignmentRequest {
   bestaetigt?: boolean
   setupDate?: string
   dismantleDate?: string
+  einsatzLinkId?: string
 }
 
 export interface UpdatePlantafelAssignmentRequest {
@@ -229,6 +233,7 @@ export interface UpdatePlantafelAssignmentRequest {
   bestaetigt?: boolean
   setupDate?: string | null
   dismantleDate?: string | null
+  einsatzLinkId?: string | null
 }
 
 // ============================================================================

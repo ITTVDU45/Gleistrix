@@ -12,6 +12,8 @@ const plantafelAssignmentSchema = new mongoose.Schema({
   bestaetigt: { type: Boolean, default: false },
   setupDate: { type: String, default: null },
   dismantleDate: { type: String, default: null },
+  // Verknüpfung zum automatisch erzeugten Projekt-Zeiteintrag (Dual-Write)
+  einsatzLinkId: { type: String, default: null },
 }, {
   timestamps: true,
 })

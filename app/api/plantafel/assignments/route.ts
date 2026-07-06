@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
     rolle: a.rolle,
     setupDate: a.setupDate,
     dismantleDate: a.dismantleDate,
+    einsatzLinkId: a.einsatzLinkId ?? undefined,
     hasConflict: false,
   }))
 
@@ -273,7 +274,7 @@ export async function POST(req: NextRequest) {
   await dbConnect()
 
   const body = await req.json()
-  const { mitarbeiterId, projektId, von, bis, rolle, notizen, bestaetigt, setupDate, dismantleDate } = body
+  const { mitarbeiterId, projektId, von, bis, rolle, notizen, bestaetigt, setupDate, dismantleDate, einsatzLinkId } = body
 
   if (!projektId || !von || !bis) {
     return NextResponse.json({ success: false, error: 'projektId, von und bis sind erforderlich' }, { status: 400 })
@@ -312,6 +313,7 @@ export async function POST(req: NextRequest) {
     bestaetigt: bestaetigt || false,
     setupDate: setupDate || null,
     dismantleDate: dismantleDate || null,
+    einsatzLinkId: einsatzLinkId || null,
   })
 
   return NextResponse.json({ success: true, data: { id: String(assignment._id) } }, { status: 201 })
