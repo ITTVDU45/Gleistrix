@@ -1,10 +1,13 @@
 'use client';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { LocksApi } from '@/lib/api/locks'
 import type { Project } from '../types';
 import DynamicProjectStats from './DynamicProjectStats';
+import HoursByFunctionCard from './HoursByFunctionCard';
 import ProjectListFilter from './ProjectListFilter';
 import ProjectTableClient from './ProjectTableClient';
+import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows';
+import type { HoursByFunctionEntry } from '@/lib/timeEntry/hoursByFunction';
 
 interface ProjectListWithFilterProps {
   projects: Project[];
@@ -22,6 +25,24 @@ export default function ProjectListWithFilter({ projects }: ProjectListWithFilte
     setFilteredProjects(nextProjects);
   }, []);
 
+  const hoursByFunctionEntries: HoursByFunctionEntry[] = useMemo(() => {
+    return filteredProjects.flatMap((project) =>
+      Object.entries(project.mitarbeiterZeiten || {}).flatMap(([date, entries]) =>
+        (entries || []).flatMap((entry: any) => {
+          const rows = normalizeTimeEntryToBillingRows(date, entry)
+          return rows.map((row) => ({
+            funktion: row.funktion,
+            stunden: row.stundenTotal,
+            extra: row.extraTotal,
+            fahrtstunden: row.fahrtstundenTotal,
+            isExternal: row.isExternal,
+            externalCount: row.count,
+          }))
+        })
+      )
+    ).filter((e: any) => !(typeof e.bemerkung === 'string' && e.bemerkung.includes('Fortsetzung vom Vortag')))
+  }, [filteredProjects])
+
   return (
     <div className="space-y-8 lg:space-y-10">
       <LockedProjectDialog lockedProjectId={lockedProjectId} onClose={() => setLockedProjectId(null)} />
@@ -34,6 +55,7 @@ export default function ProjectListWithFilter({ projects }: ProjectListWithFilte
           </p>
         </div>
         <DynamicProjectStats projects={filteredProjects} />
+        <HoursByFunctionCard timeEntries={hoursByFunctionEntries} />
       </section>
 
       <section className="space-y-4">
