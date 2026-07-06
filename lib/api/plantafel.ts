@@ -1,6 +1,7 @@
 import { getJSON, postJSON, patchJSON, delJSON } from '@/lib/http/apiClient'
 import type {
   PlantafelAssignmentsResponse,
+  PlantafelDayResponse,
   CreatePlantafelAssignmentRequest,
   UpdatePlantafelAssignmentRequest,
   PlantafelView,
@@ -27,6 +28,9 @@ export const PlantafelApi = {
     if (params.showIslamicHolidays !== undefined) search.set('showIslamicHolidays', String(params.showIslamicHolidays))
     return getJSON<PlantafelAssignmentsResponse>(`/api/plantafel/assignments?${search.toString()}`)
   },
+
+  getDayProjects: (dateKey: string) =>
+    getJSON<PlantafelDayResponse>(`/api/plantafel/day?date=${encodeURIComponent(dateKey)}`),
 
   createAssignment: (data: CreatePlantafelAssignmentRequest) =>
     postJSON<ApiResponse<{ id: string }>>('/api/plantafel/assignments', data as unknown as Record<string, unknown>, 'plantafel:create'),

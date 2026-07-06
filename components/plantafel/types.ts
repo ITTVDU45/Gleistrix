@@ -118,6 +118,67 @@ export interface ConflictInfo {
 }
 
 // ============================================================================
+// DAY VIEW TYPES (Excel-Tagesbericht-Karten)
+// ============================================================================
+
+export interface PlantafelDayTimeEntry {
+  id?: string
+  name?: string
+  funktion?: string
+  start?: string
+  ende?: string
+  stunden?: number
+  extra?: number
+  fahrtstunden?: number
+  bemerkung?: string
+  isExternal?: boolean
+  externalCompanyName?: string
+  externalFunctionSummary?: string
+}
+
+export interface PlantafelDayVehicle {
+  id?: string
+  type?: string
+  licensePlate?: string
+  kilometers?: string
+  mitarbeiterName?: string
+}
+
+export interface PlantafelDayTechnik {
+  id?: string
+  name?: string
+  anzahl?: number
+  meterlaenge?: number
+  bemerkung?: string
+}
+
+export interface PlantafelDayProject {
+  id: string
+  name: string
+  status: string
+  auftraggeber: string
+  baustelle: string
+  auftragsnummer: string
+  sapNummer: string
+  telefonnummer: string
+  atwsImEinsatz: boolean
+  anzahlAtws: number
+  datumBeginn: string
+  datumEnde: string
+  zeiten: PlantafelDayTimeEntry[]
+  fahrzeuge: PlantafelDayVehicle[]
+  technik: PlantafelDayTechnik[]
+}
+
+export interface PlantafelDayResponse {
+  success: boolean
+  data: {
+    date: string
+    projects: PlantafelDayProject[]
+  }
+}
+
+// ============================================================================
 // API REQUEST/RESPONSE TYPES
 // ============================================================================
 

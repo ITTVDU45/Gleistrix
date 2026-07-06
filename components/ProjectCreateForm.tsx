@@ -12,9 +12,10 @@ import type { Project } from '../types';
 interface ProjectCreateFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  initialValues?: Partial<Omit<Project, 'id' | 'mitarbeiterZeiten'>>;
 }
 
-export default function ProjectCreateForm({ onSuccess, onCancel }: ProjectCreateFormProps) {
+export default function ProjectCreateForm({ onSuccess, onCancel, initialValues }: ProjectCreateFormProps) {
   const { addProject } = useProjects();
   const [form, setForm] = React.useState<Omit<Project, 'id' | 'mitarbeiterZeiten'>>({
     name: '',
@@ -27,7 +28,8 @@ export default function ProjectCreateForm({ onSuccess, onCancel }: ProjectCreate
     atwsImEinsatz: false,
     anzahlAtws: 0,
     datumBeginn: '',
-    datumEnde: ''
+    datumEnde: '',
+    ...initialValues,
   });
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);

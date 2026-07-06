@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
 import { format, parse, startOfWeek, getDay, addHours } from 'date-fns'
@@ -14,12 +15,15 @@ import { useProjects } from '@/hooks/useProjects'
 
 import PlantafelToolbar from './PlantafelToolbar'
 import YearView from './YearView'
+import DayView from './DayView'
 import AssignmentDialog from './AssignmentDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import EventTooltip from './EventTooltip'
+import ProjectCreateForm from '@/components/ProjectCreateForm'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon } from 'lucide-react'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus } from 'lucide-react'
 import type { PlantafelEvent, PlantafelCalendarView, CreatePlantafelAssignmentRequest } from './types'
 
 const locales = { de }
@@ -72,7 +76,8 @@ export default function PlantafelBoard() {
   } = usePlantafel()
 
   const { employees } = useEmployees()
-  const { projects } = useProjects()
+  const { projects, fetchProjects } = useProjects()
+  const router = useRouter()
 
   const [searchTerm, setSearchTerm] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -86,6 +91,8 @@ export default function PlantafelBoard() {
   }>({})
   const [isConflictPanelOpen, setIsConflictPanelOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false)
+  const [dayRefreshKey, setDayRefreshKey] = useState(0)
 
   const externalDragRef = useRef<DragItem | null>(null)
 
@@ -134,6 +141,20 @@ export default function PlantafelBoard() {
     setCurrentDate(date)
     setCalendarView('month')
   }, [setCurrentDate, setCalendarView])
+
+  const handleDayProjectClick = useCallback((projectId: string) => {
+    router.push(`/projektdetail/${projectId}`)
+  }, [router])
+
+  const handleOpenProjectDialog = useCallback(() => {
+    setIsProjectDialogOpen(true)
+  }, [])
+
+  const handleProjectCreated = useCallback(() => {
+    setIsProjectDialogOpen(false)
+    setDayRefreshKey((k) => k + 1)
+    fetchProjects()
+  }, [fetchProjects])
 
   const handleDropFromOutside = useCallback(
     ({ start, end }: { start: string | Date; end: string | Date; allDay?: boolean }) => {
@@ -333,6 +354,13 @@ export default function PlantafelBoard() {
             <Plus className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">Neuer Einsatz</span>
           </Button>
+
+          {calendarView === 'day' && (
+            <Button size="sm" variant="outline" onClick={handleOpenProjectDialog}>
+              <FolderPlus className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Neues Projekt</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -356,6 +384,14 @@ export default function PlantafelBoard() {
               year={currentDate}
               onDayClick={handleYearDayClick}
               onMonthClick={handleYearMonthClick}
+            />
+          ) : calendarView === 'day' ? (
+            <DayView
+              date={currentDate}
+              events={filteredEvents}
+              onCreateProject={handleOpenProjectDialog}
+              onProjectClick={handleDayProjectClick}
+              refreshKey={dayRefreshKey}
             />
           ) : (
             <DnDCalendar
@@ -438,6 +474,21 @@ export default function PlantafelBoard() {
         defaultProjektId={dialogDefaults.projektId}
         defaultMitarbeiterId={dialogDefaults.mitarbeiterId}
       />
+
+      {/* Neues-Projekt-Dialog (Tagesansicht) */}
+      <Dialog open={isProjectDialogOpen} onOpenChange={(open) => !open && setIsProjectDialogOpen(false)}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogTitle>Neues Projekt erstellen</DialogTitle>
+          <ProjectCreateForm
+            onSuccess={handleProjectCreated}
+            onCancel={() => setIsProjectDialogOpen(false)}
+            initialValues={{
+              datumBeginn: format(currentDate, 'yyyy-MM-dd'),
+              datumEnde: format(currentDate, 'yyyy-MM-dd'),
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
