@@ -200,23 +200,22 @@ export default function PlantafelBoard() {
   }, [])
 
   // Nach erfolgreichem Upload → Editor auf Dokumente-Tab öffnen
-  const handleDocUploaded = useCallback(() => {
-    setDocUpload((current) => {
-      if (current) {
-        setEditor({
-          open: true,
-          projectId: current.projectId,
-          projectName: current.projectName,
-          initialTab: 'dokumente',
-          einsatz: null,
-          dateKey: format(currentDate, 'yyyy-MM-dd'),
-        })
-      }
-      return null
-    })
-    fetchProjects()
-    setDayRefreshKey((k) => k + 1)
-  }, [currentDate, fetchProjects])
+  const handleDocUploaded = useCallback(
+    (target: { projectId: string; projectName?: string }) => {
+      setEditor({
+        open: true,
+        projectId: target.projectId,
+        projectName: target.projectName,
+        initialTab: 'dokumente',
+        einsatz: null,
+        dateKey: format(currentDate, 'yyyy-MM-dd'),
+      })
+      setDocUpload(null)
+      fetchProjects()
+      setDayRefreshKey((k) => k + 1)
+    },
+    [currentDate, fetchProjects]
+  )
 
   const handleEditorClose = useCallback(() => {
     setEditor((prev) => ({ ...prev, open: false, einsatz: null, einsatzDefaults: undefined }))
@@ -689,7 +688,7 @@ export default function PlantafelBoard() {
           projectName={docUpload.projectName}
           initialFiles={docUpload.files}
           onClose={() => setDocUpload(null)}
-          onUploaded={handleDocUploaded}
+          onUploaded={() => handleDocUploaded({ projectId: docUpload.projectId, projectName: docUpload.projectName })}
         />
       )}
 

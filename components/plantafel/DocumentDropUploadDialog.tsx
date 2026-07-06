@@ -56,6 +56,16 @@ export default function DocumentDropUploadDialog({
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  // Alle erzeugten Object-URLs sammeln, um sie beim Unmount freizugeben
+  const objectUrlsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const urls = objectUrlsRef.current
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u))
+      urls.clear()
+    }
+  }, [])
 
   // Datei zur Liste hinzufügen: Vorschau erzeugen + kurze Lade-Animation
   const addFiles = useCallback((incoming: File[]) => {
@@ -63,14 +73,18 @@ export default function DocumentDropUploadDialog({
       const existing = new Set(prev.map((p) => p.key))
       const toAdd = incoming
         .filter((f) => !existing.has(fileKey(f)))
-        .map<PendingFile>((f) => ({
-          key: fileKey(f),
-          file: f,
-          name: f.name,
-          notiz: '',
-          previewUrl: isImage(f) ? URL.createObjectURL(f) : null,
-          loading: true,
-        }))
+        .map<PendingFile>((f) => {
+          const previewUrl = isImage(f) ? URL.createObjectURL(f) : null
+          if (previewUrl) objectUrlsRef.current.add(previewUrl)
+          return {
+            key: fileKey(f),
+            file: f,
+            name: f.name,
+            notiz: '',
+            previewUrl,
+            loading: true,
+          }
+        })
       return [...prev, ...toAdd]
     })
   }, [])

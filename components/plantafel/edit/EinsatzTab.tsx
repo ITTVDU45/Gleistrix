@@ -111,7 +111,11 @@ export default function EinsatzTab({
       try {
         if (editTarget) {
           const [first, ...rest] = entries
-          await onUpdate(editTarget.sourceId, entryToAssignment(first))
+          // bestätigt-Status des Einsatzes beim Bearbeiten erhalten
+          await onUpdate(editTarget.sourceId, {
+            ...entryToAssignment(first),
+            bestaetigt: editTarget.bestaetigt ?? false,
+          })
           for (const e of rest) await onCreate(entryToAssignment(e))
         } else {
           for (const e of entries) await onCreate(entryToAssignment(e))
