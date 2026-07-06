@@ -20,12 +20,16 @@ import {
 import { Plus, Trash2, Pencil, Upload, QrCode, Download, Printer } from 'lucide-react'
 import type { ArticleUnit, ArticleUnitStatus, ArticleZustand } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
+import { buildQrLabel } from '@/lib/lager/qrLabel'
 import { QRCodeCanvas } from 'qrcode.react'
 import QRCode from 'qrcode'
 
 interface ArticleUnitsSectionProps {
   articleId: string
   articleBezeichnung?: string
+  articleKategorie?: string
+  articleUnterkategorie?: string
+  articleArtikelnummer?: string
   onStockChanged?: () => void
 }
 
@@ -48,7 +52,12 @@ const STATUS_COLORS: Record<ArticleUnitStatus, string> = {
 const ZUSTAND_OPTIONS: ArticleZustand[] = ['neu', 'gut', 'gebraucht', 'defekt']
 const STATUS_OPTIONS: ArticleUnitStatus[] = ['verfuegbar', 'ausgegeben', 'in_wartung', 'defekt', 'archiviert']
 
-export default function ArticleUnitsSection({ articleId, articleBezeichnung, onStockChanged }: ArticleUnitsSectionProps) {
+export default function ArticleUnitsSection({ articleId, articleBezeichnung, articleKategorie, articleUnterkategorie, articleArtikelnummer, onStockChanged }: ArticleUnitsSectionProps) {
+  const unitQrLabel = React.useMemo(() => buildQrLabel({
+    kategorie: articleKategorie,
+    unterkategorie: articleUnterkategorie,
+    artikelnummer: articleArtikelnummer,
+  }), [articleKategorie, articleUnterkategorie, articleArtikelnummer])
   const [units, setUnits] = useState<ArticleUnit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -166,7 +175,9 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, onS
     const dataUrl = await QRCode.toDataURL(code, { width: qrSize, margin: 2, errorCorrectionLevel: 'M' })
     const canvas = document.createElement('canvas')
     const padding = 24
-    const textHeight = 56
+    const lineHeight = 36
+    const lines = [unitQrLabel.line1, unit.seriennummer].filter(Boolean)
+    const textHeight = lines.length * lineHeight + 16
     canvas.width = qrSize + padding * 2
     canvas.height = qrSize + padding * 2 + textHeight
     const ctx = canvas.getContext('2d')
@@ -182,7 +193,9 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, onS
     ctx.fillStyle = '#111827'
     ctx.font = 'bold 28px system-ui, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(`SN: ${unit.seriennummer}`, canvas.width / 2, qrSize + padding + 40)
+    lines.forEach((line, i) => {
+      ctx.fillText(line!, canvas.width / 2, qrSize + padding + 32 + i * lineHeight)
+    })
     const link = document.createElement('a')
     link.href = canvas.toDataURL('image/png')
     link.download = `unit-${unit.seriennummer}-qr.png`
@@ -195,14 +208,16 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, onS
     const code = unit.barcode ?? unit.seriennummer
     if (!code) return
     const dataUrl = await QRCode.toDataURL(code, { width: 400, margin: 2, errorCorrectionLevel: 'M' })
+    const safeLabel = (unitQrLabel.line1 ?? '').replace(/</g, '&lt;')
+    const safeSn = unit.seriennummer.replace(/</g, '&lt;')
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(`<!DOCTYPE html><html><head><title>QR - ${unit.seriennummer}</title>
       <style>body{font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;}
-      .qr img{display:block;}.sn{font-size:18px;font-weight:600;margin:12px 0 4px;}.meta{font-size:12px;color:#666;}@media print{body{padding:16px;}}</style></head>
+      .qr img{display:block;}.label{font-size:16px;font-weight:600;margin:12px 0 4px;}.sn{font-size:14px;font-weight:500;color:#333;}@media print{body{padding:16px;}}</style></head>
       <body><div class="qr"><img src="${dataUrl.replace(/"/g, '&quot;')}" width="200" height="200"/></div>
-      <p class="sn">SN: ${unit.seriennummer}</p>
-      <p class="meta">${(articleBezeichnung ?? '').replace(/</g, '&lt;')}</p></body></html>`)
+      <p class="label">${safeLabel}</p>
+      <p class="sn">${safeSn}</p></body></html>`)
     win.document.close()
     win.focus()
     setTimeout(() => { win.print(); win.close() }, 300)
@@ -386,8 +401,8 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, onS
                   fgColor="#111827"
                 />
               </div>
-              <p className="font-mono text-xs text-slate-500">{qrUnit.barcode ?? '-'}</p>
-              <p className="font-mono text-sm font-semibold">SN: {qrUnit.seriennummer}</p>
+              {unitQrLabel.line1 && <p className="font-mono text-sm font-semibold">{unitQrLabel.line1}</p>}
+              <p className="font-mono text-xs text-slate-600 dark:text-slate-400">{qrUnit.seriennummer}</p>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => handleUnitQrPrint(qrUnit)}>
                   <Printer className="h-4 w-4 mr-1" /> Drucken

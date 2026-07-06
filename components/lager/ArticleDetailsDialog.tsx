@@ -183,7 +183,9 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
     const qrSize = 512
     const dataUrl = await QRCode.toDataURL(code, { width: qrSize, margin: 2, errorCorrectionLevel: 'M' })
     const padding = 16
-    const textHeight = 48
+    const lineHeight = 32
+    const textLines = 2
+    const textHeight = lineHeight * textLines + 12
     const canvas = document.createElement('canvas')
     canvas.width = qrSize + padding * 2
     canvas.height = qrSize + padding * 2 + textHeight
@@ -199,7 +201,9 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
     ctx.fillStyle = '#111827'
     ctx.font = 'bold 22px system-ui, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(`SN: ${unit.seriennummer}`, canvas.width / 2, qrSize + padding + 32)
+    ctx.fillText(qrLabel.line1, canvas.width / 2, qrSize + padding + 28)
+    ctx.font = '20px system-ui, sans-serif'
+    ctx.fillText(unit.seriennummer, canvas.width / 2, qrSize + padding + 28 + lineHeight)
     return canvas
   }
 
@@ -250,8 +254,9 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
       }
       const win = window.open('', '_blank')
       if (!win) return
+      const safeLabel = qrLabel.line1.replace(/</g, '&lt;')
       const itemsHtml = qrImages.map((q) =>
-        `<div class="item"><img src="${q.dataUrl.replace(/"/g, '&quot;')}" width="150" height="150"/><p class="sn">SN: ${q.sn.replace(/</g, '&lt;')}</p></div>`
+        `<div class="item"><img src="${q.dataUrl.replace(/"/g, '&quot;')}" width="150" height="150"/><p class="label-line">${safeLabel}</p><p class="sn">${q.sn.replace(/</g, '&lt;')}</p></div>`
       ).join('')
       win.document.write(`<!DOCTYPE html><html><head><title>QR-Codes - ${(article?.bezeichnung ?? '').replace(/</g, '&lt;')}</title>
         <style>
@@ -260,7 +265,8 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
           .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;}
           .item{display:flex;flex-direction:column;align-items:center;border:1px solid #e2e8f0;border-radius:8px;padding:12px;break-inside:avoid;}
           .item img{display:block;}
-          .sn{font-size:13px;font-weight:600;margin:8px 0 0;font-family:monospace;}
+          .label-line{font-size:12px;font-weight:600;margin:8px 0 0;font-family:monospace;}
+          .sn{font-size:11px;font-weight:500;margin:2px 0 0;font-family:monospace;color:#333;}
           @media print{body{padding:10px;} .grid{gap:8px;} .item{border:1px solid #ccc;padding:8px;}}
         </style></head>
         <body><h1>${(article?.bezeichnung ?? '').replace(/</g, '&lt;')} - ${units.length} QR-Codes</h1>
@@ -407,10 +413,10 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
                               bgColor="#ffffff"
                               fgColor="#111827"
                             />
-                            <p className="mt-2 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 text-center break-all">
-                              {unit.seriennummer}
+                            <p className="mt-2 font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200 text-center break-all">
+                              {qrLabel.line1}
                             </p>
-                            <p className="font-mono text-[10px] text-slate-400">{unit.barcode ?? ''}</p>
+                            <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 text-center">{unit.seriennummer}</p>
                           </div>
                         )
                       })}
@@ -425,6 +431,9 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
               <ArticleUnitsSection
                 articleId={article.id ?? (article as { _id?: string })._id?.toString?.() ?? ''}
                 articleBezeichnung={article.bezeichnung}
+                articleKategorie={article.kategorie}
+                articleUnterkategorie={article.unterkategorie}
+                articleArtikelnummer={article.artikelnummer}
                 onStockChanged={onArticleUpdated}
               />
             </TabsContent>
