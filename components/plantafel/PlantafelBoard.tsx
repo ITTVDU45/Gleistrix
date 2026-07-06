@@ -314,14 +314,16 @@ export default function PlantafelBoard() {
         />
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSidebarOpen((v) => !v)}
-          >
-            <PanelRightOpen className="h-4 w-4 sm:mr-1" />
-            <span className="hidden sm:inline">{view === 'team' ? 'Mitarbeiter' : 'Projekte'}</span>
-          </Button>
+          {view === 'team' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSidebarOpen((v) => !v)}
+            >
+              <PanelRightOpen className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Mitarbeiter</span>
+            </Button>
+          )}
 
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 p-0.5">
             <Button
@@ -462,7 +464,7 @@ export default function PlantafelBoard() {
           </>
         )}
 
-        {isSidebarOpen && (
+        {view === 'team' && isSidebarOpen && (
           <>
             <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
             <div className="fixed right-0 top-0 bottom-0 z-40 lg:absolute lg:top-0 lg:bottom-0 lg:right-0 lg:z-10">
