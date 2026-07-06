@@ -236,7 +236,7 @@ export default function EinstellungenPage() {
   }
 
   return (
-    <div className="space-y-6 px-3 md:px-4 lg:px-0 max-w-6xl mx-auto">
+    <div className="space-y-6 px-3 md:px-4 lg:px-0 max-w-6xl mx-auto overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -261,8 +261,8 @@ export default function EinstellungenPage() {
       )}
 
       {/* Tab Navigation (mobil scrollbar) */}
-      <div className="overflow-x-auto -mx-3 md:mx-0">
-        <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl min-w-max px-2">
+      <div className="overflow-x-auto">
+        <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl min-w-max px-2 flex-col md:flex-row">
           <Button
             variant={activeTab === 'profile' ? 'default' : 'ghost'}
             onClick={() => setActiveTab('profile')}
@@ -447,7 +447,7 @@ export default function EinstellungenPage() {
                     </div>
                   ))}
                 </div>
-                <div className="hidden md:block overflow-x-auto -mx-3 md:mx-0">
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm min-w-[720px]">
                     <thead>
                       <tr className="text-left border-b border-slate-200 dark:border-slate-700">
