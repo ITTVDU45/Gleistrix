@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
 import { Holiday } from '@/lib/models/Holiday'
 import { getIslamicHolidaysInRange, holidaysToPlantafelEvents, type PlantafelHoliday } from '@/lib/services/plantafel/holidayService'
-import { getPlannedColor, detectDayShift } from '@/lib/plantafel/projectColors'
+import { getPlannedColor, detectEntryShift } from '@/lib/plantafel/projectColors'
 import mongoose from 'mongoose'
 
 const VACATION_TYPE_KEYWORDS: { keyword: string; type: 'krankheit' | 'sonderurlaub' | 'unbezahlt' }[] = [
@@ -188,22 +188,25 @@ export async function GET(req: NextRequest) {
         const ende = p.datumEnde ? String(p.datumEnde).slice(0, 10) : ''
 
         if (beginn && ende && beginn <= to && ende >= from) {
-          // Schicht-Zusammenfassung aus den erfassten Zeiten im Sichtbereich
+          // Schicht-Zählung pro Zeiteintrag im Sichtbereich (ein Tag kann Früh- UND
+          // Nachtschicht enthalten — daher pro Eintrag, nicht pro Tag aggregieren)
           const zeitenMap = (p.mitarbeiterZeiten as Record<string, unknown>) || {}
-          let hasTag = false
-          let hasNacht = false
+          let tagCount = 0
+          let nachtCount = 0
           let recordedDays = 0
           for (const [dateKey, entries] of Object.entries(zeitenMap)) {
             if (!Array.isArray(entries) || entries.length === 0) continue
             if (dateKey < from || dateKey > to) continue
             recordedDays += 1
-            if (detectDayShift(entries as Array<{ start?: string; ende?: string }>) === 'nacht') hasNacht = true
-            else hasTag = true
+            for (const e of entries as Array<{ start?: string; ende?: string }>) {
+              if (detectEntryShift(e.start, e.ende) === 'nacht') nachtCount += 1
+              else tagCount += 1
+            }
           }
 
           const notStarted = beginn > todayKey
           // Ein Projekt = ein Balken (Statusfarbe / Senf wenn nicht gestartet);
-          // Schichten werden als Badges auf dem Balken dargestellt (kein Doppel-Event).
+          // Schichten werden als Badges (mit Anzahl) auf dem Balken dargestellt.
           evts.push({
             id: `proj-${id}`,
             title: name,
@@ -219,7 +222,7 @@ export async function GET(req: NextRequest) {
             status,
             notStarted,
             color: getPlannedColor(status, notStarted),
-            shiftSummary: { tag: hasTag, nacht: hasNacht },
+            shiftCounts: { tag: tagCount, nacht: nachtCount },
             recordedDays,
             hasConflict: false,
           })

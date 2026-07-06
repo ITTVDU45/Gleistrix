@@ -233,27 +233,28 @@ export default function PlantafelBoard() {
 
   const CustomEvent = useMemo(() => {
     const Comp = ({ event }: { event: PlantafelEvent }) => {
-      const summary = event.shiftSummary
+      const counts = event.shiftCounts
+      const isProjekt = event.sourceType === 'projekt'
       return (
         <EventTooltip event={event}>
           <span className="flex items-center gap-1 leading-tight">
             <span className="truncate text-xs">{event.title}</span>
-            {event.sourceType === 'projekt' && summary?.tag && (
+            {isProjekt && counts && counts.tag > 0 && (
               <span
                 className="shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
                 style={{ backgroundColor: SHIFT_DAY_COLOR }}
-                title="Frühschicht (04–22 Uhr)"
+                title={`${counts.tag}× Frühschicht (04–22 Uhr)`}
               >
-                Früh
+                {counts.tag}× Früh
               </span>
             )}
-            {event.sourceType === 'projekt' && summary?.nacht && (
+            {isProjekt && counts && counts.nacht > 0 && (
               <span
                 className="shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
                 style={{ backgroundColor: SHIFT_NIGHT_COLOR }}
-                title="Nachtschicht"
+                title={`${counts.nacht}× Nachtschicht`}
               >
-                Nacht
+                {counts.nacht}× Nacht
               </span>
             )}
           </span>

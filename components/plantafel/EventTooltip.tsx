@@ -106,10 +106,13 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
               <div className="text-slate-400">Status: {event.status}</div>
             )}
 
-            {event.sourceType === 'projekt' && (event.shiftSummary?.tag || event.shiftSummary?.nacht) && (
+            {event.sourceType === 'projekt' && !!event.shiftCounts && (event.shiftCounts.tag > 0 || event.shiftCounts.nacht > 0) && (
               <div className="text-slate-400">
                 Schichten:{' '}
-                {[event.shiftSummary?.tag && 'Frühschicht', event.shiftSummary?.nacht && 'Nachtschicht']
+                {[
+                  event.shiftCounts.tag > 0 && `${event.shiftCounts.tag}× Frühschicht`,
+                  event.shiftCounts.nacht > 0 && `${event.shiftCounts.nacht}× Nachtschicht`,
+                ]
                   .filter(Boolean)
                   .join(', ')}
               </div>
