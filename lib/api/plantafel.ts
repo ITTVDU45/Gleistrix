@@ -1,4 +1,4 @@
-import { getJSON, postJSON, putJSON, delJSON } from '@/lib/http/apiClient'
+import { getJSON, postJSON, patchJSON, delJSON } from '@/lib/http/apiClient'
 import type {
   PlantafelAssignmentsResponse,
   CreatePlantafelAssignmentRequest,
@@ -32,7 +32,7 @@ export const PlantafelApi = {
     postJSON<ApiResponse<{ id: string }>>('/api/plantafel/assignments', data as unknown as Record<string, unknown>, 'plantafel:create'),
 
   updateAssignment: (id: string, data: UpdatePlantafelAssignmentRequest) =>
-    putJSON<ApiResponse<null>>(`/api/plantafel/assignments/${id}`, data as unknown as Record<string, unknown>, 'plantafel:update'),
+    patchJSON<ApiResponse<null>>(`/api/plantafel/assignments/${id}`, data as unknown as Record<string, unknown>, 'plantafel:update'),
 
   deleteAssignment: (id: string) =>
     delJSON<ApiResponse<null>>(`/api/plantafel/assignments/${id}`, 'plantafel:delete'),

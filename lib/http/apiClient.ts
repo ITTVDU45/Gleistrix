@@ -54,6 +54,22 @@ export async function putJSON<T>(url: string, body?: JsonBody, intent?: IntentKe
   return parseJson<T>(res)
 }
 
+export async function patchJSON<T>(url: string, body?: JsonBody, intent?: IntentKey, init?: RequestInit): Promise<T> {
+  const res = await fetchWithIntent(url, {
+    method: 'PATCH',
+    intent,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+    body: body ? JSON.stringify(body) : undefined,
+    ...init,
+  })
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => '')
+    const snippet = bodyText?.slice(0, 500) || ''
+    throw new Error(`[PATCH] ${url} → ${res.status} ${res.statusText}${snippet ? ` | body: ${snippet}` : ''}`)
+  }
+  return parseJson<T>(res)
+}
+
 export async function delJSON<T>(url: string, intent?: IntentKey, init?: RequestInit): Promise<T> {
   const res = await fetchWithIntent(url, {
     method: 'DELETE',

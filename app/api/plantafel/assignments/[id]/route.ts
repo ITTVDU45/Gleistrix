@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
+import mongoose from 'mongoose'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth(req)
@@ -24,6 +25,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.bestaetigt !== undefined) updateFields.bestaetigt = body.bestaetigt
   if (body.setupDate !== undefined) updateFields.setupDate = body.setupDate
   if (body.dismantleDate !== undefined) updateFields.dismantleDate = body.dismantleDate
+
+  const db = mongoose.connection.db
+  if (db) {
+    if (body.projektId) {
+      try {
+        const project = await db.collection('projects').findOne({ _id: new mongoose.Types.ObjectId(body.projektId) })
+        if (project) updateFields.projektName = project.name || ''
+      } catch { /* ignore */ }
+    }
+    if (body.mitarbeiterId) {
+      try {
+        const employee = await db.collection('employees').findOne({ _id: new mongoose.Types.ObjectId(body.mitarbeiterId) })
+        if (employee) updateFields.mitarbeiterName = employee.name || ''
+      } catch { /* ignore */ }
+    } else if (body.mitarbeiterId === null || body.mitarbeiterId === '') {
+      updateFields.mitarbeiterName = ''
+    }
+  }
 
   const result = await PlantafelAssignment.findByIdAndUpdate(id, updateFields, { new: true })
 

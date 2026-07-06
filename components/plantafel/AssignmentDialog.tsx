@@ -31,6 +31,8 @@ interface AssignmentDialogProps {
   defaultStart?: Date
   defaultEnd?: Date
   defaultResourceId?: string
+  defaultProjektId?: string
+  defaultMitarbeiterId?: string
 }
 
 interface FormState {
@@ -69,6 +71,8 @@ export default function AssignmentDialog({
   defaultStart,
   defaultEnd,
   defaultResourceId,
+  defaultProjektId,
+  defaultMitarbeiterId,
 }: AssignmentDialogProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [isSaving, setIsSaving] = useState(false)
@@ -97,12 +101,13 @@ export default function AssignmentDialog({
     } else {
       setForm({
         ...EMPTY_FORM,
-        mitarbeiterId: defaultResourceId || '',
+        mitarbeiterId: defaultMitarbeiterId || defaultResourceId || '',
+        projektId: defaultProjektId || '',
         von: defaultStart ? format(defaultStart, "yyyy-MM-dd'T'HH:mm") : '',
         bis: defaultEnd ? format(defaultEnd, "yyyy-MM-dd'T'HH:mm") : '',
       })
     }
-  }, [open, event, defaultStart, defaultEnd, defaultResourceId])
+  }, [open, event, defaultStart, defaultEnd, defaultResourceId, defaultProjektId, defaultMitarbeiterId])
 
   const handleSave = async () => {
     if (!form.projektId || !form.von || !form.bis) return

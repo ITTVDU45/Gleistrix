@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay } from 'date-fns'
+import { format, parse, startOfWeek, getDay, addHours } from 'date-fns'
 import { de } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 
@@ -15,6 +15,7 @@ import YearView from './YearView'
 import AssignmentDialog from './AssignmentDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar from './ProjektSidebar'
+import EventTooltip from './EventTooltip'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon } from 'lucide-react'
 import type { PlantafelEvent, PlantafelCalendarView, CreatePlantafelAssignmentRequest } from './types'
@@ -66,9 +67,11 @@ export default function PlantafelBoard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [dialogEvent, setDialogEvent] = useState<PlantafelEvent | null>(null)
-  const [dialogDefaults, setDialogDefaults] = useState<{ start?: Date; end?: Date; resourceId?: string }>({})
+  const [dialogDefaults, setDialogDefaults] = useState<{ start?: Date; end?: Date; resourceId?: string; projektId?: string; mitarbeiterId?: string }>({})
   const [isConflictPanelOpen, setIsConflictPanelOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const calendarRef = useRef<HTMLDivElement>(null)
 
   const filteredEvents = useMemo(() => {
     if (!searchTerm) return events
@@ -115,6 +118,58 @@ export default function PlantafelBoard() {
     setCurrentDate(date)
     setCalendarView('month')
   }, [setCurrentDate, setCalendarView])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    setIsDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (calendarRef.current && !calendarRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+
+    const raw = e.dataTransfer.getData('application/json')
+    if (!raw) return
+
+    try {
+      const data = JSON.parse(raw) as { type: string; id: string; name: string }
+      const now = new Date()
+      const dropStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), now.getHours(), 0)
+      const dropEnd = addHours(dropStart, 8)
+
+      const defaults: typeof dialogDefaults = {
+        start: dropStart,
+        end: dropEnd,
+      }
+
+      if (data.type === 'project') {
+        defaults.projektId = data.id
+      } else if (data.type === 'employee') {
+        defaults.mitarbeiterId = data.id
+      }
+
+      setDialogEvent(null)
+      setDialogDefaults(defaults)
+      setIsDialogOpen(true)
+    } catch { /* invalid data */ }
+  }, [currentDate])
+
+  const CustomEvent = useMemo(() => {
+    const Comp = ({ event }: { event: PlantafelEvent }) => (
+      <EventTooltip event={event}>
+        <span className="block truncate text-xs leading-tight">{event.title}</span>
+      </EventTooltip>
+    )
+    Comp.displayName = 'CustomEvent'
+    return Comp
+  }, [])
 
   const eventStyleGetter = useCallback((event: PlantafelEvent) => {
     const bgColor = event.color || EVENT_COLORS[event.type] || '#3b82f6'
@@ -233,7 +288,26 @@ export default function PlantafelBoard() {
       </div>
 
       {/* Hauptbereich */}
-      <div className="relative rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800" style={{ height: '70vh' }}>
+      <div
+        ref={calendarRef}
+        className={`relative rounded-lg border-2 transition-colors bg-white dark:bg-slate-800 ${
+          isDragOver
+            ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10'
+            : 'border-slate-200 dark:border-slate-700'
+        }`}
+        style={{ height: '70vh' }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragOver && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 pointer-events-none rounded-lg">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg px-6 py-4 text-center">
+              <p className="text-blue-600 dark:text-blue-400 font-semibold">Hier ablegen</p>
+              <p className="text-xs text-slate-500 mt-1">Einsatz wird erstellt</p>
+            </div>
+          </div>
+        )}
         {/* Kalender */}
         <div className="h-full p-2 sm:p-4 overflow-auto">
           {isLoading ? (
@@ -265,6 +339,7 @@ export default function PlantafelBoard() {
               onSelectSlot={handleSelectSlot}
               selectable
               eventPropGetter={eventStyleGetter}
+              components={{ event: CustomEvent }}
               messages={calendarMessages}
               culture="de"
               toolbar={false}
@@ -318,6 +393,8 @@ export default function PlantafelBoard() {
         defaultStart={dialogDefaults.start}
         defaultEnd={dialogDefaults.end}
         defaultResourceId={dialogDefaults.resourceId}
+        defaultProjektId={dialogDefaults.projektId}
+        defaultMitarbeiterId={dialogDefaults.mitarbeiterId}
       />
     </div>
   )
