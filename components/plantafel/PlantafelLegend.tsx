@@ -52,10 +52,15 @@ export default function PlantafelLegend() {
         </span>
       ))}
       <span className="mx-1 h-4 w-px bg-slate-300 dark:bg-slate-600" />
-      <span className="font-semibold text-slate-600 dark:text-slate-300">Erfasste Tage:</span>
+      <span className="font-semibold text-slate-600 dark:text-slate-300">Schicht-Badges:</span>
       {SHIFT_ITEMS.map((item) => (
         <span key={item.label} className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-          <Swatch color={item.color} />
+          <span
+            className="rounded px-1 text-[9px] font-semibold text-white"
+            style={{ backgroundColor: item.color }}
+          >
+            {item.label.startsWith('Früh') ? 'Früh' : 'Nacht'}
+          </span>
           {item.label}
         </span>
       ))}

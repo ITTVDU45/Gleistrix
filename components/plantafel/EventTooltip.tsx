@@ -79,11 +79,9 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
 
             <div className="text-slate-300">
               {event.sourceType === 'projekt'
-                ? event.type === 'projekt_plan'
-                  ? event.notStarted
-                    ? 'Projekt (nicht gestartet)'
-                    : 'Projekt (geplant)'
-                  : `Projekt (umgesetzt · ${event.shift === 'nacht' ? 'Nachtschicht' : 'Frühschicht'})`
+                ? event.notStarted
+                  ? 'Projekt · nicht gestartet'
+                  : 'Projekt'
                 : TYPE_LABELS[event.type] || event.type}
               {event.mitarbeiterName && !isAbsence && (
                 <> &middot; {event.mitarbeiterName}</>
@@ -106,6 +104,15 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
 
             {event.sourceType === 'projekt' && event.status && (
               <div className="text-slate-400">Status: {event.status}</div>
+            )}
+
+            {event.sourceType === 'projekt' && (event.shiftSummary?.tag || event.shiftSummary?.nacht) && (
+              <div className="text-slate-400">
+                Schichten:{' '}
+                {[event.shiftSummary?.tag && 'Frühschicht', event.shiftSummary?.nacht && 'Nachtschicht']
+                  .filter(Boolean)
+                  .join(', ')}
+              </div>
             )}
 
             {event.sourceType === 'projekt' && (

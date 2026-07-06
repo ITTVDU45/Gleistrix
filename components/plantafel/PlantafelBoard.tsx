@@ -22,6 +22,7 @@ import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import ProjectFilterControl from './ProjectFilterControl'
 import PlantafelLegend from './PlantafelLegend'
 import EventTooltip from './EventTooltip'
+import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR } from '@/lib/plantafel/projectColors'
 import ProjectCreateForm from '@/components/ProjectCreateForm'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -231,11 +232,34 @@ export default function PlantafelBoard() {
   }, [])
 
   const CustomEvent = useMemo(() => {
-    const Comp = ({ event }: { event: PlantafelEvent }) => (
-      <EventTooltip event={event}>
-        <span className="block truncate text-xs leading-tight">{event.title}</span>
-      </EventTooltip>
-    )
+    const Comp = ({ event }: { event: PlantafelEvent }) => {
+      const summary = event.shiftSummary
+      return (
+        <EventTooltip event={event}>
+          <span className="flex items-center gap-1 leading-tight">
+            <span className="truncate text-xs">{event.title}</span>
+            {event.sourceType === 'projekt' && summary?.tag && (
+              <span
+                className="shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
+                style={{ backgroundColor: SHIFT_DAY_COLOR }}
+                title="Frühschicht (04–22 Uhr)"
+              >
+                Früh
+              </span>
+            )}
+            {event.sourceType === 'projekt' && summary?.nacht && (
+              <span
+                className="shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
+                style={{ backgroundColor: SHIFT_NIGHT_COLOR }}
+                title="Nachtschicht"
+              >
+                Nacht
+              </span>
+            )}
+          </span>
+        </EventTooltip>
+      )
+    }
     Comp.displayName = 'CustomEvent'
     return Comp
   }, [])

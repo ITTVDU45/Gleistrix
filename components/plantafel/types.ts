@@ -55,6 +55,8 @@ export interface PlantafelEvent {
 
   status?: string
   shift?: 'tag' | 'nacht'
+  shiftSummary?: { tag: boolean; nacht: boolean }
+  recordedDays?: number
   notStarted?: boolean
 
   mitarbeiterId?: string

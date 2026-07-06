@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
 import { Holiday } from '@/lib/models/Holiday'
 import { getIslamicHolidaysInRange, holidaysToPlantafelEvents, type PlantafelHoliday } from '@/lib/services/plantafel/holidayService'
-import { getPlannedColor, getShiftColor, detectDayShift } from '@/lib/plantafel/projectColors'
+import { getPlannedColor, detectDayShift } from '@/lib/plantafel/projectColors'
 import mongoose from 'mongoose'
 
 const VACATION_TYPE_KEYWORDS: { keyword: string; type: 'krankheit' | 'sonderurlaub' | 'unbezahlt' }[] = [
@@ -187,11 +187,25 @@ export async function GET(req: NextRequest) {
         const beginn = p.datumBeginn ? String(p.datumBeginn).slice(0, 10) : ''
         const ende = p.datumEnde ? String(p.datumEnde).slice(0, 10) : ''
 
-        // Geplante Laufzeit als durchgehender Balken (Statusfarbe / Senf wenn nicht gestartet)
         if (beginn && ende && beginn <= to && ende >= from) {
+          // Schicht-Zusammenfassung aus den erfassten Zeiten im Sichtbereich
+          const zeitenMap = (p.mitarbeiterZeiten as Record<string, unknown>) || {}
+          let hasTag = false
+          let hasNacht = false
+          let recordedDays = 0
+          for (const [dateKey, entries] of Object.entries(zeitenMap)) {
+            if (!Array.isArray(entries) || entries.length === 0) continue
+            if (dateKey < from || dateKey > to) continue
+            recordedDays += 1
+            if (detectDayShift(entries as Array<{ start?: string; ende?: string }>) === 'nacht') hasNacht = true
+            else hasTag = true
+          }
+
           const notStarted = beginn > todayKey
+          // Ein Projekt = ein Balken (Statusfarbe / Senf wenn nicht gestartet);
+          // Schichten werden als Badges auf dem Balken dargestellt (kein Doppel-Event).
           evts.push({
-            id: `proj-plan-${id}`,
+            id: `proj-${id}`,
             title: name,
             start: p.datumBeginn,
             end: p.datumEnde,
@@ -205,31 +219,8 @@ export async function GET(req: NextRequest) {
             status,
             notStarted,
             color: getPlannedColor(status, notStarted),
-            hasConflict: false,
-          })
-        }
-
-        // Umgesetzte Tage (mit erfassten Zeiten) — Schichtfarbe pro Tag
-        const zeitenMap = (p.mitarbeiterZeiten as Record<string, unknown>) || {}
-        for (const [dateKey, entries] of Object.entries(zeitenMap)) {
-          if (!Array.isArray(entries) || entries.length === 0) continue
-          if (dateKey < from || dateKey > to) continue
-          const shift = detectDayShift(entries as Array<{ start?: string; ende?: string }>)
-          evts.push({
-            id: `proj-ist-${id}-${dateKey}`,
-            title: name,
-            start: `${dateKey}T00:00:00`,
-            end: `${dateKey}T23:59:59`,
-            resourceId: id,
-            allDay: true,
-            type: 'projekt_ist',
-            sourceType: 'projekt',
-            sourceId: id,
-            projektId: id,
-            projektName: name,
-            status,
-            shift,
-            color: getShiftColor(shift),
+            shiftSummary: { tag: hasTag, nacht: hasNacht },
+            recordedDays,
             hasConflict: false,
           })
         }
