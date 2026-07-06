@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
     if (kategorie) filter.kategorie = kategorie
     if (typ) filter.typ = typ
     if (lagerort) filter.lagerort = lagerort
-    if (status) {
+    if (status && status !== 'all') {
       filter.status = status
-    } else {
+    } else if (!status) {
       filter.status = { $ne: 'archiviert' }
     }
 

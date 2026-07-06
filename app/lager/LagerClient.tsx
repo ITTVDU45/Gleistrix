@@ -46,7 +46,7 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
       setLoading(true)
       setError(null)
       const [articlesRes, categoriesRes, statsRes] = await Promise.all([
-        LagerApi.articles.list(),
+        LagerApi.articles.list({ status: 'all' }),
         LagerApi.categories.list(),
         LagerApi.stats().catch(() => ({ success: false, stats: null }))
       ])
