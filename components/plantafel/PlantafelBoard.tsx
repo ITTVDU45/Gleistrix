@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
-import { format, parse, startOfWeek, getDay, addHours } from 'date-fns'
+import { format, parse, startOfWeek, getDay, addHours, getISOWeek } from 'date-fns'
 import { de } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
@@ -298,6 +298,42 @@ export default function PlantafelBoard() {
     return Comp
   }, [])
 
+  // KW-Anzeige im Wochen-Grid (Ecke oben links über der Zeitspalte)
+  const WeekKwHeader = useMemo(() => {
+    const Comp = () => (
+      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+        KW {getISOWeek(currentDate)}
+      </span>
+    )
+    Comp.displayName = 'WeekKwHeader'
+    return Comp
+  }, [currentDate])
+
+  // KW-Badge am Zeilenanfang (Montag) in der Monatsansicht
+  const MonthDateHeader = useMemo(() => {
+    const Comp = ({ date, label }: { date: Date; label: string }) => (
+      <div className="flex items-center justify-between gap-1">
+        {getDay(date) === 1 && (
+          <span className="rounded bg-slate-100 px-1 text-[9px] font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+            KW {getISOWeek(date)}
+          </span>
+        )}
+        <span>{label}</span>
+      </div>
+    )
+    Comp.displayName = 'MonthDateHeader'
+    return Comp
+  }, [])
+
+  const calendarComponents = useMemo(
+    () => ({
+      event: CustomEvent,
+      timeGutterHeader: WeekKwHeader,
+      month: { dateHeader: MonthDateHeader },
+    }),
+    [CustomEvent, WeekKwHeader, MonthDateHeader]
+  )
+
   const eventStyleGetter = useCallback((event: PlantafelEvent) => {
     const bgColor = event.color || EVENT_COLORS[event.type] || '#3b82f6'
     const isDraggable = event.sourceType === 'einsatz'
@@ -504,7 +540,7 @@ export default function PlantafelBoard() {
               onSelectSlot={handleSelectSlot}
               selectable
               eventPropGetter={eventStyleGetter}
-              components={{ event: CustomEvent }}
+              components={calendarComponents}
               messages={calendarMessages}
               culture="de"
               toolbar={false}

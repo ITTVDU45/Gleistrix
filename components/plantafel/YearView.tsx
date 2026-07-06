@@ -13,6 +13,7 @@ import {
   startOfYear,
   endOfYear,
   getDay,
+  getISOWeek,
 } from 'date-fns'
 import { de } from 'date-fns/locale'
 import type { PlantafelEvent } from './types'
@@ -116,23 +117,32 @@ function MonthCard({ month, eventsByDay, onMonthClick, onDayClick }: MonthCardPr
         {format(month, 'MMMM yyyy', { locale: de })}
       </button>
 
-      {/* Wochentag-Header */}
-      <div className="grid grid-cols-7 gap-0 mb-1">
-        {WEEKDAY_LABELS.map((label, i) => (
-          <div
-            key={label}
-            className={`text-center text-[10px] font-medium ${
-              i >= 5 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
-            }`}
-          >
-            {label}
-          </div>
-        ))}
+      {/* Wochentag-Header (mit KW-Spalte) */}
+      <div className="flex items-center gap-1 mb-1">
+        <div className="w-6 shrink-0 text-center text-[9px] font-semibold text-slate-400 dark:text-slate-500">
+          KW
+        </div>
+        <div className="grid grid-cols-7 gap-0 flex-1">
+          {WEEKDAY_LABELS.map((label, i) => (
+            <div
+              key={label}
+              className={`text-center text-[10px] font-medium ${
+                i >= 5 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Tage */}
+      {/* Tage (mit KW-Spalte je Zeile) */}
       {weeks.map((week, wi) => (
-        <div key={wi} className="grid grid-cols-7 gap-0">
+        <div key={wi} className="flex items-center gap-1">
+          <div className="w-6 shrink-0 text-center text-[9px] font-medium text-slate-400 dark:text-slate-500">
+            {getISOWeek(week[0])}
+          </div>
+          <div className="grid grid-cols-7 gap-0 flex-1">
           {week.map((day) => {
             const inMonth = isSameMonth(day, month)
             const isToday = isSameDay(day, today)
@@ -171,6 +181,7 @@ function MonthCard({ month, eventsByDay, onMonthClick, onDayClick }: MonthCardPr
               </button>
             )
           })}
+          </div>
         </div>
       ))}
     </div>

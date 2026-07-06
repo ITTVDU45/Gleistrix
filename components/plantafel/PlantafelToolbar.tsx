@@ -10,7 +10,7 @@ import {
   Building2,
   Search,
 } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, getISOWeek, startOfMonth, endOfMonth } from 'date-fns'
 import { de } from 'date-fns/locale'
 import type { PlantafelView, PlantafelCalendarView } from './types'
 
@@ -35,16 +35,20 @@ const CALENDAR_VIEWS: { value: PlantafelCalendarView; label: string }[] = [
 function getNavigationLabel(date: Date, calendarView: PlantafelCalendarView): string {
   switch (calendarView) {
     case 'day':
-      return format(date, 'EEEE, dd. MMMM yyyy', { locale: de })
+      return `${format(date, 'EEEE, dd. MMMM yyyy', { locale: de })} · KW ${getISOWeek(date)}`
     case 'week': {
       const weekStart = new Date(date)
       weekStart.setDate(date.getDate() - date.getDay() + 1)
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekStart.getDate() + 6)
-      return `${format(weekStart, 'dd. MMM', { locale: de })} – ${format(weekEnd, 'dd. MMM yyyy', { locale: de })}`
+      return `KW ${getISOWeek(weekStart)} · ${format(weekStart, 'dd. MMM', { locale: de })} – ${format(weekEnd, 'dd. MMM yyyy', { locale: de })}`
     }
-    case 'month':
-      return format(date, 'MMMM yyyy', { locale: de })
+    case 'month': {
+      const kwStart = getISOWeek(startOfMonth(date))
+      const kwEnd = getISOWeek(endOfMonth(date))
+      const kwLabel = kwStart === kwEnd ? `KW ${kwStart}` : `KW ${kwStart}–${kwEnd}`
+      return `${format(date, 'MMMM yyyy', { locale: de })} · ${kwLabel}`
+    }
     case 'year':
       return format(date, 'yyyy')
   }
