@@ -16,6 +16,8 @@ export type PlantafelEventType =
   | 'unbezahlt'
   | 'sonstiges'
   | 'feiertag'
+  | 'projekt_plan'
+  | 'projekt_ist'
 
 export type PlantafelHolidayType = 'german' | 'islamic'
 
@@ -30,6 +32,8 @@ export interface PlantafelFilters {
   showAbsences: boolean
   showGermanHolidays: boolean
   showIslamicHolidays: boolean
+  showProjects: boolean
+  hiddenProjectStatuses: string[]
   eventTypes: PlantafelEventType[]
 }
 
@@ -46,8 +50,10 @@ export interface PlantafelEvent {
   allDay?: boolean
 
   type: PlantafelEventType
-  sourceType: 'einsatz' | 'meeting' | 'urlaub' | 'feiertag'
+  sourceType: 'einsatz' | 'meeting' | 'urlaub' | 'feiertag' | 'projekt'
   sourceId: string
+
+  status?: string
 
   mitarbeiterId?: string
   mitarbeiterName?: string

@@ -85,9 +85,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'DB nicht verbunden' }, { status: 500 })
   }
 
+  const showProjects = searchParams.get('showProjects') !== 'false'
+  const hiddenProjectStatuses = (searchParams.get('hiddenProjectStatuses') || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const projectQuery: Record<string, unknown> =
+    hiddenProjectStatuses.length > 0 ? { status: { $nin: hiddenProjectStatuses } } : {}
+
   const [employees, projects] = await Promise.all([
     db.collection('employees').find({ status: { $ne: 'nicht aktiv' } }).toArray(),
-    db.collection('projects').find({ status: 'aktiv' }).toArray(),
+    db
+      .collection('projects')
+      .find(projectQuery, {
+        projection: {
+          name: 1,
+          status: 1,
+          auftraggeber: 1,
+          baustelle: 1,
+          datumBeginn: 1,
+          datumEnde: 1,
+          mitarbeiterZeiten: 1,
+        },
+      })
+      .toArray(),
   ])
 
   const view = searchParams.get('view') || 'team'
@@ -151,7 +173,63 @@ export async function GET(req: NextRequest) {
   }
   const holidayEvents = holidaysToPlantafelEvents(holidays)
 
-  const events = [...einsatzEvents, ...absenceEvents, ...holidayEvents]
+  // Projekt-Events: Laufzeit-Balken (geplant) + Tage mit erfassten Zeiten (umgesetzt)
+  const projectEvents = showProjects
+    ? projects.flatMap((p) => {
+        const id = String(p._id)
+        const name = (p.name as string) || 'Projekt'
+        const status = (p.status as string) || ''
+        const evts: Record<string, unknown>[] = []
+
+        const beginn = p.datumBeginn ? String(p.datumBeginn).slice(0, 10) : ''
+        const ende = p.datumEnde ? String(p.datumEnde).slice(0, 10) : ''
+
+        // Geplante Laufzeit als durchgehender Balken
+        if (beginn && ende && beginn <= to && ende >= from) {
+          evts.push({
+            id: `proj-plan-${id}`,
+            title: name,
+            start: p.datumBeginn,
+            end: p.datumEnde,
+            resourceId: id,
+            allDay: true,
+            type: 'projekt_plan',
+            sourceType: 'projekt',
+            sourceId: id,
+            projektId: id,
+            projektName: name,
+            status,
+            hasConflict: false,
+          })
+        }
+
+        // Umgesetzte Tage (mit erfassten Zeiten)
+        const zeitenMap = (p.mitarbeiterZeiten as Record<string, unknown>) || {}
+        for (const [dateKey, entries] of Object.entries(zeitenMap)) {
+          if (!Array.isArray(entries) || entries.length === 0) continue
+          if (dateKey < from || dateKey > to) continue
+          evts.push({
+            id: `proj-ist-${id}-${dateKey}`,
+            title: name,
+            start: `${dateKey}T00:00:00`,
+            end: `${dateKey}T23:59:59`,
+            resourceId: id,
+            allDay: true,
+            type: 'projekt_ist',
+            sourceType: 'projekt',
+            sourceId: id,
+            projektId: id,
+            projektName: name,
+            status,
+            hasConflict: false,
+          })
+        }
+
+        return evts
+      })
+    : []
+
+  const events = [...einsatzEvents, ...absenceEvents, ...holidayEvents, ...projectEvents]
   const resources = view === 'team'
     ? employees.map((e) => ({
         resourceId: String(e._id),

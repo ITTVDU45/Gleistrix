@@ -19,6 +19,7 @@ import DayView from './DayView'
 import AssignmentDialog from './AssignmentDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
+import ProjectFilterControl from './ProjectFilterControl'
 import EventTooltip from './EventTooltip'
 import ProjectCreateForm from '@/components/ProjectCreateForm'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,8 @@ const EVENT_COLORS: Record<string, string> = {
   unbezahlt: '#fbbf24',
   sonstiges: '#94a3b8',
   feiertag: '#f59e0b',
+  projekt_plan: '#6366f1',
+  projekt_ist: '#10b981',
 }
 
 interface DragItem {
@@ -109,10 +112,14 @@ export default function PlantafelBoard() {
 
   const handleSelectEvent = useCallback((event: PlantafelEvent) => {
     if (event.sourceType === 'feiertag' || event.sourceType === 'urlaub') return
+    if (event.sourceType === 'projekt') {
+      if (event.projektId) router.push(`/projektdetail/${event.projektId}`)
+      return
+    }
     setDialogEvent(event)
     setDialogDefaults({})
     setIsDialogOpen(true)
-  }, [])
+  }, [router])
 
   const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
     setDialogEvent(null)
@@ -235,16 +242,24 @@ export default function PlantafelBoard() {
   const eventStyleGetter = useCallback((event: PlantafelEvent) => {
     const bgColor = event.color || EVENT_COLORS[event.type] || '#3b82f6'
     const isDraggable = event.sourceType === 'einsatz'
+    const isPlanned = event.type === 'projekt_plan'
     return {
       style: {
-        backgroundColor: bgColor,
+        backgroundColor: isPlanned ? 'transparent' : bgColor,
+        backgroundImage: isPlanned
+          ? `repeating-linear-gradient(45deg, ${bgColor}33, ${bgColor}33 6px, ${bgColor}1a 6px, ${bgColor}1a 12px)`
+          : undefined,
         borderRadius: '4px',
-        border: event.hasConflict ? '2px solid #ef4444' : 'none',
-        color: '#fff',
+        border: event.hasConflict
+          ? '2px solid #ef4444'
+          : isPlanned
+          ? `1px dashed ${bgColor}`
+          : 'none',
+        color: isPlanned ? bgColor : '#fff',
         fontSize: '0.75rem',
         padding: '2px 4px',
-        cursor: isDraggable ? 'grab' : 'default',
-        opacity: isDraggable ? 1 : 0.85,
+        cursor: isDraggable ? 'grab' : 'pointer',
+        opacity: isDraggable ? 1 : 0.9,
       },
     }
   }, [])
@@ -340,6 +355,8 @@ export default function PlantafelBoard() {
               <span className="hidden sm:inline">Feiertage Islam.</span>
             </Button>
           </div>
+
+          <ProjectFilterControl filters={filters} setFilters={setFilters} />
 
           {conflicts.length > 0 && (
             <Button

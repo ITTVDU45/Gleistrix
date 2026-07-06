@@ -25,6 +25,8 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   urlaub: '#fb923c',
   krankheit: '#ef4444',
   feiertag: '#b45309',
+  projekt_plan: '#6366f1',
+  projekt_ist: '#10b981',
 }
 
 interface YearViewProps {
@@ -42,11 +44,20 @@ export default function YearView({ events, year, onMonthClick, onDayClick }: Yea
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, PlantafelEvent[]>()
+    const MAX_SPAN_DAYS = 400
     for (const event of events) {
-      const key = format(event.start, 'yyyy-MM-dd')
-      const existing = map.get(key) || []
-      existing.push(event)
-      map.set(key, existing)
+      // Mehrtages-Events (z.B. Projektlaufzeit, Urlaub) auf alle betroffenen Tage verteilen
+      let cursor = new Date(event.start)
+      const last = event.end instanceof Date ? event.end : new Date(event.end)
+      let guard = 0
+      while (cursor <= last && guard < MAX_SPAN_DAYS) {
+        const key = format(cursor, 'yyyy-MM-dd')
+        const existing = map.get(key) || []
+        existing.push(event)
+        map.set(key, existing)
+        cursor = addDays(cursor, 1)
+        guard += 1
+      }
     }
     return map
   }, [events])

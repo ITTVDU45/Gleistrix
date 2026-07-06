@@ -14,6 +14,8 @@ const EVENT_COLORS: Record<string, string> = {
   unbezahlt: '#fbbf24',
   sonstiges: '#94a3b8',
   feiertag: '#f59e0b',
+  projekt_plan: '#6366f1',
+  projekt_ist: '#10b981',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -25,6 +27,8 @@ const TYPE_LABELS: Record<string, string> = {
   unbezahlt: 'Unbezahlt',
   feiertag: 'Feiertag',
   sonstiges: 'Sonstiges',
+  projekt_plan: 'Projekt (geplant)',
+  projekt_ist: 'Projekt (umgesetzt)',
 }
 
 interface EventTooltipProps {
@@ -91,6 +95,16 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
             {event.allDay && (
               <div className="text-slate-400">
                 {format(event.start, 'dd.MM.yyyy', { locale: de })}
+              </div>
+            )}
+
+            {event.sourceType === 'projekt' && event.status && (
+              <div className="text-slate-400">Status: {event.status}</div>
+            )}
+
+            {event.sourceType === 'projekt' && (
+              <div className="text-slate-400 text-[10px] mt-1 border-t border-slate-700 pt-1">
+                Klicken für Projektdetails
               </div>
             )}
 

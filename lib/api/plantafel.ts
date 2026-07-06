@@ -18,6 +18,8 @@ export const PlantafelApi = {
     showAbsences?: boolean
     showGermanHolidays?: boolean
     showIslamicHolidays?: boolean
+    showProjects?: boolean
+    hiddenProjectStatuses?: string[]
   }) => {
     const search = new URLSearchParams({ from: params.from, to: params.to })
     if (params.view) search.set('view', params.view)
@@ -26,6 +28,8 @@ export const PlantafelApi = {
     if (params.showAbsences !== undefined) search.set('showAbsences', String(params.showAbsences))
     if (params.showGermanHolidays !== undefined) search.set('showGermanHolidays', String(params.showGermanHolidays))
     if (params.showIslamicHolidays !== undefined) search.set('showIslamicHolidays', String(params.showIslamicHolidays))
+    if (params.showProjects !== undefined) search.set('showProjects', String(params.showProjects))
+    if (params.hiddenProjectStatuses?.length) search.set('hiddenProjectStatuses', params.hiddenProjectStatuses.join(','))
     return getJSON<PlantafelAssignmentsResponse>(`/api/plantafel/assignments?${search.toString()}`)
   },
 

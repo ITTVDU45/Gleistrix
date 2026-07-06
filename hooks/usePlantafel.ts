@@ -37,6 +37,8 @@ const DEFAULT_FILTERS: PlantafelFilters = {
   showAbsences: true,
   showGermanHolidays: true,
   showIslamicHolidays: false,
+  showProjects: true,
+  hiddenProjectStatuses: [],
   eventTypes: [],
 }
 
@@ -68,6 +70,8 @@ export function usePlantafel() {
         showAbsences: filters.showAbsences,
         showGermanHolidays: filters.showGermanHolidays,
         showIslamicHolidays: filters.showIslamicHolidays,
+        showProjects: filters.showProjects,
+        hiddenProjectStatuses: filters.hiddenProjectStatuses,
       })
 
       if (result.success && result.data) {
