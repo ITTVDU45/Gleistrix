@@ -168,34 +168,36 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, art
     reader.readAsText(file)
   }
 
+  const LABEL_PX_W = 600
+  const LABEL_PX_H = 300
+  const QR_PX = 220
+  const QR_PAD = 40
+
   const handleUnitQrDownload = async (unit: ArticleUnit) => {
     const code = unit.barcode ?? unit.seriennummer
     if (!code) return
-    const qrSize = 1024
-    const dataUrl = await QRCode.toDataURL(code, { width: qrSize, margin: 2, errorCorrectionLevel: 'M' })
+    const dataUrl = await QRCode.toDataURL(code, { width: QR_PX, margin: 1, errorCorrectionLevel: 'M' })
     const canvas = document.createElement('canvas')
-    const padding = 24
-    const lineHeight = 36
-    const lines = [unitQrLabel.line1, unit.seriennummer].filter(Boolean)
-    const textHeight = lines.length * lineHeight + 16
-    canvas.width = qrSize + padding * 2
-    canvas.height = qrSize + padding * 2 + textHeight
+    canvas.width = LABEL_PX_W
+    canvas.height = LABEL_PX_H
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillRect(0, 0, LABEL_PX_W, LABEL_PX_H)
     const img = new Image()
     await new Promise<void>((resolve, reject) => {
-      img.onload = () => { ctx.drawImage(img, padding, padding, qrSize, qrSize); resolve() }
+      img.onload = () => { ctx.drawImage(img, QR_PAD, QR_PAD, QR_PX, QR_PX); resolve() }
       img.onerror = () => reject()
       img.src = dataUrl
     })
+    const textX = QR_PAD + QR_PX + 20
+    const textMaxW = LABEL_PX_W - textX - 10
     ctx.fillStyle = '#111827'
-    ctx.font = 'bold 28px system-ui, sans-serif'
-    ctx.textAlign = 'center'
-    lines.forEach((line, i) => {
-      ctx.fillText(line!, canvas.width / 2, qrSize + padding + 32 + i * lineHeight)
-    })
+    ctx.font = 'bold 22px system-ui, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText(unitQrLabel.line1, textX, 120, textMaxW)
+    ctx.font = '19px system-ui, sans-serif'
+    ctx.fillText(unit.seriennummer, textX, 155, textMaxW)
     const link = document.createElement('a')
     link.href = canvas.toDataURL('image/png')
     link.download = `unit-${unit.seriennummer}-qr.png`
@@ -207,17 +209,26 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, art
   const handleUnitQrPrint = async (unit: ArticleUnit) => {
     const code = unit.barcode ?? unit.seriennummer
     if (!code) return
-    const dataUrl = await QRCode.toDataURL(code, { width: 400, margin: 2, errorCorrectionLevel: 'M' })
+    const dataUrl = await QRCode.toDataURL(code, { width: 400, margin: 1, errorCorrectionLevel: 'M' })
     const safeLabel = (unitQrLabel.line1 ?? '').replace(/</g, '&lt;')
     const safeSn = unit.seriennummer.replace(/</g, '&lt;')
     const win = window.open('', '_blank')
     if (!win) return
-    win.document.write(`<!DOCTYPE html><html><head><title>QR - ${unit.seriennummer}</title>
-      <style>body{font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;}
-      .qr img{display:block;}.label{font-size:16px;font-weight:600;margin:12px 0 4px;}.sn{font-size:14px;font-weight:500;color:#333;}@media print{body{padding:16px;}}</style></head>
-      <body><div class="qr"><img src="${dataUrl.replace(/"/g, '&quot;')}" width="200" height="200"/></div>
-      <p class="label">${safeLabel}</p>
-      <p class="sn">${safeSn}</p></body></html>`)
+    win.document.write(`<!DOCTYPE html><html><head><title>Etikett</title>
+      <style>
+        @page{size:50.8mm 25.4mm;margin:0;}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:system-ui,sans-serif;width:50.8mm;height:25.4mm;display:flex;align-items:center;padding:2mm;}
+        .qr{flex-shrink:0;width:19mm;height:19mm;margin-right:2mm;}
+        .qr img{width:100%;height:100%;display:block;}
+        .text{display:flex;flex-direction:column;justify-content:center;overflow:hidden;}
+        .l1{font-size:7pt;font-weight:700;line-height:1.3;word-break:break-word;}
+        .l2{font-size:6.5pt;font-weight:400;color:#333;margin-top:1mm;line-height:1.2;}
+      </style></head>
+      <body>
+        <div class="qr"><img src="${dataUrl.replace(/"/g, '&quot;')}" /></div>
+        <div class="text"><p class="l1">${safeLabel}</p><p class="l2">${safeSn}</p></div>
+      </body></html>`)
     win.document.close()
     win.focus()
     setTimeout(() => { win.print(); win.close() }, 300)

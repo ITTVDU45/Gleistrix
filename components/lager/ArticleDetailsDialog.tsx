@@ -77,52 +77,48 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
 
   if (!article) return null
 
+  const LABEL_PX_W = 600
+  const LABEL_PX_H = 300
+  const QR_PX = 220
+  const QR_PAD = 40
+
+  const drawLabelCanvas = async (
+    qrData: string,
+    labelLine1: string,
+    labelLine2: string | null,
+  ): Promise<HTMLCanvasElement> => {
+    const dataUrl = await QRCode.toDataURL(qrData, { width: QR_PX, margin: 1, errorCorrectionLevel: 'M' })
+    const canvas = document.createElement('canvas')
+    canvas.width = LABEL_PX_W
+    canvas.height = LABEL_PX_H
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, LABEL_PX_W, LABEL_PX_H)
+    const img = new Image()
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => { ctx.drawImage(img, QR_PAD, QR_PAD, QR_PX, QR_PX); resolve() }
+      img.onerror = () => reject(new Error('Bild konnte nicht geladen werden'))
+      img.src = dataUrl
+    })
+    const textX = QR_PAD + QR_PX + 20
+    const textMaxW = LABEL_PX_W - textX - 10
+    ctx.fillStyle = '#111827'
+    ctx.font = 'bold 22px system-ui, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText(labelLine1, textX, 120, textMaxW)
+    if (labelLine2) {
+      ctx.font = '19px system-ui, sans-serif'
+      ctx.fillText(labelLine2, textX, 155, textMaxW)
+    }
+    return canvas
+  }
+
   const handleDownloadQr = async () => {
     if (!qrValue) return
-
     setIsDownloading(true)
     setDownloadError('')
     try {
-      const qrSize = 1024
-      const dataUrl = await QRCode.toDataURL(qrValue, {
-        width: qrSize,
-        margin: 2,
-        errorCorrectionLevel: 'M'
-      })
-
-      const canvas = document.createElement('canvas')
-      const padding = 24
-      const lineHeight = 44
-      const textLines = qrLabel.line2 ? 2 : 1
-      const textHeight = lineHeight * textLines + 12
-      const totalHeight = qrSize + padding * 2 + textHeight
-      canvas.width = qrSize + padding * 2
-      canvas.height = totalHeight
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('Canvas nicht verfügbar')
-
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      const img = new Image()
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => {
-          ctx.drawImage(img, padding, padding, qrSize, qrSize)
-          resolve()
-        }
-        img.onerror = () => reject(new Error('Bild konnte nicht geladen werden'))
-        img.src = dataUrl
-      })
-
-      ctx.fillStyle = '#111827'
-      ctx.font = 'bold 32px system-ui, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(qrLabel.line1, canvas.width / 2, qrSize + padding + 40)
-      if (qrLabel.line2) {
-        ctx.font = '28px system-ui, sans-serif'
-        ctx.fillText(qrLabel.line2, canvas.width / 2, qrSize + padding + 40 + lineHeight)
-      }
-
+      const canvas = await drawLabelCanvas(qrValue, qrLabel.line1, qrLabel.line2)
       const link = document.createElement('a')
       link.href = canvas.toDataURL('image/png')
       link.download = `${toSafeFileName(article.bezeichnung ?? article.artikelnummer ?? 'produkt')}-qr.png`
@@ -136,75 +132,45 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
     }
   }
 
+  const labelPrintHtml = (dataUrl: string, line1: string, line2: string | null): string => {
+    const safeLine1 = line1.replace(/</g, '&lt;')
+    const safeLine2 = line2 ? line2.replace(/</g, '&lt;') : ''
+    return `<!DOCTYPE html><html><head><title>Etikett</title>
+      <style>
+        @page{size:50.8mm 25.4mm;margin:0;}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:system-ui,sans-serif;width:50.8mm;height:25.4mm;display:flex;align-items:center;padding:2mm;}
+        .qr{flex-shrink:0;width:19mm;height:19mm;margin-right:2mm;}
+        .qr img{width:100%;height:100%;display:block;}
+        .text{display:flex;flex-direction:column;justify-content:center;overflow:hidden;}
+        .l1{font-size:7pt;font-weight:700;line-height:1.3;word-break:break-word;}
+        .l2{font-size:6.5pt;font-weight:400;color:#333;margin-top:1mm;line-height:1.2;}
+      </style></head>
+      <body>
+        <div class="qr"><img src="${dataUrl.replace(/"/g, '&quot;')}" /></div>
+        <div class="text">
+          <p class="l1">${safeLine1}</p>
+          ${safeLine2 ? `<p class="l2">${safeLine2}</p>` : ''}
+        </div>
+      </body></html>`
+  }
+
   const handlePrint = async () => {
     if (!qrValue) return
     try {
-      const dataUrl = await QRCode.toDataURL(qrValue, {
-        width: 400,
-        margin: 2,
-        errorCorrectionLevel: 'M'
-      })
+      const dataUrl = await QRCode.toDataURL(qrValue, { width: 400, margin: 1, errorCorrectionLevel: 'M' })
       const win = window.open('', '_blank')
       if (!win) return
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>QR - ${(article.bezeichnung ?? article.artikelnummer ?? 'Artikel').replace(/</g, '')}</title>
-            <style>
-              body { font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 24px; }
-              .qr-wrap { margin-bottom: 16px; }
-              .qr-wrap img { display: block; }
-              .label-line { font-size: 16px; font-weight: 600; letter-spacing: 0.03em; margin: 0 0 4px 0; }
-              .label-sn { font-size: 14px; font-weight: 500; color: #333; margin: 0; }
-              @media print { body { padding: 16px; } }
-            </style>
-          </head>
-          <body>
-            <div class="qr-wrap">
-              <img src="${dataUrl.replace(/"/g, '&quot;')}" alt="QR-Code" width="200" height="200" />
-            </div>
-            <p class="label-line">${qrLabel.line1.replace(/</g, '&lt;')}</p>
-            ${qrLabel.line2 ? `<p class="label-sn">${qrLabel.line2.replace(/</g, '&lt;')}</p>` : ''}
-          </body>
-        </html>
-      `)
+      win.document.write(labelPrintHtml(dataUrl, qrLabel.line1, qrLabel.line2))
       win.document.close()
       win.focus()
-      setTimeout(() => {
-        win.print()
-        win.close()
-      }, 300)
+      setTimeout(() => { win.print(); win.close() }, 300)
     } catch (_) {}
   }
 
   const generateUnitCanvas = async (unit: ArticleUnit): Promise<HTMLCanvasElement> => {
     const code = unit.barcode ?? unit.seriennummer
-    const qrSize = 512
-    const dataUrl = await QRCode.toDataURL(code, { width: qrSize, margin: 2, errorCorrectionLevel: 'M' })
-    const padding = 16
-    const lineHeight = 32
-    const textLines = 2
-    const textHeight = lineHeight * textLines + 12
-    const canvas = document.createElement('canvas')
-    canvas.width = qrSize + padding * 2
-    canvas.height = qrSize + padding * 2 + textHeight
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    const img = new Image()
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => { ctx.drawImage(img, padding, padding, qrSize, qrSize); resolve() }
-      img.onerror = () => reject()
-      img.src = dataUrl
-    })
-    ctx.fillStyle = '#111827'
-    ctx.font = 'bold 22px system-ui, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText(qrLabel.line1, canvas.width / 2, qrSize + padding + 28)
-    ctx.font = '20px system-ui, sans-serif'
-    ctx.fillText(unit.seriennummer, canvas.width / 2, qrSize + padding + 28 + lineHeight)
-    return canvas
+    return drawLabelCanvas(code, qrLabel.line1, unit.seriennummer)
   }
 
   const handleBulkDownloadPng = async () => {
@@ -212,13 +178,12 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
     setIsDownloading(true)
     setDownloadError('')
     try {
-      const cols = Math.min(units.length, 4)
+      const cols = Math.min(units.length, 3)
       const rows = Math.ceil(units.length / cols)
-      const cellW = 544
-      const cellH = 576
+      const gap = 4
       const megaCanvas = document.createElement('canvas')
-      megaCanvas.width = cols * cellW
-      megaCanvas.height = rows * cellH
+      megaCanvas.width = cols * LABEL_PX_W + (cols - 1) * gap
+      megaCanvas.height = rows * LABEL_PX_H + (rows - 1) * gap
       const megaCtx = megaCanvas.getContext('2d')!
       megaCtx.fillStyle = '#ffffff'
       megaCtx.fillRect(0, 0, megaCanvas.width, megaCanvas.height)
@@ -227,7 +192,7 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
         const unitCanvas = await generateUnitCanvas(units[i])
         const col = i % cols
         const row = Math.floor(i / cols)
-        megaCtx.drawImage(unitCanvas, col * cellW, row * cellH)
+        megaCtx.drawImage(unitCanvas, col * (LABEL_PX_W + gap), row * (LABEL_PX_H + gap))
       }
 
       const link = document.createElement('a')
@@ -249,28 +214,31 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
       const qrImages: { dataUrl: string; sn: string }[] = []
       for (const unit of units) {
         const code = unit.barcode ?? unit.seriennummer
-        const dataUrl = await QRCode.toDataURL(code, { width: 300, margin: 2, errorCorrectionLevel: 'M' })
+        const dataUrl = await QRCode.toDataURL(code, { width: 400, margin: 1, errorCorrectionLevel: 'M' })
         qrImages.push({ dataUrl, sn: unit.seriennummer })
       }
       const win = window.open('', '_blank')
       if (!win) return
       const safeLabel = qrLabel.line1.replace(/</g, '&lt;')
       const itemsHtml = qrImages.map((q) =>
-        `<div class="item"><img src="${q.dataUrl.replace(/"/g, '&quot;')}" width="150" height="150"/><p class="label-line">${safeLabel}</p><p class="sn">${q.sn.replace(/</g, '&lt;')}</p></div>`
+        `<div class="label">
+          <div class="qr"><img src="${q.dataUrl.replace(/"/g, '&quot;')}" /></div>
+          <div class="text"><p class="l1">${safeLabel}</p><p class="l2">${q.sn.replace(/</g, '&lt;')}</p></div>
+        </div>`
       ).join('')
-      win.document.write(`<!DOCTYPE html><html><head><title>QR-Codes - ${(article?.bezeichnung ?? '').replace(/</g, '&lt;')}</title>
+      win.document.write(`<!DOCTYPE html><html><head><title>Etiketten</title>
         <style>
-          body{font-family:system-ui,sans-serif;margin:0;padding:20px;}
-          h1{font-size:16px;margin:0 0 16px;}
-          .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;}
-          .item{display:flex;flex-direction:column;align-items:center;border:1px solid #e2e8f0;border-radius:8px;padding:12px;break-inside:avoid;}
-          .item img{display:block;}
-          .label-line{font-size:12px;font-weight:600;margin:8px 0 0;font-family:monospace;}
-          .sn{font-size:11px;font-weight:500;margin:2px 0 0;font-family:monospace;color:#333;}
-          @media print{body{padding:10px;} .grid{gap:8px;} .item{border:1px solid #ccc;padding:8px;}}
+          @page{size:50.8mm 25.4mm;margin:0;}
+          *{margin:0;padding:0;box-sizing:border-box;}
+          body{font-family:system-ui,sans-serif;}
+          .label{width:50.8mm;height:25.4mm;display:flex;align-items:center;padding:2mm;page-break-after:always;overflow:hidden;}
+          .qr{flex-shrink:0;width:19mm;height:19mm;margin-right:2mm;}
+          .qr img{width:100%;height:100%;display:block;}
+          .text{display:flex;flex-direction:column;justify-content:center;overflow:hidden;}
+          .l1{font-size:7pt;font-weight:700;line-height:1.3;word-break:break-word;}
+          .l2{font-size:6.5pt;font-weight:400;color:#333;margin-top:1mm;line-height:1.2;}
         </style></head>
-        <body><h1>${(article?.bezeichnung ?? '').replace(/</g, '&lt;')} - ${units.length} QR-Codes</h1>
-        <div class="grid">${itemsHtml}</div></body></html>`)
+        <body>${itemsHtml}</body></html>`)
       win.document.close()
       win.focus()
       setTimeout(() => { win.print(); win.close() }, 400)
