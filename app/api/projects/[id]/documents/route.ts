@@ -29,6 +29,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
+    // Optionale eigene Anzeigenamen (überschreiben den Dateinamen)
+    const nameList = formData.getAll('names').map((v) => String(v ?? ''));
+    const namesJsonRaw = formData.get('namesJson') as string | null;
+    let namesJson: string[] = [];
+    if (namesJsonRaw) {
+      try {
+        const parsed = JSON.parse(namesJsonRaw);
+        if (Array.isArray(parsed)) namesJson = parsed.map((v) => String(v ?? ''));
+      } catch {
+        // ignore malformed namesJson
+      }
+    }
+
     // Server-side validation
     const MAX_BYTES = Number(process.env.MAX_UPLOAD_SIZE_BYTES || 50 * 1024 * 1024); // default 50 MB
     const allowedTypes = [
@@ -73,8 +86,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     for (const [index, f] of (files as any[]).entries()) {
       const idStr = Date.now().toString() + Math.random().toString(36).slice(2);
-      const name = (f as any).name || 'file';
-      const key = getProjectObjectKey(project, name);
+      const originalName = (f as any).name || 'file';
+      const customName = (nameList[index] ?? namesJson[index] ?? '').trim();
+      const name = customName || originalName;
+      const key = getProjectObjectKey(project, originalName);
       try {
         // convert Blob/File to readable stream
         const buffer = await (f as any).arrayBuffer();

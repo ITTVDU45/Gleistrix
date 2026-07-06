@@ -13,6 +13,7 @@ import ZeitenTab from './edit/ZeitenTab'
 import MaterialTab from './edit/MaterialTab'
 import FahrzeugeTab from './edit/FahrzeugeTab'
 import EinsatzTab from './edit/EinsatzTab'
+import DokumenteTab from './edit/DokumenteTab'
 import type {
   PlantafelEvent,
   CreatePlantafelAssignmentRequest,
@@ -20,7 +21,7 @@ import type {
 } from './types'
 import type { Employee, Project } from '../../types'
 
-export type ProjectEditorTab = 'einsatz' | 'stammdaten' | 'zeiten' | 'material' | 'fahrzeuge'
+export type ProjectEditorTab = 'einsatz' | 'stammdaten' | 'zeiten' | 'material' | 'fahrzeuge' | 'dokumente'
 
 interface ProjectEditorDialogProps {
   open: boolean
@@ -185,12 +186,13 @@ export default function ProjectDayEditDialog({
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProjectEditorTab)} className="w-full">
-            <TabsList className="grid grid-cols-5 w-full">
+            <TabsList className="grid grid-cols-6 w-full">
               <TabsTrigger value="einsatz">Einsatz</TabsTrigger>
               <TabsTrigger value="stammdaten">Stammdaten</TabsTrigger>
               <TabsTrigger value="zeiten">Zeiten</TabsTrigger>
               <TabsTrigger value="material">Material</TabsTrigger>
               <TabsTrigger value="fahrzeuge">Fahrzeuge</TabsTrigger>
+              <TabsTrigger value="dokumente">Dokumente</TabsTrigger>
             </TabsList>
 
             <TabsContent value="einsatz" className="mt-4">
@@ -243,6 +245,10 @@ export default function ProjectDayEditDialog({
                 onAdd={addVehicle}
                 onChanged={notifyVehicleChanged}
               />
+            </TabsContent>
+
+            <TabsContent value="dokumente" className="mt-4">
+              <DokumenteTab project={fullProject} onChanged={handleStammdatenSaved} />
             </TabsContent>
           </Tabs>
         )}

@@ -17,6 +17,7 @@ import PlantafelToolbar from './PlantafelToolbar'
 import YearView from './YearView'
 import DayView from './DayView'
 import ProjectDayEditDialog, { type ProjectEditorTab } from './ProjectDayEditDialog'
+import DocumentDropUploadDialog from './DocumentDropUploadDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import ProjectFilterControl from './ProjectFilterControl'
@@ -109,6 +110,9 @@ export default function PlantafelBoard() {
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false)
   const [dayRefreshKey, setDayRefreshKey] = useState(0)
 
+  // Datei-Upload per Drag&Drop auf Projektkarte/-balken (2-seitiges Popup)
+  const [docUpload, setDocUpload] = useState<{ projectId: string; projectName?: string; files: File[] } | null>(null)
+
   const externalDragRef = useRef<DragItem | null>(null)
 
   const filteredEvents = useMemo(() => {
@@ -183,6 +187,36 @@ export default function PlantafelBoard() {
       dateKey: format(currentDate, 'yyyy-MM-dd'),
     })
   }, [currentDate])
+
+  // Datei auf Projektkarte (Tag) gedroppt → Upload-Popup öffnen
+  const handleDayProjectFileDrop = useCallback((project: PlantafelDayProject, files: File[]) => {
+    setDocUpload({ projectId: project.id, projectName: project.name, files })
+  }, [])
+
+  // Datei auf Projekt-Balken (Woche) gedroppt → Upload-Popup öffnen
+  const handleEventFileDrop = useCallback((event: PlantafelEvent, files: File[]) => {
+    if (!event.projektId) return
+    setDocUpload({ projectId: event.projektId, projectName: event.projektName || event.title, files })
+  }, [])
+
+  // Nach erfolgreichem Upload → Editor auf Dokumente-Tab öffnen
+  const handleDocUploaded = useCallback(() => {
+    setDocUpload((current) => {
+      if (current) {
+        setEditor({
+          open: true,
+          projectId: current.projectId,
+          projectName: current.projectName,
+          initialTab: 'dokumente',
+          einsatz: null,
+          dateKey: format(currentDate, 'yyyy-MM-dd'),
+        })
+      }
+      return null
+    })
+    fetchProjects()
+    setDayRefreshKey((k) => k + 1)
+  }, [currentDate, fetchProjects])
 
   const handleEditorClose = useCallback(() => {
     setEditor((prev) => ({ ...prev, open: false, einsatz: null, einsatzDefaults: undefined }))
@@ -268,9 +302,24 @@ export default function PlantafelBoard() {
     const Comp = ({ event }: { event: PlantafelEvent }) => {
       const counts = event.shiftCounts
       const isProjekt = event.sourceType === 'projekt'
+      const canDropFiles = Boolean(event.projektId)
       return (
         <EventTooltip event={event}>
-          <span className="flex items-center gap-1 leading-tight">
+          <span
+            className="flex items-center gap-1 leading-tight"
+            onDragOver={(e) => {
+              if (!canDropFiles || !Array.from(e.dataTransfer?.types || []).includes('Files')) return
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+            onDrop={(e) => {
+              if (!canDropFiles || !Array.from(e.dataTransfer?.types || []).includes('Files')) return
+              e.preventDefault()
+              e.stopPropagation()
+              const files = Array.from(e.dataTransfer.files || [])
+              if (files.length) handleEventFileDrop(event, files)
+            }}
+          >
             <span className="truncate text-xs">{event.title}</span>
             {isProjekt && counts && counts.tag > 0 && (
               <span
@@ -296,7 +345,7 @@ export default function PlantafelBoard() {
     }
     Comp.displayName = 'CustomEvent'
     return Comp
-  }, [])
+  }, [handleEventFileDrop])
 
   // KW-Anzeige im Wochen-Grid (Ecke oben links über der Zeitspalte)
   const WeekKwHeader = useMemo(() => {
@@ -523,6 +572,7 @@ export default function PlantafelBoard() {
               events={filteredEvents}
               onCreateProject={handleOpenProjectDialog}
               onProjectClick={handleDayProjectClick}
+              onProjectFileDrop={handleDayProjectFileDrop}
               refreshKey={dayRefreshKey}
             />
           ) : (
@@ -609,6 +659,18 @@ export default function PlantafelBoard() {
           onEinsatzCreate={createAssignment}
           onEinsatzUpdate={updateAssignment}
           onEinsatzDelete={deleteAssignment}
+        />
+      )}
+
+      {/* Dokument-Upload per Drag&Drop (2-seitiges Popup) */}
+      {docUpload && (
+        <DocumentDropUploadDialog
+          open={!!docUpload}
+          projectId={docUpload.projectId}
+          projectName={docUpload.projectName}
+          initialFiles={docUpload.files}
+          onClose={() => setDocUpload(null)}
+          onUploaded={handleDocUploaded}
         />
       )}
 

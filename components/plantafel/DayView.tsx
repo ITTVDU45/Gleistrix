@@ -12,6 +12,7 @@ interface DayViewProps {
   events: PlantafelEvent[]
   onCreateProject: () => void
   onProjectClick: (project: PlantafelDayProject) => void
+  onProjectFileDrop?: (project: PlantafelDayProject, files: File[]) => void
   refreshKey: number
 }
 
@@ -20,6 +21,7 @@ export default function DayView({
   events,
   onCreateProject,
   onProjectClick,
+  onProjectFileDrop,
   refreshKey,
 }: DayViewProps) {
   const [projects, setProjects] = useState<PlantafelDayProject[]>([])
@@ -95,6 +97,7 @@ export default function DayView({
           project={project}
           einsatzEvents={einsatzEventsByProject.get(project.id) || []}
           onClick={() => onProjectClick(project)}
+          onFileDrop={onProjectFileDrop ? (files) => onProjectFileDrop(project, files) : undefined}
         />
       ))}
       <NewProjectCard onClick={onCreateProject} />

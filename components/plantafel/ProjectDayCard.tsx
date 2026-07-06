@@ -1,13 +1,19 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
+import { Upload } from 'lucide-react'
 import type { PlantafelDayProject, PlantafelEvent } from './types'
 
 interface ProjectDayCardProps {
   project: PlantafelDayProject
   einsatzEvents: PlantafelEvent[]
   onClick: () => void
+  onFileDrop?: (files: File[]) => void
+}
+
+function dragHasFiles(e: React.DragEvent): boolean {
+  return Array.from(e.dataTransfer?.types || []).includes('Files')
 }
 
 interface TimeRow {
@@ -44,7 +50,8 @@ function formatNumber(value?: number): string {
   return value.toLocaleString('de-DE', { maximumFractionDigits: 2 })
 }
 
-export default function ProjectDayCard({ project, einsatzEvents, onClick }: ProjectDayCardProps) {
+export default function ProjectDayCard({ project, einsatzEvents, onClick, onFileDrop }: ProjectDayCardProps) {
+  const [isFileOver, setIsFileOver] = useState(false)
   const timeRows = useMemo<TimeRow[]>(() => {
     if (project.zeiten.length > 0) {
       return project.zeiten.map((z, idx) => ({
@@ -101,9 +108,39 @@ export default function ProjectDayCard({ project, einsatzEvents, onClick }: Proj
   return (
     <div
       onClick={onClick}
-      className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      onDragOver={(e) => {
+        if (!onFileDrop || !dragHasFiles(e)) return
+        e.preventDefault()
+        e.stopPropagation()
+        setIsFileOver(true)
+      }}
+      onDragLeave={(e) => {
+        if (!onFileDrop) return
+        e.preventDefault()
+        e.stopPropagation()
+        setIsFileOver(false)
+      }}
+      onDrop={(e) => {
+        if (!onFileDrop || !dragHasFiles(e)) return
+        e.preventDefault()
+        e.stopPropagation()
+        setIsFileOver(false)
+        const files = Array.from(e.dataTransfer.files || [])
+        if (files.length) onFileDrop(files)
+      }}
+      className={`relative rounded-lg border bg-white dark:bg-slate-800 overflow-hidden cursor-pointer hover:shadow-md transition-shadow ${
+        isFileOver
+          ? 'border-blue-500 ring-2 ring-blue-400/60'
+          : 'border-slate-300 dark:border-slate-600'
+      }`}
       title={`${project.name} — Details öffnen`}
     >
+      {isFileOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 bg-blue-500/10 backdrop-blur-[1px]">
+          <Upload className="h-8 w-8 text-blue-600" />
+          <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Dokument hier ablegen</p>
+        </div>
+      )}
       {/* Kopfblock im Excel-Stil */}
       <div className="grid grid-cols-[auto_1fr_auto_1fr]">
         <div className={cellLabel}>Status:</div>
