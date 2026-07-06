@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
-import { format } from 'date-fns'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { format, addYears } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { Trash2, Plus, Pencil, CheckCircle2 } from 'lucide-react'
 import { TimeEntryForm } from '@/components/TimeEntryForm'
+import { PlantafelApi } from '@/lib/api/plantafel'
 import type {
   PlantafelEvent,
   CreatePlantafelAssignmentRequest,
@@ -24,6 +25,11 @@ interface EinsatzTabProps {
   onCreate: (data: CreatePlantafelAssignmentRequest) => Promise<unknown>
   onUpdate: (id: string, data: UpdatePlantafelAssignmentRequest) => Promise<unknown>
   onDelete: (id: string) => Promise<unknown>
+  /** Legt zusätzlich echte Projekt-Zeiteinträge an (Pause/Fahrt/Extra/Feiertag → Abrechnung) */
+  onAddTimeEntries: (
+    entriesOrDates: Array<{ day: string; entry: unknown }> | string[] | string,
+    entry?: unknown
+  ) => Promise<void>
 }
 
 type AddPayload =
@@ -54,6 +60,7 @@ export default function EinsatzTab({
   onCreate,
   onUpdate,
   onDelete,
+  onAddTimeEntries,
 }: EinsatzTabProps) {
   const [editTarget, setEditTarget] = useState<PlantafelEvent | null>(einsatz || null)
   const [showForm, setShowForm] = useState(Boolean(einsatz || defaults?.start))
@@ -61,13 +68,46 @@ export default function EinsatzTab({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const projektEinsaetze = useMemo(
-    () =>
-      events
-        .filter((e) => e.sourceType === 'einsatz' && e.projektId === projektId)
-        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
-    [events, projektId]
-  )
+  // Projekt-scoped Einsatz-Liste: lädt unabhängig vom sichtbaren Kalenderbereich
+  // und wird nach jeder Mutation sofort neu geladen (Fallback: events-Prop).
+  const [localEinsaetze, setLocalEinsaetze] = useState<PlantafelEvent[] | null>(null)
+
+  const loadEinsaetze = useCallback(async () => {
+    if (!projektId) return
+    const beginn = String((project as { datumBeginn?: string }).datumBeginn ?? '').slice(0, 10)
+    const ende = String((project as { datumEnde?: string }).datumEnde ?? '').slice(0, 10)
+    const from = beginn || format(addYears(new Date(), -1), 'yyyy-MM-dd')
+    const to = ende || format(addYears(new Date(), 1), 'yyyy-MM-dd')
+    try {
+      const res = await PlantafelApi.getAssignments({
+        from,
+        to,
+        projectIds: [projektId],
+        showProjects: false,
+        showAbsences: false,
+        showGermanHolidays: false,
+        showIslamicHolidays: false,
+      })
+      if (res.success && res.data) {
+        const list = res.data.events
+          .filter((e) => e.sourceType === 'einsatz' && e.projektId === projektId)
+          .map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) }))
+        setLocalEinsaetze(list)
+      }
+    } catch {
+      // Fallback bleibt die events-Prop
+    }
+  }, [projektId, project])
+
+  useEffect(() => {
+    loadEinsaetze()
+  }, [loadEinsaetze])
+
+  const projektEinsaetze = useMemo(() => {
+    const source =
+      localEinsaetze ?? events.filter((e) => e.sourceType === 'einsatz' && e.projektId === projektId)
+    return [...source].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+  }, [localEinsaetze, events, projektId])
 
   const employeeByName = useMemo(() => {
     const map = new Map<string, string>()
@@ -110,6 +150,7 @@ export default function EinsatzTab({
       setIsSaving(true)
       try {
         if (editTarget) {
+          // Bearbeiten: nur den Einsatz-Balken aktualisieren (kein Link zum Zeiteintrag)
           const [first, ...rest] = entries
           // bestätigt-Status des Einsatzes beim Bearbeiten erhalten
           await onUpdate(editTarget.sourceId, {
@@ -118,15 +159,19 @@ export default function EinsatzTab({
           })
           for (const e of rest) await onCreate(entryToAssignment(e))
         } else {
+          // Anlegen: echten Projekt-Zeiteintrag (alle Felder → Abrechnung/KPI)
+          // UND Einsatz-Balken erstellen
+          await onAddTimeEntries(entriesOrDates, entry)
           for (const e of entries) await onCreate(entryToAssignment(e))
         }
+        await loadEinsaetze()
         setSuccess(true)
         resetForm()
       } finally {
         setIsSaving(false)
       }
     },
-    [editTarget, entryToAssignment, onCreate, onUpdate, resetForm]
+    [editTarget, entryToAssignment, onCreate, onUpdate, onAddTimeEntries, resetForm, loadEinsaetze]
   )
 
   const handleDelete = async (sourceId: string) => {
@@ -137,6 +182,7 @@ export default function EinsatzTab({
     setIsSaving(true)
     try {
       await onDelete(sourceId)
+      await loadEinsaetze()
       if (editTarget?.sourceId === sourceId) resetForm()
       setConfirmDeleteId(null)
     } finally {

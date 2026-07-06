@@ -207,6 +207,7 @@ export default function ProjectDayEditDialog({
                 onCreate={handleEinsatzCreate}
                 onUpdate={handleEinsatzUpdate}
                 onDelete={handleEinsatzDelete}
+                onAddTimeEntries={addTimeEntries}
               />
             </TabsContent>
 
