@@ -9,7 +9,6 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { usePlantafel } from '@/hooks/usePlantafel'
 import { useEmployees } from '@/hooks/useEmployees'
 import { useProjects } from '@/hooks/useProjects'
-import { getPlantafelHolidays, holidaysToPlantafelEvents } from '@/lib/services/plantafel/holidayService'
 
 import PlantafelToolbar from './PlantafelToolbar'
 import YearView from './YearView'
@@ -17,7 +16,7 @@ import AssignmentDialog from './AssignmentDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar from './ProjektSidebar'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, PanelRightOpen, Plus } from 'lucide-react'
+import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon } from 'lucide-react'
 import type { PlantafelEvent, PlantafelCalendarView, CreatePlantafelAssignmentRequest } from './types'
 
 const locales = { de }
@@ -49,8 +48,8 @@ export default function PlantafelBoard() {
     setCalendarView,
     currentDate,
     setCurrentDate,
-    dateRange,
     filters,
+    setFilters,
     events,
     resources,
     conflicts,
@@ -71,30 +70,19 @@ export default function PlantafelBoard() {
   const [isConflictPanelOpen, setIsConflictPanelOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  // Feiertage als Events
-  const holidayEvents = useMemo(() => {
-    const holidays = getPlantafelHolidays(dateRange, {
-      showGermanHolidays: filters.showGermanHolidays,
-      showIslamicHolidays: filters.showIslamicHolidays,
-    })
-    return holidaysToPlantafelEvents(holidays)
-  }, [dateRange, filters.showGermanHolidays, filters.showIslamicHolidays])
-
-  const allEvents = useMemo(() => [...events, ...holidayEvents], [events, holidayEvents])
-
   const filteredEvents = useMemo(() => {
-    if (!searchTerm) return allEvents
+    if (!searchTerm) return events
     const lower = searchTerm.toLowerCase()
-    return allEvents.filter(
+    return events.filter(
       (e) =>
         e.title.toLowerCase().includes(lower) ||
         e.projektName?.toLowerCase().includes(lower) ||
         e.mitarbeiterName?.toLowerCase().includes(lower)
     )
-  }, [allEvents, searchTerm])
+  }, [events, searchTerm])
 
   const handleSelectEvent = useCallback((event: PlantafelEvent) => {
-    if (event.sourceType === 'feiertag') return
+    if (event.sourceType === 'feiertag' || event.sourceType === 'urlaub') return
     setDialogEvent(event)
     setDialogDefaults({})
     setIsDialogOpen(true)
@@ -190,6 +178,39 @@ export default function PlantafelBoard() {
             <PanelRightOpen className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">{view === 'team' ? 'Mitarbeiter' : 'Projekte'}</span>
           </Button>
+
+          <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 p-0.5">
+            <Button
+              variant={filters.showAbsences ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-md"
+              onClick={() => setFilters((f) => ({ ...f, showAbsences: !f.showAbsences }))}
+              title="Urlaub & Krankmeldungen ein-/ausblenden"
+            >
+              <Palmtree className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Abwesenheiten</span>
+            </Button>
+            <Button
+              variant={filters.showGermanHolidays ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-md"
+              onClick={() => setFilters((f) => ({ ...f, showGermanHolidays: !f.showGermanHolidays }))}
+              title="Deutsche Feiertage ein-/ausblenden"
+            >
+              <Landmark className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Feiertage DE</span>
+            </Button>
+            <Button
+              variant={filters.showIslamicHolidays ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-md"
+              onClick={() => setFilters((f) => ({ ...f, showIslamicHolidays: !f.showIslamicHolidays }))}
+              title="Islamische Feiertage ein-/ausblenden"
+            >
+              <Moon className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Feiertage Islam.</span>
+            </Button>
+          </div>
 
           {conflicts.length > 0 && (
             <Button

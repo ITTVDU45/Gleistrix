@@ -66,6 +66,8 @@ export function usePlantafel() {
         employeeIds: filters.employeeIds.length > 0 ? filters.employeeIds : undefined,
         projectIds: filters.projectIds.length > 0 ? filters.projectIds : undefined,
         showAbsences: filters.showAbsences,
+        showGermanHolidays: filters.showGermanHolidays,
+        showIslamicHolidays: filters.showIslamicHolidays,
       })
 
       if (result.success && result.data) {

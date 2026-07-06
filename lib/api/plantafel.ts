@@ -15,12 +15,16 @@ export const PlantafelApi = {
     employeeIds?: string[]
     projectIds?: string[]
     showAbsences?: boolean
+    showGermanHolidays?: boolean
+    showIslamicHolidays?: boolean
   }) => {
     const search = new URLSearchParams({ from: params.from, to: params.to })
     if (params.view) search.set('view', params.view)
     if (params.employeeIds?.length) search.set('employeeIds', params.employeeIds.join(','))
     if (params.projectIds?.length) search.set('projectIds', params.projectIds.join(','))
     if (params.showAbsences !== undefined) search.set('showAbsences', String(params.showAbsences))
+    if (params.showGermanHolidays !== undefined) search.set('showGermanHolidays', String(params.showGermanHolidays))
+    if (params.showIslamicHolidays !== undefined) search.set('showIslamicHolidays', String(params.showIslamicHolidays))
     return getJSON<PlantafelAssignmentsResponse>(`/api/plantafel/assignments?${search.toString()}`)
   },
 

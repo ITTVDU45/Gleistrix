@@ -2,7 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
+import { Holiday } from '@/lib/models/Holiday'
+import { getIslamicHolidaysInRange, holidaysToPlantafelEvents, type PlantafelHoliday } from '@/lib/services/plantafel/holidayService'
 import mongoose from 'mongoose'
+
+const VACATION_TYPE_KEYWORDS: { keyword: string; type: 'krankheit' | 'sonderurlaub' | 'unbezahlt' }[] = [
+  { keyword: 'krank', type: 'krankheit' },
+  { keyword: 'sonderurlaub', type: 'sonderurlaub' },
+  { keyword: 'unbezahlt', type: 'unbezahlt' },
+]
+
+function detectAbsenceType(reason: string): 'urlaub' | 'krankheit' | 'sonderurlaub' | 'unbezahlt' {
+  const lower = reason.toLowerCase()
+  const match = VACATION_TYPE_KEYWORDS.find((k) => lower.includes(k.keyword))
+  return match?.type ?? 'urlaub'
+}
+
+const ABSENCE_LABELS: Record<'urlaub' | 'krankheit' | 'sonderurlaub' | 'unbezahlt', string> = {
+  urlaub: 'Urlaub',
+  krankheit: 'Krankheit',
+  sonderurlaub: 'Sonderurlaub',
+  unbezahlt: 'Unbezahlt',
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(req)
@@ -37,7 +58,7 @@ export async function GET(req: NextRequest) {
 
   const assignments = await PlantafelAssignment.find(query).lean()
 
-  const events = assignments.map((a: Record<string, unknown>) => ({
+  const einsatzEvents = assignments.map((a: Record<string, unknown>) => ({
     id: String(a._id),
     title: (a.projektName as string) || 'Kein Projekt',
     start: a.von,
@@ -70,6 +91,67 @@ export async function GET(req: NextRequest) {
   ])
 
   const view = searchParams.get('view') || 'team'
+
+  const showAbsences = searchParams.get('showAbsences') !== 'false'
+  const showGermanHolidays = searchParams.get('showGermanHolidays') !== 'false'
+  const showIslamicHolidays = searchParams.get('showIslamicHolidays') === 'true'
+
+  const employeeIdFilter = employeeIds ? new Set(employeeIds.split(',')) : null
+
+  const absenceEvents = showAbsences && view === 'team'
+    ? employees.flatMap((e) => {
+        const id = String(e._id)
+        if (employeeIdFilter && !employeeIdFilter.has(id)) return []
+        const vacationDays = Array.isArray(e.vacationDays) ? e.vacationDays : []
+        return vacationDays
+          .filter((v: Record<string, unknown>) => v.approved !== false)
+          .filter((v: Record<string, unknown>) => new Date(v.startDate as string) <= new Date(to) && new Date(v.endDate as string) >= new Date(from))
+          .map((v: Record<string, unknown>) => {
+            const reason = (v.reason as string) || ''
+            const absenceType = detectAbsenceType(reason)
+            return {
+              id: `urlaub-${id}-${v.id}`,
+              title: `${ABSENCE_LABELS[absenceType]}: ${e.name || ''}`,
+              start: v.startDate,
+              end: v.endDate,
+              resourceId: id,
+              allDay: true,
+              type: absenceType,
+              sourceType: 'urlaub',
+              sourceId: String(v.id),
+              mitarbeiterId: id,
+              mitarbeiterName: e.name || '',
+              notes: reason,
+              hasConflict: false,
+            }
+          })
+      })
+    : []
+
+  const holidayRange = { start: new Date(from), end: new Date(to) }
+  const holidays: PlantafelHoliday[] = []
+  if (showGermanHolidays) {
+    const germanHolidays = await Holiday.find({ date: { $gte: from, $lte: to } }).lean()
+    holidays.push(...germanHolidays.map((h) => {
+      const [y, m, d] = String(h.date).split('-').map(Number)
+      return {
+        id: `de-${h._id}`,
+        name: h.name,
+        title: h.bundesland !== 'ALL' ? `${h.name} (regional)` : h.name,
+        date: new Date(y, m - 1, d),
+        dateKey: String(h.date),
+        type: 'german' as const,
+        scope: h.bundesland !== 'ALL' ? 'regional' : 'bundesweit',
+        states: h.bundesland !== 'ALL' ? [h.bundesland] : undefined,
+      }
+    }))
+  }
+  if (showIslamicHolidays) {
+    holidays.push(...getIslamicHolidaysInRange(holidayRange))
+  }
+  const holidayEvents = holidaysToPlantafelEvents(holidays)
+
+  const events = [...einsatzEvents, ...absenceEvents, ...holidayEvents]
   const resources = view === 'team'
     ? employees.map((e) => ({
         resourceId: String(e._id),
