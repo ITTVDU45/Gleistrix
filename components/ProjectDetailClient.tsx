@@ -50,6 +50,7 @@ import Image from 'next/image';
 import { ActivityLogApi } from '@/lib/api/activityLog'
 import { useSession } from 'next-auth/react';
 import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows';
+import ProjectDetailKPIs from './ProjectDetailKPIs';
 
 type ProjectDetailClientProps = {
   projectId: string;
@@ -1211,6 +1212,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               </div>
             </CardContent>
           </Card>
+
+          {/* Projekt-KPIs */}
+          <ProjectDetailKPIs project={project} />
 
           {/* Projektdokumente */}
           <DocumentsCard
