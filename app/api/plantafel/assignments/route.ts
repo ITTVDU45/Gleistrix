@@ -104,6 +104,7 @@ export async function GET(req: NextRequest) {
           name: 1,
           status: 1,
           auftraggeber: 1,
+          auftragsnummer: 1,
           baustelle: 1,
           datumBeginn: 1,
           datumEnde: 1,
@@ -181,6 +182,8 @@ export async function GET(req: NextRequest) {
     ? projects.flatMap((p) => {
         const id = String(p._id)
         const name = (p.name as string) || 'Projekt'
+        const auftragsnummer = (p.auftragsnummer as string) || ''
+        const title = auftragsnummer ? `${name} · ${auftragsnummer}` : name
         const status = (p.status as string) || ''
         const evts: Record<string, unknown>[] = []
 
@@ -209,7 +212,7 @@ export async function GET(req: NextRequest) {
           // Schichten werden als Badges (mit Anzahl) auf dem Balken dargestellt.
           evts.push({
             id: `proj-${id}`,
-            title: name,
+            title,
             start: p.datumBeginn,
             end: p.datumEnde,
             resourceId: id,
