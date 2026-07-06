@@ -15,13 +15,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { useThemeToggle } from '../../hooks/useTheme';
 import UserManagement from '../../components/UserManagement';
 import ActivityLogTable from '../../components/ActivityLogTable';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Building, 
-  Shield, 
-  Bell, 
+import IntegrationOverview from '@/components/integrations/IntegrationOverview';
+import {
+  User,
+  Mail,
+  Phone,
+  Building,
+  Shield,
+  Bell,
   Palette,
   Save,
   CheckCircle,
@@ -30,7 +31,8 @@ import {
   Monitor,
   Users,
   Activity,
-  Info
+  Info,
+  Plug,
 } from 'lucide-react';
 
 interface User {
@@ -53,7 +55,7 @@ export default function EinstellungenPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'profile' | 'users' | 'activity'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'users' | 'activity' | 'integrations'>('profile');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -287,6 +289,16 @@ export default function EinstellungenPage() {
             >
               <Activity className="h-4 w-4 mr-2" />
               Aktivitäts-Log
+            </Button>
+          )}
+          {(user.role === 'superadmin' || user.role === 'admin') && (
+            <Button
+              variant={activeTab === 'integrations' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('integrations')}
+              className={`${activeTab === 'integrations' ? 'bg-white dark:bg-slate-800 shadow-sm' : ''} h-10 px-3 text-sm whitespace-nowrap md:flex-1`}
+            >
+              <Plug className="h-4 w-4 mr-2" />
+              Integrationen
             </Button>
           )}
         </div>
@@ -674,6 +686,10 @@ export default function EinstellungenPage() {
 
       {activeTab === 'activity' && (
         <div className="activity-tab"><ActivityLogTable /></div>
+      )}
+
+      {activeTab === 'integrations' && (
+        <IntegrationOverview />
       )}
     </div>
   );
