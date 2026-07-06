@@ -7,17 +7,23 @@ async function parseJson<T>(res: Response): Promise<T> {
   try {
     return text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
-    // Non-JSON response
     return {} as T
   }
+}
+
+function extractApiMessage(bodyText: string, fallback: string): string {
+  try {
+    const parsed = JSON.parse(bodyText)
+    if (typeof parsed?.message === 'string' && parsed.message) return parsed.message
+  } catch {}
+  return fallback
 }
 
 export async function getJSON<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetchWithIntent(url, init)
   if (!res.ok) {
     const bodyText = await res.text().catch(() => '')
-    const snippet = bodyText?.slice(0, 500) || ''
-    throw new Error(`[GET] ${url} → ${res.status} ${res.statusText}${snippet ? ` | body: ${snippet}` : ''}`)
+    throw new Error(extractApiMessage(bodyText, `Fehler: ${res.status} ${res.statusText}`))
   }
   return parseJson<T>(res)
 }
@@ -32,8 +38,7 @@ export async function postJSON<T>(url: string, body?: JsonBody, intent?: IntentK
   })
   if (!res.ok) {
     const bodyText = await res.text().catch(() => '')
-    const snippet = bodyText?.slice(0, 500) || ''
-    throw new Error(`[POST] ${url} → ${res.status} ${res.statusText}${snippet ? ` | body: ${snippet}` : ''}`)
+    throw new Error(extractApiMessage(bodyText, `Fehler: ${res.status} ${res.statusText}`))
   }
   return parseJson<T>(res)
 }
@@ -48,8 +53,7 @@ export async function putJSON<T>(url: string, body?: JsonBody, intent?: IntentKe
   })
   if (!res.ok) {
     const bodyText = await res.text().catch(() => '')
-    const snippet = bodyText?.slice(0, 500) || ''
-    throw new Error(`[PUT] ${url} → ${res.status} ${res.statusText}${snippet ? ` | body: ${snippet}` : ''}`)
+    throw new Error(extractApiMessage(bodyText, `Fehler: ${res.status} ${res.statusText}`))
   }
   return parseJson<T>(res)
 }
@@ -64,8 +68,7 @@ export async function patchJSON<T>(url: string, body?: JsonBody, intent?: Intent
   })
   if (!res.ok) {
     const bodyText = await res.text().catch(() => '')
-    const snippet = bodyText?.slice(0, 500) || ''
-    throw new Error(`[PATCH] ${url} → ${res.status} ${res.statusText}${snippet ? ` | body: ${snippet}` : ''}`)
+    throw new Error(extractApiMessage(bodyText, `Fehler: ${res.status} ${res.statusText}`))
   }
   return parseJson<T>(res)
 }
@@ -78,8 +81,7 @@ export async function delJSON<T>(url: string, intent?: IntentKey, init?: Request
   })
   if (!res.ok) {
     const bodyText = await res.text().catch(() => '')
-    const snippet = bodyText?.slice(0, 500) || ''
-    throw new Error(`[DELETE] ${url} → ${res.status} ${res.statusText}${snippet ? ` | body: ${snippet}` : ''}`)
+    throw new Error(extractApiMessage(bodyText, `Fehler: ${res.status} ${res.statusText}`))
   }
   return parseJson<T>(res)
 }

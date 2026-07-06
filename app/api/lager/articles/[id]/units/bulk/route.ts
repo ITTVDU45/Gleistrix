@@ -49,10 +49,16 @@ export async function POST(
 
     const { units: unitData } = parseResult.data
     const serials = unitData.map(u => u.seriennummer)
-    const uniqueSerials = new Set(serials)
-    if (uniqueSerials.size !== serials.length) {
+    const uniqueSerials = new Set<string>()
+    const duplicatesInInput: string[] = []
+    for (const sn of serials) {
+      if (uniqueSerials.has(sn)) duplicatesInInput.push(sn)
+      else uniqueSerials.add(sn)
+    }
+    if (duplicatesInInput.length > 0) {
+      const unique = [...new Set(duplicatesInInput)]
       return NextResponse.json(
-        { success: false, message: 'Doppelte Seriennummern im Import gefunden' },
+        { success: false, message: `Doppelte Seriennummern im Import: ${unique.join(', ')}` },
         { status: 400 }
       )
     }

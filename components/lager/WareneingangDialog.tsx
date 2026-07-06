@@ -248,7 +248,8 @@ export default function WareneingangDialog({
           if (newSerials.length > 0) {
             const bulkRes = await LagerApi.units.bulkCreate(item.artikelId, newSerials.map(s => ({ seriennummer: s.trim() })))
             if (!(bulkRes as { success?: boolean })?.success) {
-              throw new Error('Fehler beim Anlegen neuer Units')
+              const msg = (bulkRes as { message?: string })?.message || 'Fehler beim Anlegen neuer Units'
+              throw new Error(msg)
             }
           }
 

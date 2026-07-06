@@ -218,7 +218,14 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
         if (newId && serialTracking === 'individual' && unitSerials.length > 0) {
           const validSerials = unitSerials.filter(s => s.trim())
           if (validSerials.length > 0) {
-            await LagerApi.units.bulkCreate(newId, validSerials.map(s => ({ seriennummer: s.trim() })))
+            const bulkRes = await LagerApi.units.bulkCreate(newId, validSerials.map(s => ({ seriennummer: s.trim() })))
+            if (!(bulkRes as { success?: boolean })?.success) {
+              const msg = (bulkRes as { message?: string })?.message || 'Fehler beim Anlegen der Seriennummern'
+              setError(`Artikel angelegt, aber Seriennummern fehlgeschlagen: ${msg}`)
+              setIsSubmitting(false)
+              onSuccess?.()
+              return
+            }
           }
         }
         setPendingImages([])
