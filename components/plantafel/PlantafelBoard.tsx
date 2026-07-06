@@ -27,7 +27,7 @@ import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR } from '@/lib/plantafel/projectColor
 import ProjectCreateForm from '@/components/ProjectCreateForm'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus } from 'lucide-react'
+import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus, Upload } from 'lucide-react'
 import type { PlantafelEvent, PlantafelCalendarView, PlantafelDayProject } from './types'
 
 const locales = { de }
@@ -303,25 +303,42 @@ export default function PlantafelBoard() {
       const counts = event.shiftCounts
       const isProjekt = event.sourceType === 'projekt'
       const canDropFiles = Boolean(event.projektId)
+      const [fileOver, setFileOver] = useState(false)
       return (
         <EventTooltip event={event}>
           <span
-            className="flex items-center gap-1 leading-tight"
+            className={`flex h-full w-full items-center gap-1 rounded leading-tight transition-shadow ${
+              fileOver ? 'ring-2 ring-blue-500 ring-inset bg-blue-500/20' : ''
+            }`}
             onDragOver={(e) => {
               if (!canDropFiles || !Array.from(e.dataTransfer?.types || []).includes('Files')) return
               e.preventDefault()
               e.stopPropagation()
+              if (!fileOver) setFileOver(true)
+            }}
+            onDragLeave={(e) => {
+              if (!canDropFiles) return
+              e.preventDefault()
+              e.stopPropagation()
+              setFileOver(false)
             }}
             onDrop={(e) => {
               if (!canDropFiles || !Array.from(e.dataTransfer?.types || []).includes('Files')) return
               e.preventDefault()
               e.stopPropagation()
+              setFileOver(false)
               const files = Array.from(e.dataTransfer.files || [])
               if (files.length) handleEventFileDrop(event, files)
             }}
           >
+            {fileOver ? (
+              <span className="flex w-full items-center justify-center gap-1 text-[11px] font-semibold">
+                <Upload className="h-3.5 w-3.5" /> Ablegen
+              </span>
+            ) : (
             <span className="truncate text-xs">{event.title}</span>
-            {isProjekt && counts && counts.tag > 0 && (
+            )}
+            {!fileOver && isProjekt && counts && counts.tag > 0 && (
               <span
                 className="shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
                 style={{ backgroundColor: SHIFT_DAY_COLOR }}
@@ -330,7 +347,7 @@ export default function PlantafelBoard() {
                 {counts.tag}× Früh
               </span>
             )}
-            {isProjekt && counts && counts.nacht > 0 && (
+            {!fileOver && isProjekt && counts && counts.nacht > 0 && (
               <span
                 className="shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
                 style={{ backgroundColor: SHIFT_NIGHT_COLOR }}
@@ -401,7 +418,9 @@ export default function PlantafelBoard() {
           : 'none',
         color: isPlanned ? bgColor : '#fff',
         fontSize: '0.75rem',
-        padding: '2px 4px',
+        // Projekt-Laufzeitbalken höher machen → größere Drop-Fläche für Dokumente
+        padding: isPlanned ? '6px' : '2px 4px',
+        minHeight: isPlanned ? '30px' : undefined,
         cursor: isDraggable ? 'grab' : 'pointer',
         opacity: isDraggable ? 1 : 0.9,
       },
