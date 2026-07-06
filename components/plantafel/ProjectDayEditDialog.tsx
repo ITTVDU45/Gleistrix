@@ -196,10 +196,12 @@ export default function ProjectDayEditDialog({
             <TabsContent value="einsatz" className="mt-4">
               <EinsatzTab
                 projektId={selectedProjectId}
+                project={fullProject}
                 einsatz={einsatz}
                 defaults={einsatzDefaults}
                 employees={employees}
                 events={events}
+                selectedDate={selectedDate}
                 onCreate={handleEinsatzCreate}
                 onUpdate={handleEinsatzUpdate}
                 onDelete={handleEinsatzDelete}
