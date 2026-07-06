@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Package } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Package, FileText } from 'lucide-react'
 import type { Article } from '@/types/main'
 import type { StockMovement } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
@@ -60,6 +61,10 @@ export default function LagerBewegungenView({ articles, onRefresh, initialLiefer
     const pop = (m as any).artikelId_populated ?? (m as any).artikelId
     if (pop && typeof pop === 'object' && 'bezeichnung' in pop) return (pop as { bezeichnung?: string }).bezeichnung ?? (pop as { artikelnummer?: string }).artikelnummer ?? '-'
     return '-'
+  }
+
+  const openLieferschein = (lieferscheinId: string) => {
+    window.open(`/api/lager/delivery-notes/${lieferscheinId}/pdf`, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -127,6 +132,7 @@ export default function LagerBewegungenView({ articles, onRefresh, initialLiefer
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300">Typ</TableHead>
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Menge</TableHead>
                   <TableHead className="font-medium text-slate-700 dark:text-slate-300">Bemerkung</TableHead>
+                  <TableHead className="font-medium text-slate-700 dark:text-slate-300">Lieferschein</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -153,6 +159,21 @@ export default function LagerBewegungenView({ articles, onRefresh, initialLiefer
                       <TableCell className="dark:text-slate-300">{m.bewegungstyp}</TableCell>
                       <TableCell className="text-right font-medium dark:text-white">{m.menge}</TableCell>
                       <TableCell className="dark:text-slate-300 max-w-[200px] truncate">{m.bemerkung || '-'}</TableCell>
+                      <TableCell>
+                        {(m as any).lieferscheinId ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 rounded-lg"
+                            onClick={() => openLieferschein(String((m as any).lieferscheinId))}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Lieferschein ansehen
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-slate-400">–</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   )
                 })}
