@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import AgentDetailShell from '@/components/agents/AgentDetailShell'
+import AgentPlaceholderView from '@/components/agents/AgentPlaceholderView'
 import { AGENT_VIEWS } from '@/components/agents/agentViewRegistry'
 import { AgentsApi } from '@/lib/api/agents'
 import type { Agent } from '@/types/agents'
@@ -53,13 +54,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ slug: st
 
   return (
     <AgentDetailShell agent={agent}>
-      {AgentView ? (
-        <AgentView />
-      ) : (
-        <p className="rounded-2xl border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-          Für diesen Agenten ist noch keine Detailansicht hinterlegt.
-        </p>
-      )}
+      {AgentView ? <AgentView /> : <AgentPlaceholderView agent={agent} />}
     </AgentDetailShell>
   )
 }

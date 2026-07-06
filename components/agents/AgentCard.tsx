@@ -13,6 +13,15 @@ const CATEGORY_LABELS: Record<AgentCategory, string> = {
   ausschreibung: 'Ausschreibungen',
   projekt: 'Projekte',
   qualitaet: 'Qualität',
+  personal: 'Personal',
+  einsatz: 'Einsatzplanung',
+  fahrzeuge: 'Fahrzeuge',
+  abrechnung: 'Abrechnung',
+  dokumente: 'Dokumente',
+  kunde: 'Auftraggeber',
+  kommunikation: 'Kommunikation',
+  analyse: 'Analyse',
+  sicherheit: 'Sicherheit',
   allgemein: 'Allgemein',
 }
 

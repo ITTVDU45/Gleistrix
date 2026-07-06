@@ -12,6 +12,15 @@ export type AgentCategory =
   | 'ausschreibung'
   | 'projekt'
   | 'qualitaet'
+  | 'personal'
+  | 'einsatz'
+  | 'fahrzeuge'
+  | 'abrechnung'
+  | 'dokumente'
+  | 'kunde'
+  | 'kommunikation'
+  | 'analyse'
+  | 'sicherheit'
   | 'allgemein'
 
 export type AgentActionType =
@@ -66,6 +75,12 @@ export interface Agent {
   metrics?: AgentMetric[]
   actions?: AgentAction[]
   activities?: AgentActivity[]
+  /** „Nutzen im System" – Aufzählung der Fähigkeiten (für Platzhalter-Ansicht) */
+  nutzen?: string[]
+  /** „Mehrwert" – Nutzenversprechen */
+  mehrwert?: string
+  /** Beispiel-Anfragen / Use-Cases */
+  beispiele?: string[]
 }
 
 // ---------------------------------------------------------------------------
