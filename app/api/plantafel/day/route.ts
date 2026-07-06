@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import mongoose from 'mongoose'
 import dbConnect from '@/lib/dbConnect'
 import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
@@ -39,9 +40,9 @@ export async function GET(req: NextRequest) {
     new Set(
       assignments
         .map((a: Record<string, unknown>) => a.projektId)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        .filter((id): id is string => typeof id === 'string' && mongoose.Types.ObjectId.isValid(id))
     )
-  )
+  ).map((id) => new mongoose.Types.ObjectId(id))
 
   // 2. Union: zugewiesene Projekte + Laufzeit deckt Tag ab + Zeiteinträge am Tag.
   //    '~' als Obergrenzen-Suffix fängt ISO-Strings mit Zeitanteil am selben Tag ab.
