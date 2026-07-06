@@ -2,9 +2,11 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
 import { format, parse, startOfWeek, getDay, addHours } from 'date-fns'
 import { de } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 
 import { usePlantafel } from '@/hooks/usePlantafel'
 import { useEmployees } from '@/hooks/useEmployees'
@@ -23,6 +25,8 @@ import type { PlantafelEvent, PlantafelCalendarView, CreatePlantafelAssignmentRe
 const locales = { de }
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales })
 
+const DnDCalendar = withDragAndDrop<PlantafelEvent>(Calendar as never)
+
 const VIEW_MAP: Record<PlantafelCalendarView, string> = {
   day: Views.DAY,
   week: Views.WEEK,
@@ -39,6 +43,12 @@ const EVENT_COLORS: Record<string, string> = {
   unbezahlt: '#fbbf24',
   sonstiges: '#94a3b8',
   feiertag: '#f59e0b',
+}
+
+interface DragItem {
+  type: 'project' | 'employee'
+  id: string
+  name: string
 }
 
 export default function PlantafelBoard() {
@@ -67,11 +77,17 @@ export default function PlantafelBoard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [dialogEvent, setDialogEvent] = useState<PlantafelEvent | null>(null)
-  const [dialogDefaults, setDialogDefaults] = useState<{ start?: Date; end?: Date; resourceId?: string; projektId?: string; mitarbeiterId?: string }>({})
+  const [dialogDefaults, setDialogDefaults] = useState<{
+    start?: Date
+    end?: Date
+    resourceId?: string
+    projektId?: string
+    mitarbeiterId?: string
+  }>({})
   const [isConflictPanelOpen, setIsConflictPanelOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isDragOver, setIsDragOver] = useState(false)
-  const calendarRef = useRef<HTMLDivElement>(null)
+
+  const externalDragRef = useRef<DragItem | null>(null)
 
   const filteredEvents = useMemo(() => {
     if (!searchTerm) return events
@@ -119,47 +135,72 @@ export default function PlantafelBoard() {
     setCalendarView('month')
   }, [setCurrentDate, setCalendarView])
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'copy'
-    setIsDragOver(true)
-  }, [])
+  const handleDropFromOutside = useCallback(
+    ({ start, end }: { start: string | Date; end: string | Date; allDay?: boolean }) => {
+      const dragItem = externalDragRef.current
+      if (!dragItem) return
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    if (calendarRef.current && !calendarRef.current.contains(e.relatedTarget as Node)) {
-      setIsDragOver(false)
-    }
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-
-    const raw = e.dataTransfer.getData('application/json')
-    if (!raw) return
-
-    try {
-      const data = JSON.parse(raw) as { type: string; id: string; name: string }
-      const now = new Date()
-      const dropStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), now.getHours(), 0)
-      const dropEnd = addHours(dropStart, 8)
+      const startDate = new Date(start)
+      const endDate = new Date(end)
+      const dropEnd = endDate > startDate ? endDate : addHours(startDate, 8)
 
       const defaults: typeof dialogDefaults = {
-        start: dropStart,
+        start: startDate,
         end: dropEnd,
       }
 
-      if (data.type === 'project') {
-        defaults.projektId = data.id
-      } else if (data.type === 'employee') {
-        defaults.mitarbeiterId = data.id
+      if (dragItem.type === 'project') {
+        defaults.projektId = dragItem.id
+      } else if (dragItem.type === 'employee') {
+        defaults.mitarbeiterId = dragItem.id
       }
 
       setDialogEvent(null)
       setDialogDefaults(defaults)
       setIsDialogOpen(true)
-    } catch { /* invalid data */ }
-  }, [currentDate])
+      externalDragRef.current = null
+    },
+    []
+  )
+
+  const handleEventDrop = useCallback(
+    async ({ event, start, end }: { event: PlantafelEvent; start: string | Date; end: string | Date }) => {
+      if (event.sourceType !== 'einsatz') return
+      await updateAssignment(event.sourceId, {
+        von: new Date(start).toISOString(),
+        bis: new Date(end).toISOString(),
+      })
+    },
+    [updateAssignment]
+  )
+
+  const handleEventResize = useCallback(
+    async ({ event, start, end }: { event: PlantafelEvent; start: string | Date; end: string | Date }) => {
+      if (event.sourceType !== 'einsatz') return
+      await updateAssignment(event.sourceId, {
+        von: new Date(start).toISOString(),
+        bis: new Date(end).toISOString(),
+      })
+    },
+    [updateAssignment]
+  )
+
+  const dragFromOutsideItem = useCallback(() => {
+    return externalDragRef.current as unknown as PlantafelEvent
+  }, [])
+
+  const handleContainerDragOver = useCallback((e: React.DragEvent) => {
+    const raw = e.dataTransfer.types.includes('application/json')
+    if (!raw) return
+    if (!externalDragRef.current) {
+      try {
+        const data = e.dataTransfer.getData('application/json')
+        if (data) externalDragRef.current = JSON.parse(data)
+      } catch {
+        externalDragRef.current = { type: 'project', id: '__pending__', name: '' }
+      }
+    }
+  }, [])
 
   const CustomEvent = useMemo(() => {
     const Comp = ({ event }: { event: PlantafelEvent }) => (
@@ -173,6 +214,7 @@ export default function PlantafelBoard() {
 
   const eventStyleGetter = useCallback((event: PlantafelEvent) => {
     const bgColor = event.color || EVENT_COLORS[event.type] || '#3b82f6'
+    const isDraggable = event.sourceType === 'einsatz'
     return {
       style: {
         backgroundColor: bgColor,
@@ -181,9 +223,21 @@ export default function PlantafelBoard() {
         color: '#fff',
         fontSize: '0.75rem',
         padding: '2px 4px',
+        cursor: isDraggable ? 'grab' : 'default',
+        opacity: isDraggable ? 1 : 0.85,
       },
     }
   }, [])
+
+  const draggableAccessor = useCallback(
+    (event: PlantafelEvent) => event.sourceType === 'einsatz',
+    []
+  )
+
+  const resizableAccessor = useCallback(
+    (event: PlantafelEvent) => event.sourceType === 'einsatz',
+    []
+  )
 
   const calendarMessages = useMemo(() => ({
     today: 'Heute',
@@ -289,25 +343,10 @@ export default function PlantafelBoard() {
 
       {/* Hauptbereich */}
       <div
-        ref={calendarRef}
-        className={`relative rounded-lg border-2 transition-colors bg-white dark:bg-slate-800 ${
-          isDragOver
-            ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/10'
-            : 'border-slate-200 dark:border-slate-700'
-        }`}
+        className="relative rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
         style={{ height: '70vh' }}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        onDragOver={handleContainerDragOver}
       >
-        {isDragOver && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 pointer-events-none rounded-lg">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg px-6 py-4 text-center">
-              <p className="text-blue-600 dark:text-blue-400 font-semibold">Hier ablegen</p>
-              <p className="text-xs text-slate-500 mt-1">Einsatz wird erstellt</p>
-            </div>
-          </div>
-        )}
         {/* Kalender */}
         <div className="h-full p-2 sm:p-4 overflow-auto">
           {isLoading ? (
@@ -325,7 +364,7 @@ export default function PlantafelBoard() {
               onMonthClick={handleYearMonthClick}
             />
           ) : (
-            <Calendar<PlantafelEvent>
+            <DnDCalendar
               localizer={localizer}
               events={filteredEvents}
               startAccessor="start"
@@ -346,6 +385,13 @@ export default function PlantafelBoard() {
               style={{ height: '100%', minWidth: calendarView === 'week' ? '600px' : undefined }}
               step={30}
               timeslots={2}
+              onDropFromOutside={handleDropFromOutside}
+              dragFromOutsideItem={dragFromOutsideItem}
+              onEventDrop={handleEventDrop}
+              onEventResize={handleEventResize}
+              draggableAccessor={draggableAccessor}
+              resizableAccessor={resizableAccessor}
+              resizable
             />
           )}
         </div>
