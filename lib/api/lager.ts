@@ -21,6 +21,8 @@ export const LagerApi = {
     update: (id: string, data: Partial<Article>) =>
       putJSON(`/api/lager/articles/${id}`, data as Record<string, unknown>, 'lager:article:update'),
     archive: (id: string) =>
+      putJSON(`/api/lager/articles/${id}`, { status: 'archiviert' } as Record<string, unknown>, 'lager:article:update'),
+    delete: (id: string) =>
       delJSON(`/api/lager/articles/${id}`, 'lager:article:delete'),
     uploadImage: async (articleId: string, file: File) => {
       const formData = new FormData()
