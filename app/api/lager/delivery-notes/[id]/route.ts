@@ -84,8 +84,8 @@ export async function PUT(
     }
 
     const currentUser = await getCurrentUser(request)
-    if (currentUser?._id) {
-      update.verantwortlich = currentUser._id
+    if (currentUser?._id && mongoose.Types.ObjectId.isValid(String(currentUser._id))) {
+      update.verantwortlich = new mongoose.Types.ObjectId(String(currentUser._id))
     }
 
     const doc = await DeliveryNote.findByIdAndUpdate(id, update, { new: true, runValidators: true })

@@ -92,11 +92,15 @@ export async function POST(request: NextRequest) {
     const datum = typeof body.datum === 'string' ? new Date(body.datum) : body.datum
 
     const positionen = body.positionen.map((p: { artikelId: string; bezeichnung: string; menge: number; seriennummer?: string }) => ({
-      artikelId: mongoose.Types.ObjectId.isValid(p.artikelId) ? new mongoose.Types.ObjectId(p.artikelId) : undefined,
+      artikelId: mongoose.Types.ObjectId.isValid(p.artikelId) ? new mongoose.Types.ObjectId(p.artikelId) : null,
       bezeichnung: p.bezeichnung,
       menge: p.menge,
       seriennummer: p.seriennummer ?? ''
     }))
+
+    const verantwortlichId = currentUser?._id && mongoose.Types.ObjectId.isValid(String(currentUser._id))
+      ? new mongoose.Types.ObjectId(String(currentUser._id))
+      : null
 
     const doc = await DeliveryNote.create({
       typ: body.typ,
@@ -104,7 +108,7 @@ export async function POST(request: NextRequest) {
       datum,
       empfaenger: body.empfaenger,
       positionen,
-      verantwortlich: currentUser?._id,
+      verantwortlich: verantwortlichId,
       status: 'abgeschlossen'
     })
 
@@ -116,7 +120,7 @@ export async function POST(request: NextRequest) {
           actionType: 'lager_delivery_note_created',
           module: 'lager',
           performedBy: {
-            userId: currentUser._id,
+            userId: verantwortlichId ?? currentUser._id,
             name: currentUser.name ?? '',
             role: currentUser.role ?? 'user'
           },
