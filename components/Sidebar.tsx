@@ -19,7 +19,9 @@ import {
   ChevronLeft,
   ChevronRight,
   PanelLeft,
-  CalendarRange
+  CalendarRange,
+  Bot,
+  BarChart3
 } from 'lucide-react';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -35,6 +37,8 @@ const navigation = [
   { name: 'Lager App', href: '/lager/app', icon: Package },
   { name: 'Einsatztafel', href: '/plantafel', icon: CalendarRange },
   { name: 'Zeiterfassung', href: '/timetracking', icon: Clock },
+  { name: 'Agenten', href: '/agenten', icon: Bot },
+  { name: 'Statistiken & Reports', href: '/statistiken', icon: BarChart3 },
   { name: 'Einstellungen', href: '/einstellungen', icon: Settings },
 ];
 
