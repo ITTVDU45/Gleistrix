@@ -8,6 +8,7 @@ import type { Project, Employee, TimeEntry } from '../types';
 import TimeTrackingFilters from './TimeTrackingFilters';
 import TimeTrackingExport from './TimeTrackingExport';
 import DynamicTimeTrackingStats from './DynamicTimeTrackingStats';
+import HoursByFunctionCard from './HoursByFunctionCard';
 import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows';
 
 interface TimeTrackingWithFilterProps {
@@ -196,6 +197,9 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
       <div className="timetracking-cards">
         <DynamicTimeTrackingStats timeEntries={filteredEntries} />
       </div>
+
+      {/* Stunden pro Funktion & Extra */}
+      <HoursByFunctionCard timeEntries={filteredEntries} />
 
       {/* Filter-Bereich */}
       <TimeTrackingFilters
