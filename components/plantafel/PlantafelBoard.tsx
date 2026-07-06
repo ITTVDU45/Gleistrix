@@ -233,9 +233,9 @@ export default function PlantafelBoard() {
       </div>
 
       {/* Hauptbereich */}
-      <div className="relative rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
+      <div className="relative rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800" style={{ height: '70vh' }}>
         {/* Kalender */}
-        <div className="p-2 sm:p-4 overflow-x-auto" style={{ height: '70vh' }}>
+        <div className="h-full p-2 sm:p-4 overflow-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-3">
@@ -268,7 +268,7 @@ export default function PlantafelBoard() {
               messages={calendarMessages}
               culture="de"
               toolbar={false}
-              style={{ height: 'calc(70vh - 1rem)', minWidth: calendarView === 'week' ? '600px' : undefined }}
+              style={{ height: '100%', minWidth: calendarView === 'week' ? '600px' : undefined }}
               step={30}
               timeslots={2}
             />
