@@ -20,7 +20,7 @@ export default function ConflictPanel({ conflicts, isOpen, onClose }: ConflictPa
   const warningCount = conflicts.filter((c) => c.severity === 'warning').length
 
   return (
-    <div className="w-80 border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col h-full shrink-0">
+    <div className="w-[85vw] sm:w-80 border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col h-full shrink-0">
       {/* Header */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
         <div>

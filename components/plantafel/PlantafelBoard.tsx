@@ -169,7 +169,7 @@ export default function PlantafelBoard() {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2">
         <PlantafelToolbar
           view={view}
           calendarView={calendarView}
@@ -181,14 +181,14 @@ export default function PlantafelBoard() {
           onSearchChange={setSearchTerm}
         />
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsSidebarOpen((v) => !v)}
           >
-            <PanelRightOpen className="h-4 w-4 mr-1" />
-            {view === 'team' ? 'Mitarbeiter' : 'Projekte'}
+            <PanelRightOpen className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">{view === 'team' ? 'Mitarbeiter' : 'Projekte'}</span>
           </Button>
 
           {conflicts.length > 0 && (
@@ -198,22 +198,23 @@ export default function PlantafelBoard() {
               onClick={() => setIsConflictPanelOpen((v) => !v)}
               className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-900/20"
             >
-              <AlertTriangle className="h-4 w-4 mr-1" />
-              {conflicts.length} Konflikte
+              <AlertTriangle className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">{conflicts.length} Konflikte</span>
+              <span className="sm:hidden">{conflicts.length}</span>
             </Button>
           )}
 
           <Button size="sm" onClick={() => { setDialogEvent(null); setDialogDefaults({}); setIsDialogOpen(true) }}>
-            <Plus className="h-4 w-4 mr-1" />
-            Neuer Einsatz
+            <Plus className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Neuer Einsatz</span>
           </Button>
         </div>
       </div>
 
       {/* Hauptbereich */}
-      <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800" style={{ minHeight: '70vh' }}>
+      <div className="relative rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800" style={{ minHeight: '60vh' }}>
         {/* Kalender */}
-        <div className="flex-1 p-4 min-w-0">
+        <div className="p-2 sm:p-4 overflow-x-auto" style={{ height: '70vh' }}>
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-3">
@@ -246,27 +247,41 @@ export default function PlantafelBoard() {
               messages={calendarMessages}
               culture="de"
               toolbar={false}
-              style={{ height: 'calc(70vh - 2rem)' }}
+              style={{ height: 'calc(70vh - 1rem)', minWidth: calendarView === 'week' ? '600px' : undefined }}
               step={30}
               timeslots={2}
             />
           )}
         </div>
 
-        {/* Sidebars */}
-        <ConflictPanel
-          conflicts={conflicts}
-          isOpen={isConflictPanelOpen}
-          onClose={() => setIsConflictPanelOpen(false)}
-        />
+        {/* Sidebars — Overlay auf Mobile, inline ab lg */}
+        {isConflictPanelOpen && (
+          <>
+            <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={() => setIsConflictPanelOpen(false)} />
+            <div className="fixed right-0 top-0 bottom-0 z-40 lg:absolute lg:top-0 lg:bottom-0 lg:right-0 lg:z-10">
+              <ConflictPanel
+                conflicts={conflicts}
+                isOpen={isConflictPanelOpen}
+                onClose={() => setIsConflictPanelOpen(false)}
+              />
+            </div>
+          </>
+        )}
 
-        <ProjektSidebar
-          employees={employees}
-          projects={projects}
-          view={view}
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-        />
+        {isSidebarOpen && (
+          <>
+            <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+            <div className="fixed right-0 top-0 bottom-0 z-40 lg:absolute lg:top-0 lg:bottom-0 lg:right-0 lg:z-10">
+              <ProjektSidebar
+                employees={employees}
+                projects={projects}
+                view={view}
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Assignment Dialog */}

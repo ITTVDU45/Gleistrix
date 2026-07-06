@@ -80,11 +80,10 @@ export default function PlantafelToolbar({
   onSearchChange,
 }: PlantafelToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      {/* Linke Seite: View-Switcher + Navigation */}
-      <div className="flex items-center gap-2">
-        {/* Team / Projekt View */}
-        <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="flex flex-col gap-2">
+      {/* Zeile 1: View-Switcher + Navigation */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
           <Button
             variant={view === 'team' ? 'default' : 'ghost'}
             size="sm"
@@ -92,7 +91,7 @@ export default function PlantafelToolbar({
             className="rounded-none"
           >
             <Users className="h-4 w-4 mr-1" />
-            Team
+            <span className="hidden sm:inline">Team</span>
           </Button>
           <Button
             variant={view === 'project' ? 'default' : 'ghost'}
@@ -101,12 +100,11 @@ export default function PlantafelToolbar({
             className="rounded-none"
           >
             <Building2 className="h-4 w-4 mr-1" />
-            Projekt
+            <span className="hidden sm:inline">Projekt</span>
           </Button>
         </div>
 
-        {/* Datum-Navigation */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <Button
             variant="outline"
             size="sm"
@@ -119,8 +117,8 @@ export default function PlantafelToolbar({
             size="sm"
             onClick={() => onNavigate(new Date())}
           >
-            <Calendar className="h-4 w-4 mr-1" />
-            Heute
+            <Calendar className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Heute</span>
           </Button>
           <Button
             variant="outline"
@@ -131,34 +129,34 @@ export default function PlantafelToolbar({
           </Button>
         </div>
 
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 min-w-[180px]">
+        <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
           {getNavigationLabel(currentDate, calendarView)}
         </span>
       </div>
 
-      {/* Rechte Seite: Kalender-View + Suche */}
-      <div className="flex items-center gap-2">
-        <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      {/* Zeile 2: Kalender-View + Suche */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
           {CALENDAR_VIEWS.map((cv) => (
             <Button
               key={cv.value}
               variant={calendarView === cv.value ? 'default' : 'ghost'}
               size="sm"
               onClick={() => onCalendarViewChange(cv.value)}
-              className="rounded-none text-xs px-3"
+              className="rounded-none text-xs px-2 sm:px-3"
             >
               {cv.label}
             </Button>
           ))}
         </div>
 
-        <div className="relative">
+        <div className="relative flex-1 min-w-[120px] max-w-[220px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Suchen..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-8 h-8 w-[180px] text-sm"
+            className="pl-8 h-8 w-full text-sm"
           />
         </div>
       </div>

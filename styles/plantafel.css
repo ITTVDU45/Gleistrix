@@ -143,3 +143,33 @@
 .rbc-header:nth-child(7) {
   color: #ef4444;
 }
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .rbc-header {
+    padding: 4px 2px;
+    font-size: 0.65rem;
+  }
+
+  .rbc-event {
+    font-size: 0.6rem;
+    padding: 1px 2px;
+  }
+
+  .rbc-time-slot .rbc-label {
+    font-size: 0.6rem;
+  }
+
+  .rbc-date-cell {
+    font-size: 0.65rem;
+    padding: 2px 4px;
+  }
+
+  .rbc-show-more {
+    font-size: 0.6rem;
+  }
+
+  .rbc-allday-cell {
+    min-height: 20px;
+  }
+}

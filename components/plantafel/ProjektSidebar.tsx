@@ -28,7 +28,7 @@ export default function ProjektSidebar({
   if (!isOpen) return null
 
   return (
-    <div className="w-72 border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col h-full shrink-0">
+    <div className="w-[85vw] sm:w-72 border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col h-full shrink-0">
       {/* Header */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
         <h3 className="font-semibold text-slate-900 dark:text-white">
