@@ -1,17 +1,19 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { format } from 'date-fns'
 import { PlantafelApi } from '@/lib/api/plantafel'
 import ProjectDayCard from './ProjectDayCard'
 import NewProjectCard from './NewProjectCard'
+import ProjectDayEditDialog from './ProjectDayEditDialog'
 import type { PlantafelDayProject, PlantafelEvent } from './types'
 
 interface DayViewProps {
   date: Date
   events: PlantafelEvent[]
   onCreateProject: () => void
-  onProjectClick: (projectId: string) => void
+  onProjectSaved: () => void
+  onOpenDetail: (projectId: string) => void
   refreshKey: number
 }
 
@@ -19,12 +21,16 @@ export default function DayView({
   date,
   events,
   onCreateProject,
-  onProjectClick,
+  onProjectSaved,
+  onOpenDetail,
   refreshKey,
 }: DayViewProps) {
   const [projects, setProjects] = useState<PlantafelDayProject[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [internalRefresh, setInternalRefresh] = useState(0)
+  const [editProject, setEditProject] = useState<PlantafelDayProject | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
 
   const dateKey = format(date, 'yyyy-MM-dd')
 
@@ -54,7 +60,17 @@ export default function DayView({
     return () => {
       cancelled = true
     }
-  }, [dateKey, refreshKey])
+  }, [dateKey, refreshKey, internalRefresh])
+
+  const handleCardClick = useCallback((project: PlantafelDayProject) => {
+    setEditProject(project)
+    setIsEditOpen(true)
+  }, [])
+
+  const handleDialogSaved = useCallback(() => {
+    setInternalRefresh((k) => k + 1)
+    onProjectSaved()
+  }, [onProjectSaved])
 
   const einsatzEventsByProject = useMemo(() => {
     const map = new Map<string, PlantafelEvent[]>()
@@ -88,16 +104,29 @@ export default function DayView({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-      {projects.map((project) => (
-        <ProjectDayCard
-          key={project.id}
-          project={project}
-          einsatzEvents={einsatzEventsByProject.get(project.id) || []}
-          onClick={() => onProjectClick(project.id)}
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        {projects.map((project) => (
+          <ProjectDayCard
+            key={project.id}
+            project={project}
+            einsatzEvents={einsatzEventsByProject.get(project.id) || []}
+            onClick={() => handleCardClick(project)}
+          />
+        ))}
+        <NewProjectCard onClick={onCreateProject} />
+      </div>
+
+      {isEditOpen && editProject && (
+        <ProjectDayEditDialog
+          project={editProject}
+          dateKey={dateKey}
+          open={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          onSaved={handleDialogSaved}
+          onOpenDetail={onOpenDetail}
         />
-      ))}
-      <NewProjectCard onClick={onCreateProject} />
-    </div>
+      )}
+    </>
   )
 }

@@ -142,9 +142,13 @@ export default function PlantafelBoard() {
     setCalendarView('month')
   }, [setCurrentDate, setCalendarView])
 
-  const handleDayProjectClick = useCallback((projectId: string) => {
+  const handleDayOpenDetail = useCallback((projectId: string) => {
     router.push(`/projektdetail/${projectId}`)
   }, [router])
+
+  const handleDayProjectSaved = useCallback(() => {
+    fetchProjects()
+  }, [fetchProjects])
 
   const handleOpenProjectDialog = useCallback(() => {
     setIsProjectDialogOpen(true)
@@ -390,7 +394,8 @@ export default function PlantafelBoard() {
               date={currentDate}
               events={filteredEvents}
               onCreateProject={handleOpenProjectDialog}
-              onProjectClick={handleDayProjectClick}
+              onProjectSaved={handleDayProjectSaved}
+              onOpenDetail={handleDayOpenDetail}
               refreshKey={dayRefreshKey}
             />
           ) : (
