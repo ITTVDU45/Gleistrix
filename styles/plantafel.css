@@ -144,6 +144,18 @@
   color: #ef4444;
 }
 
+/* Drag & Drop: Zellen-Highlight beim Drüberziehen */
+.rbc-addons-dnd .rbc-addons-dnd-over {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+  transition: background-color 150ms ease;
+}
+
+.dark .rbc-addons-dnd .rbc-addons-dnd-over {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+}
+
 /* Mobile optimizations */
 @media (max-width: 640px) {
   .rbc-header {

@@ -16,7 +16,7 @@ import PlantafelToolbar from './PlantafelToolbar'
 import YearView from './YearView'
 import AssignmentDialog from './AssignmentDialog'
 import ConflictPanel from './ConflictPanel'
-import ProjektSidebar from './ProjektSidebar'
+import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import EventTooltip from './EventTooltip'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon } from 'lucide-react'
@@ -189,17 +189,12 @@ export default function PlantafelBoard() {
     return externalDragRef.current as unknown as PlantafelEvent
   }, [])
 
-  const handleContainerDragOver = useCallback((e: React.DragEvent) => {
-    const raw = e.dataTransfer.types.includes('application/json')
-    if (!raw) return
-    if (!externalDragRef.current) {
-      try {
-        const data = e.dataTransfer.getData('application/json')
-        if (data) externalDragRef.current = JSON.parse(data)
-      } catch {
-        externalDragRef.current = { type: 'project', id: '__pending__', name: '' }
-      }
-    }
+  const handleSidebarDragStart = useCallback((item: SidebarDragItem) => {
+    externalDragRef.current = item
+  }, [])
+
+  const handleSidebarDragEnd = useCallback(() => {
+    externalDragRef.current = null
   }, [])
 
   const CustomEvent = useMemo(() => {
@@ -345,7 +340,6 @@ export default function PlantafelBoard() {
       <div
         className="relative rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
         style={{ height: '70vh' }}
-        onDragOver={handleContainerDragOver}
       >
         {/* Kalender */}
         <div className="h-full p-2 sm:p-4 overflow-auto">
@@ -420,6 +414,8 @@ export default function PlantafelBoard() {
                 view={view}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
+                onDragStart={handleSidebarDragStart}
+                onDragEnd={handleSidebarDragEnd}
               />
             </div>
           </>

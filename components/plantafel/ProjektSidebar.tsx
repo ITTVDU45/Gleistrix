@@ -8,12 +8,20 @@ import { GripVertical, Building2, User, Search, X } from 'lucide-react'
 import type { Employee, Project } from '@/types/main'
 import type { PlantafelView } from './types'
 
+export interface SidebarDragItem {
+  type: 'project' | 'employee'
+  id: string
+  name: string
+}
+
 interface ProjektSidebarProps {
   employees: Employee[]
   projects: Project[]
   view: PlantafelView
   isOpen: boolean
   onClose: () => void
+  onDragStart?: (item: SidebarDragItem) => void
+  onDragEnd?: () => void
 }
 
 export default function ProjektSidebar({
@@ -22,6 +30,8 @@ export default function ProjektSidebar({
   view,
   isOpen,
   onClose,
+  onDragStart,
+  onDragEnd,
 }: ProjektSidebarProps) {
   const [search, setSearch] = useState('')
 
@@ -55,16 +65,26 @@ export default function ProjektSidebar({
       {/* Liste */}
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
         {view === 'team' ? (
-          <EmployeeList employees={employees} search={search} />
+          <EmployeeList employees={employees} search={search} onDragStart={onDragStart} onDragEnd={onDragEnd} />
         ) : (
-          <ProjectList projects={projects} search={search} />
+          <ProjectList projects={projects} search={search} onDragStart={onDragStart} onDragEnd={onDragEnd} />
         )}
       </div>
     </div>
   )
 }
 
-function EmployeeList({ employees, search }: { employees: Employee[]; search: string }) {
+function EmployeeList({
+  employees,
+  search,
+  onDragStart,
+  onDragEnd,
+}: {
+  employees: Employee[]
+  search: string
+  onDragStart?: (item: SidebarDragItem) => void
+  onDragEnd?: () => void
+}) {
   const filtered = useMemo(() => {
     const active = employees.filter((e) => e.status === 'aktiv')
     if (!search) return active
@@ -87,12 +107,12 @@ function EmployeeList({ employees, search }: { employees: Employee[]; search: st
           key={employee.id}
           draggable
           onDragStart={(e) => {
-            e.dataTransfer.setData(
-              'application/json',
-              JSON.stringify({ type: 'employee', id: employee.id, name: employee.name })
-            )
+            const item: SidebarDragItem = { type: 'employee', id: employee.id, name: employee.name }
+            e.dataTransfer.setData('application/json', JSON.stringify(item))
             e.dataTransfer.effectAllowed = 'copy'
+            onDragStart?.(item)
           }}
+          onDragEnd={() => onDragEnd?.()}
           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-grab active:cursor-grabbing transition-colors"
         >
           <GripVertical className="h-4 w-4 text-slate-400 shrink-0" />
@@ -113,7 +133,17 @@ function EmployeeList({ employees, search }: { employees: Employee[]; search: st
   )
 }
 
-function ProjectList({ projects, search }: { projects: Project[]; search: string }) {
+function ProjectList({
+  projects,
+  search,
+  onDragStart,
+  onDragEnd,
+}: {
+  projects: Project[]
+  search: string
+  onDragStart?: (item: SidebarDragItem) => void
+  onDragEnd?: () => void
+}) {
   const filtered = useMemo(() => {
     const active = projects.filter((p) => p.status === 'aktiv')
     if (!search) return active
@@ -141,12 +171,12 @@ function ProjectList({ projects, search }: { projects: Project[]; search: string
           key={project.id}
           draggable
           onDragStart={(e) => {
-            e.dataTransfer.setData(
-              'application/json',
-              JSON.stringify({ type: 'project', id: project.id, name: project.name })
-            )
+            const item: SidebarDragItem = { type: 'project', id: project.id, name: project.name }
+            e.dataTransfer.setData('application/json', JSON.stringify(item))
             e.dataTransfer.effectAllowed = 'copy'
+            onDragStart?.(item)
           }}
+          onDragEnd={() => onDragEnd?.()}
           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-grab active:cursor-grabbing transition-colors"
         >
           <GripVertical className="h-4 w-4 text-slate-400 shrink-0" />
