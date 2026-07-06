@@ -41,6 +41,9 @@
       ],
       "@/types/*": [
         "types/*"
+      ],
+      "@/styles/*": [
+        "styles/*"
       ]
     },
     "allowJs": true,

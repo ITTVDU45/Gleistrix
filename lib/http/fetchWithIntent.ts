@@ -19,7 +19,8 @@ export type IntentKey =
   | 'lager:delivery-note:create' | 'lager:delivery-note:update' | 'lager:delivery-note:attachment:presign' | 'lager:delivery-note:attachment:commit' | 'lager:delivery-note:attachment:delete'
   | 'lager:inventory:create' | 'lager:inventory:update' | 'lager:inventory:scan' | 'lager:inventory:scan-session' | 'lager:inventory:delete' | 'lager:inventory:complete'
   | 'lager:unit:create' | 'lager:unit:update' | 'lager:unit:delete' | 'lager:unit:bulk'
-  | 'lager:article-type:create';
+  | 'lager:article-type:create'
+  | 'plantafel:create' | 'plantafel:update' | 'plantafel:delete';
 
 type FetchOptions = RequestInit & { intent?: IntentKey };
 

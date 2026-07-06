@@ -1,0 +1,206 @@
+import type { Employee, Project, Vehicle } from '@/types/main'
+
+// ============================================================================
+// VIEW & FILTER TYPES
+// ============================================================================
+
+export type PlantafelView = 'team' | 'project'
+export type PlantafelCalendarView = 'day' | 'week' | 'month' | 'year'
+
+export type PlantafelEventType =
+  | 'einsatz'
+  | 'meeting'
+  | 'urlaub'
+  | 'krankheit'
+  | 'sonderurlaub'
+  | 'unbezahlt'
+  | 'sonstiges'
+  | 'feiertag'
+
+export type PlantafelHolidayType = 'german' | 'islamic'
+
+export interface PlantafelDateRange {
+  start: Date
+  end: Date
+}
+
+export interface PlantafelFilters {
+  employeeIds: string[]
+  projectIds: string[]
+  showAbsences: boolean
+  showGermanHolidays: boolean
+  showIslamicHolidays: boolean
+  eventTypes: PlantafelEventType[]
+}
+
+// ============================================================================
+// CALENDAR EVENT & RESOURCE TYPES
+// ============================================================================
+
+export interface PlantafelEvent {
+  id: string
+  title: string
+  start: Date
+  end: Date
+  resourceId: string
+  allDay?: boolean
+
+  type: PlantafelEventType
+  sourceType: 'einsatz' | 'meeting' | 'urlaub' | 'feiertag'
+  sourceId: string
+
+  mitarbeiterId?: string
+  mitarbeiterName?: string
+  projektId?: string
+  projektName?: string
+
+  urlaubTyp?: 'urlaub' | 'krankheit' | 'sonderurlaub' | 'unbezahlt' | 'sonstiges'
+
+  holidayType?: PlantafelHolidayType
+  holidayScope?: string
+
+  color?: string
+  hasConflict?: boolean
+  conflictReason?: string
+
+  notes?: string
+  bestaetigt?: boolean
+  rolle?: string
+
+  setupDate?: string
+  dismantleDate?: string
+}
+
+export interface PlantafelResource {
+  resourceId: string
+  resourceTitle: string
+  type: 'employee' | 'project'
+
+  vorname?: string
+  nachname?: string
+  aktiv?: boolean
+
+  projektname?: string
+  auftraggeber?: string
+  status?: string
+  baustelle?: string
+}
+
+// ============================================================================
+// CONFLICT TYPES
+// ============================================================================
+
+export interface ConflictInfo {
+  id: string
+  mitarbeiterId: string
+  mitarbeiterName: string
+
+  event1: {
+    id: string
+    title: string
+    type: PlantafelEventType
+    start: Date
+    end: Date
+  }
+  event2: {
+    id: string
+    title: string
+    type: PlantafelEventType
+    start: Date
+    end: Date
+  }
+
+  conflictType: 'double_booking' | 'work_during_absence'
+  severity: 'warning' | 'error'
+
+  overlapStart: Date
+  overlapEnd: Date
+}
+
+// ============================================================================
+// API REQUEST/RESPONSE TYPES
+// ============================================================================
+
+export interface PlantafelAssignmentsResponse {
+  success: boolean
+  data: {
+    events: PlantafelEvent[]
+    resources: PlantafelResource[]
+    conflicts: ConflictInfo[]
+    meta: {
+      from: string
+      to: string
+      totalEvents: number
+      totalConflicts: number
+    }
+  }
+}
+
+export interface CreatePlantafelAssignmentRequest {
+  mitarbeiterId?: string | null
+  projektId: string
+  von: string
+  bis: string
+  rolle?: string
+  notizen?: string
+  bestaetigt?: boolean
+  setupDate?: string
+  dismantleDate?: string
+}
+
+export interface UpdatePlantafelAssignmentRequest {
+  mitarbeiterId?: string | null
+  projektId?: string
+  von?: string
+  bis?: string
+  rolle?: string
+  notizen?: string
+  bestaetigt?: boolean
+  setupDate?: string | null
+  dismantleDate?: string | null
+}
+
+// ============================================================================
+// MAPPER FUNCTIONS
+// ============================================================================
+
+export const UNASSIGNED_RESOURCE_ID = '__unassigned__'
+
+export function mapEmployeeToResource(employee: Employee): PlantafelResource {
+  return {
+    resourceId: employee.id,
+    resourceTitle: employee.name,
+    type: 'employee',
+    aktiv: employee.status === 'aktiv',
+  }
+}
+
+export function mapProjectToResource(project: Project): PlantafelResource {
+  return {
+    resourceId: project.id,
+    resourceTitle: project.name,
+    type: 'project',
+    projektname: project.name,
+    auftraggeber: project.auftraggeber,
+    status: project.status,
+    baustelle: project.baustelle,
+  }
+}
+
+export function checkOverlap(
+  start1: Date, end1: Date,
+  start2: Date, end2: Date
+): boolean {
+  return start1 < end2 && start2 < end1
+}
+
+export function getOverlapPeriod(
+  start1: Date, end1: Date,
+  start2: Date, end2: Date
+): { start: Date; end: Date } | null {
+  if (!checkOverlap(start1, end1, start2, end2)) return null
+  return {
+    start: new Date(Math.max(start1.getTime(), start2.getTime())),
+    end: new Date(Math.min(end1.getTime(), end2.getTime())),
+  }
+}

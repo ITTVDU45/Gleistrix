@@ -27,6 +27,7 @@ coverage/
 
 # Tooling / Build systems
 .cursor/
+.claude/
 .turbo/
 .vercel/
 

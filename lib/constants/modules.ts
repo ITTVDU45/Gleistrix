@@ -6,6 +6,7 @@ export const APP_MODULES = [
   { id: 'fahrzeuge', label: 'Fahrzeuge', href: '/fahrzeuge' },
   { id: 'lager', label: 'Lager', href: '/lager' },
   { id: 'zeiterfassung', label: 'Zeiterfassung', href: '/timetracking' },
+  { id: 'plantafel', label: 'Plantafel', href: '/plantafel' },
 ] as const
 
 export type ModuleId = (typeof APP_MODULES)[number]['id']
@@ -31,6 +32,7 @@ export const MODULE_ID_ENUM = [
   'fahrzeuge',
   'lager',
   'zeiterfassung',
+  'plantafel',
 ] as const
 
 export function moduleByHref(href: string): ModuleId | null {

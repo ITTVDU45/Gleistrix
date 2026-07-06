@@ -4,13 +4,13 @@ import Link from 'next/link';
 import { AuthApi } from '@/lib/api/auth'
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '../lib/utils';
-import { 
-  LayoutDashboard, 
-  Building2, 
-  Users, 
-  Truck, 
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  Truck,
   Package,
-  Clock, 
+  Clock,
   Settings,
   Menu,
   X,
@@ -18,7 +18,8 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
-  PanelLeft
+  PanelLeft,
+  CalendarRange
 } from 'lucide-react';
 import { Button } from './ui/button';
 import Image from 'next/image';
@@ -32,6 +33,7 @@ const navigation = [
   { name: 'Fahrzeuge', href: '/fahrzeuge', icon: Truck },
   { name: 'Lager', href: '/lager', icon: Package },
   { name: 'Lager App', href: '/lager/app', icon: Package },
+  { name: 'Plantafel', href: '/plantafel', icon: CalendarRange },
   { name: 'Zeiterfassung', href: '/timetracking', icon: Clock },
   { name: 'Einstellungen', href: '/einstellungen', icon: Settings },
 ];
