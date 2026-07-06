@@ -33,7 +33,7 @@ const navigation = [
   { name: 'Fahrzeuge', href: '/fahrzeuge', icon: Truck },
   { name: 'Lager', href: '/lager', icon: Package },
   { name: 'Lager App', href: '/lager/app', icon: Package },
-  { name: 'Plantafel', href: '/plantafel', icon: CalendarRange },
+  { name: 'Einsatztafel', href: '/plantafel', icon: CalendarRange },
   { name: 'Zeiterfassung', href: '/timetracking', icon: Clock },
   { name: 'Einstellungen', href: '/einstellungen', icon: Settings },
 ];
