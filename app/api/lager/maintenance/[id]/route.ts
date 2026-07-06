@@ -80,7 +80,9 @@ export async function PUT(
         : null
     }
     const currentUser = await getCurrentUser(request)
-    if (currentUser) update.durchgefuehrtVon = currentUser._id
+    if (currentUser?._id && mongoose.Types.ObjectId.isValid(String(currentUser._id))) {
+      update.durchgefuehrtVon = new mongoose.Types.ObjectId(String(currentUser._id))
+    }
 
     const doc = await Maintenance.findByIdAndUpdate(id, update, { new: true, runValidators: true })
       .populate('artikelId', 'bezeichnung artikelnummer')

@@ -41,6 +41,9 @@ export async function POST(
     }
 
     const currentUser = await getCurrentUser(request)
+    const verantwortlichId = currentUser?._id && mongoose.Types.ObjectId.isValid(String(currentUser._id))
+      ? new mongoose.Types.ObjectId(String(currentUser._id))
+      : undefined
     const now = new Date()
     const positionen = inv.positionen ?? []
 
@@ -54,7 +57,7 @@ export async function POST(
           bewegungstyp: 'inventur',
           menge: pos.istMenge,
           datum: now,
-          verantwortlich: currentUser?._id,
+          verantwortlich: verantwortlichId,
           bemerkung: `Inventur abgeschlossen (Differenz: ${pos.differenz})`
         })
       }
@@ -63,14 +66,14 @@ export async function POST(
     const activeSessionId = inv.activeScanSessionId ?? null
     const updatedScanSessions = (inv.scanSessions ?? []).map((session) =>
       session.sessionId === activeSessionId
-        ? { ...session, endedAt: session.endedAt ?? now, endedBy: session.endedBy ?? currentUser?._id }
+        ? { ...session, endedAt: session.endedAt ?? now, endedBy: session.endedBy ?? verantwortlichId }
         : session
     )
 
     await Inventory.findByIdAndUpdate(id, {
       status: 'abgeschlossen',
       abgeschlossenAm: now,
-      abgeschlossenVon: currentUser?._id,
+      abgeschlossenVon: verantwortlichId,
       activeScanSessionId: null,
       scanSessions: updatedScanSessions
     })
@@ -83,7 +86,7 @@ export async function POST(
           actionType: 'lager_inventory_completed',
           module: 'lager',
           performedBy: {
-            userId: currentUser._id,
+            userId: verantwortlichId ?? currentUser._id,
             name: currentUser.name ?? '',
             role: currentUser.role ?? 'user'
           },

@@ -91,6 +91,9 @@ export async function POST(request: NextRequest) {
     }
 
     const currentUser = await getCurrentUser(request)
+    const verantwortlichId = currentUser?._id && mongoose.Types.ObjectId.isValid(String(currentUser._id))
+      ? new mongoose.Types.ObjectId(String(currentUser._id))
+      : null
     const ausgabedatum = typeof body.ausgabedatum === 'string' ? new Date(body.ausgabedatum) : body.ausgabedatum
     const geplanteRueckgabe = body.geplanteRueckgabe
       ? (typeof body.geplanteRueckgabe === 'string' ? new Date(body.geplanteRueckgabe) : body.geplanteRueckgabe)
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
           menge: body.menge,
           seriennummer: ''
         }],
-        verantwortlich: currentUser?._id,
+        verantwortlich: verantwortlichId,
         status: 'abgeschlossen'
       })
       deliveryNoteId = deliveryNote._id as mongoose.Types.ObjectId
@@ -151,7 +154,7 @@ export async function POST(request: NextRequest) {
       bewegungstyp: 'ausgang',
       menge: body.menge,
       datum: ausgabedatum,
-      verantwortlich: currentUser?._id,
+      verantwortlich: verantwortlichId,
       empfaenger: new mongoose.Types.ObjectId(personId),
       ...(deliveryNoteId && { lieferscheinId: deliveryNoteId }),
       bemerkung: body.bemerkung ? `Ausgabe: ${body.bemerkung}` : 'Ausgabe an Mitarbeiter'
@@ -165,7 +168,7 @@ export async function POST(request: NextRequest) {
           actionType: 'lager_assignment_created',
           module: 'lager',
           performedBy: {
-            userId: currentUser._id,
+            userId: verantwortlichId ?? currentUser._id,
             name: currentUser.name ?? '',
             role: currentUser.role ?? 'user'
           },

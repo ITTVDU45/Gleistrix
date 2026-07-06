@@ -36,6 +36,9 @@ export async function PUT(
     }
 
     const currentUser = await getCurrentUser(request)
+    const verantwortlichId = currentUser?._id && mongoose.Types.ObjectId.isValid(String(currentUser._id))
+      ? new mongoose.Types.ObjectId(String(currentUser._id))
+      : null
     const rueckgabedatum = new Date()
 
     await ArticleAssignment.findByIdAndUpdate(id, {
@@ -57,7 +60,7 @@ export async function PUT(
       bewegungstyp: 'eingang',
       menge: assignment.menge,
       datum: rueckgabedatum,
-      verantwortlich: currentUser?._id,
+      verantwortlich: verantwortlichId,
       empfaenger: assignment.personId,
       bemerkung: 'Rücknahme von Ausgabe'
     })
@@ -70,7 +73,7 @@ export async function PUT(
           actionType: 'lager_assignment_returned',
           module: 'lager',
           performedBy: {
-            userId: currentUser._id,
+            userId: verantwortlichId ?? currentUser._id,
             name: currentUser.name ?? '',
             role: currentUser.role ?? 'user'
           },

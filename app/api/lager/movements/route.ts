@@ -102,6 +102,9 @@ export async function POST(request: NextRequest) {
     }
 
     const currentUser = await getCurrentUser(request)
+    const verantwortlichId = currentUser?._id && mongoose.Types.ObjectId.isValid(String(currentUser._id))
+      ? new mongoose.Types.ObjectId(String(currentUser._id))
+      : undefined
     const datum = typeof body.datum === 'string' ? new Date(body.datum) : body.datum
 
     const movementPayload: Record<string, unknown> = {
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
       bewegungstyp: body.bewegungstyp,
       menge: body.menge,
       datum,
-      verantwortlich: currentUser?._id ?? undefined,
+      verantwortlich: verantwortlichId,
       bemerkung: body.bemerkung ?? ''
     }
 
@@ -141,7 +144,7 @@ export async function POST(request: NextRequest) {
           bezeichnung: article.bezeichnung ?? article.artikelnummer ?? 'Artikel',
           menge: body.menge
         }],
-        verantwortlich: currentUser?._id ?? undefined,
+        verantwortlich: verantwortlichId,
         status: 'abgeschlossen'
       })
       movementPayload.lieferscheinId = generatedNote._id
@@ -191,7 +194,7 @@ export async function POST(request: NextRequest) {
           actionType: 'lager_movement_created',
           module: 'lager',
           performedBy: {
-            userId: currentUser._id,
+            userId: verantwortlichId ?? currentUser._id,
             name: currentUser.name ?? '',
             role: currentUser.role ?? 'user'
           },
