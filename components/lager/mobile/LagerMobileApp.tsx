@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,7 @@ import {
   Check
 } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
+import { parseLagerScanUrl } from '@/lib/lager/scanUrl'
 import { ProjectsApi } from '@/lib/api/projects'
 import type { Article, ArticleUnit, Category, Project, StockMovement } from '@/types/main'
 import AddArticleDialog from '@/components/AddArticleDialog'
@@ -224,6 +225,7 @@ function createIncomingItem(): IncomingItem {
 
 export default function LagerMobileApp() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [view, setView] = useState<MobileView>('home')
   const currentViewTitle = ({
     home: 'Startseite',
@@ -245,6 +247,9 @@ export default function LagerMobileApp() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [isScannerOpen, setIsScannerOpen] = useState(false)
+  // Deep-Link Aktions-Screen (QR-Scan öffnet /lager/app?a=<id>[&u=<unit>])
+  const [scanAction, setScanAction] = useState<{ articleId: string; unitId?: string } | null>(null)
+  const scanActionHandledRef = useRef(false)
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [maintenanceList, setMaintenanceList] = useState<MaintenanceRow[]>([])
   const [inventoryList, setInventoryList] = useState<InventoryRow[]>([])
@@ -834,7 +839,13 @@ export default function LagerMobileApp() {
     }
     inventoryScanThrottleRef.current = { code: normalized, at: scanNow }
 
+    // Scan-URL (neues QR-Format): direkt über Artikel-ID zuordnen
+    const scanTarget = parseLagerScanUrl(rawCode)
+
     let found = inventoryDetail.positionen.find((pos) => {
+      if (scanTarget) {
+        return resolveInventoryArticleId(pos.artikelId) === scanTarget.articleId
+      }
       const article = toInventoryArticle(pos.artikelId)
       const barcode = article?.barcode?.trim().toLowerCase() ?? ''
       const artikelnummer = article?.artikelnummer?.trim().toLowerCase() ?? ''
@@ -842,10 +853,10 @@ export default function LagerMobileApp() {
         || (artikelnummer.length > 0 && (artikelnummer === normalized || normalized.endsWith(artikelnummer)))
     })
 
-    let scannedUnitId: string | undefined
+    let scannedUnitId: string | undefined = scanTarget?.unitId
 
     // If not found by article barcode, try unit barcode lookup
-    if (!found && normalized.startsWith('art-')) {
+    if (!found && !scanTarget && normalized.startsWith('art-')) {
       for (const pos of inventoryDetail.positionen) {
         const article = toInventoryArticle(pos.artikelId)
         if (article?.serialTracking !== 'individual') continue
@@ -897,6 +908,18 @@ export default function LagerMobileApp() {
   useEffect(() => {
     refreshMasterData()
   }, [])
+
+  // Deep-Link aus QR-Scan: /lager/app?a=<articleId>[&u=<unitId>] -> Aktions-Screen
+  useEffect(() => {
+    if (scanActionHandledRef.current) return
+    const articleId = searchParams?.get('a')?.trim()
+    if (!articleId) return
+    scanActionHandledRef.current = true
+    const unitId = searchParams?.get('u')?.trim() || undefined
+    setScanAction({ articleId, unitId })
+    // Query-Parameter entfernen, damit ein Reload den Screen nicht erneut öffnet
+    router.replace('/lager/app')
+  }, [searchParams, router])
 
   useEffect(() => {
     let cancelled = false
@@ -1175,6 +1198,40 @@ export default function LagerMobileApp() {
       setScannedDeliveryQr(deliveryQr)
       setIsDeliveryQrActionOpen(true)
       setStatusMessage('Lieferschein erkannt: ' + (deliveryQr.nummer ?? deliveryQr.deliveryNoteId))
+      return
+    }
+
+    // 0. Scan-URL (neues QR-Format: /lager/app?a=<id>[&u=<unit>])
+    const scanTarget = parseLagerScanUrl(code)
+    if (scanTarget) {
+      const foundByUrl = articles.find((a) => getArticleId(a) === scanTarget.articleId)
+      // Ausserhalb von Eingang/Ausgang: Aktions-Screen öffnen
+      if (view !== 'eingang' && view !== 'ausgang') {
+        setScanAction({ articleId: scanTarget.articleId, unitId: scanTarget.unitId })
+        if (foundByUrl) setStatusMessage(`Produkt erkannt: ${foundByUrl.bezeichnung}`)
+        return
+      }
+      // In Eingang/Ausgang: direkt in den laufenden Vorgang übernehmen
+      if (!foundByUrl) {
+        setErrorMessage('Kein Artikel zu diesem QR-Code gefunden')
+        return
+      }
+      const urlArticleId = getArticleId(foundByUrl)
+      if (view === 'eingang') {
+        setIncomingEntryMode('qr')
+        setIncomingItems((prev) => {
+          const firstEmptyIndex = prev.findIndex((item) => !item.artikelId)
+          if (firstEmptyIndex >= 0) {
+            return prev.map((item, index) => (index === firstEmptyIndex ? { ...item, artikelId: urlArticleId, menge: 1 } : item))
+          }
+          return [...prev, { id: createIncomingItem().id, artikelId: urlArticleId, menge: 1 }]
+        })
+        setStatusMessage(`Artikel hinzugefuegt: ${foundByUrl.bezeichnung}`)
+        return
+      }
+      setOutgoingEntryMode('qr')
+      setSelectedArticleId(urlArticleId)
+      setStatusMessage(`Artikel erkannt: ${foundByUrl.bezeichnung}`)
       return
     }
 
@@ -1717,6 +1774,49 @@ export default function LagerMobileApp() {
     setSelectedArticleId('')
     setOutgoingEntryMode('select')
     setView('ausgang')
+  }
+
+  // --- Deep-Link Aktions-Screen (QR-Scan) ---
+  const scanActionArticle = useMemo(
+    () => (scanAction ? articles.find((a) => getArticleId(a) === scanAction.articleId) ?? null : null),
+    [scanAction, articles]
+  )
+
+  function startScanAusgang() {
+    if (!scanAction) return
+    clearActionForm()
+    setSelectedArticleId(scanAction.articleId)
+    setOutgoingEntryMode('qr')
+    setView('ausgang')
+    setScanAction(null)
+  }
+
+  function startScanEingang() {
+    if (!scanAction) return
+    clearActionForm()
+    setSelectedArticleId('')
+    setIncomingEntryMode('qr')
+    setIncomingItems([{ id: createIncomingItem().id, artikelId: scanAction.articleId, menge: 1 }])
+    setView('eingang')
+    setScanAction(null)
+  }
+
+  function startScanWartung() {
+    if (!scanAction) return
+    setSelectedArticleId(scanAction.articleId)
+    setView('wartung')
+    setScanAction(null)
+    setStatusMessage(`Wartung für ${scanActionArticle?.bezeichnung ?? 'Artikel'}: bitte Wartung anlegen`)
+  }
+
+  function startScanInventur() {
+    if (!scanAction) return
+    const art = articles.find((a) => getArticleId(a) === scanAction.articleId)
+    const code = art?.barcode?.trim() || art?.artikelnummer?.trim() || ''
+    if (code) setInventoryCodeInput(code)
+    setView('inventur')
+    setScanAction(null)
+    setStatusMessage('Inventur: bitte laufende Inventur auswählen, dann Scan starten')
   }
 
   async function handleLogout() {
@@ -3053,6 +3153,51 @@ export default function LagerMobileApp() {
               <Button variant="outline" onClick={() => setInventoryCompleteConfirmOpen(false)} disabled={isInventoryCompleting}>Abbrechen</Button>
               <Button variant="destructive" onClick={completeInventory} disabled={isInventoryCompleting}>
                 {isInventoryCompleting ? 'Schliesse ab...' : 'Ja, Inventur abschliessen'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {scanAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl dark:bg-slate-900">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Produkt gescannt</h3>
+              <Button variant="ghost" size="sm" onClick={() => setScanAction(null)}>
+                Schliessen
+              </Button>
+            </div>
+            {scanActionArticle ? (
+              <div className="mt-2">
+                <p className="text-sm font-medium text-slate-900 dark:text-white">{scanActionArticle.bezeichnung}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  {scanActionArticle.artikelnummer}
+                  {scanAction.unitId ? ' · Einzelgerät' : ''}
+                  {scanActionArticle.lagerort ? ` · ${scanActionArticle.lagerort}` : ''}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                {isLoading ? 'Lade Produktdaten...' : 'Produkt nicht gefunden. Aktion trotzdem wählbar.'}
+              </p>
+            )}
+            <p className="mt-3 mb-1 text-xs text-slate-500 dark:text-slate-400">Aktion wählen</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button className="h-14 justify-start gap-2" variant="secondary" onClick={startScanAusgang}>
+                <ArrowUpFromLine className="h-4 w-4" />
+                Ausgabe
+              </Button>
+              <Button className="h-14 justify-start gap-2" variant="secondary" onClick={startScanEingang}>
+                <ArrowDownToLine className="h-4 w-4" />
+                Eingang
+              </Button>
+              <Button className="h-14 justify-start gap-2" variant="outline" onClick={startScanInventur}>
+                <ClipboardCheck className="h-4 w-4" />
+                Inventur
+              </Button>
+              <Button className="h-14 justify-start gap-2" variant="outline" onClick={startScanWartung}>
+                <Wrench className="h-4 w-4" />
+                Wartung
               </Button>
             </div>
           </div>

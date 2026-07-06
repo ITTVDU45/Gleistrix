@@ -3,6 +3,7 @@ import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
 import { requireAuth } from '@/lib/security/requireAuth'
 import { createBarcodeLabelsPDF } from '@/lib/pdfBarcodeLabels'
+import { buildLagerScanUrl } from '@/lib/lager/scanUrl'
 import mongoose from 'mongoose'
 
 export async function GET(
@@ -23,7 +24,8 @@ export async function GET(
     if (!article) {
       return NextResponse.json({ success: false, message: 'Artikel nicht gefunden' }, { status: 404 })
     }
-    const doc = article as { artikelnummer?: string; bezeichnung?: string; barcode?: string; kategorie?: string; unterkategorie?: string; seriennummer?: string }
+    const doc = article as { _id?: unknown; artikelnummer?: string; bezeichnung?: string; barcode?: string; kategorie?: string; unterkategorie?: string; seriennummer?: string }
+    const origin = process.env.NEXTAUTH_URL ?? _request.nextUrl.origin
     const label = {
       artikelnummer: doc.artikelnummer ?? '',
       bezeichnung: doc.bezeichnung ?? '',
@@ -31,6 +33,7 @@ export async function GET(
       kategorie: doc.kategorie ?? '',
       unterkategorie: doc.unterkategorie ?? '',
       seriennummer: doc.seriennummer ?? '',
+      scanUrl: buildLagerScanUrl(id, undefined, origin),
     }
     const buffer = await createBarcodeLabelsPDF([label])
     const safeName = (doc.artikelnummer ?? 'Artikel').replace(/[^a-zA-Z0-9-_]/g, '_')

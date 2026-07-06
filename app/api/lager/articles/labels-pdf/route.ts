@@ -3,6 +3,7 @@ import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
 import { requireAuth } from '@/lib/security/requireAuth'
 import { createBarcodeLabelsPDF, type LabelArticle } from '@/lib/pdfBarcodeLabels'
+import { buildLagerScanUrl } from '@/lib/lager/scanUrl'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -29,12 +30,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Keine gültigen Artikel-IDs' }, { status: 400 })
     }
     const articles = await Article.find({ _id: { $in: validIds } }).lean()
+    const origin = process.env.NEXTAUTH_URL ?? request.nextUrl.origin
     const labels: LabelArticle[] = articles.map((a: unknown) => {
-      const d = a as { artikelnummer?: string; bezeichnung?: string; barcode?: string }
+      const d = a as { _id?: unknown; artikelnummer?: string; bezeichnung?: string; barcode?: string; kategorie?: string; unterkategorie?: string; seriennummer?: string }
+      const articleId = d._id != null ? String(d._id) : ''
       return {
         artikelnummer: d.artikelnummer ?? '',
         bezeichnung: d.bezeichnung ?? '',
-        barcode: d.barcode ?? d.artikelnummer ?? ''
+        barcode: d.barcode ?? d.artikelnummer ?? '',
+        kategorie: d.kategorie ?? '',
+        unterkategorie: d.unterkategorie ?? '',
+        seriennummer: d.seriennummer ?? '',
+        scanUrl: buildLagerScanUrl(articleId, undefined, origin),
       }
     })
     const buffer = await createBarcodeLabelsPDF(labels)

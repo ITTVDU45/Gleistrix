@@ -12,6 +12,7 @@ import { QRCodeCanvas } from 'qrcode.react'
 import QRCode from 'qrcode'
 import { LagerApi } from '@/lib/api/lager'
 import { buildQrLabel } from '@/lib/lager/qrLabel'
+import { buildLagerScanUrl } from '@/lib/lager/scanUrl'
 import ArticleUnitsSection from './ArticleUnitsSection'
 
 interface ArticleDetailsDialogProps {
@@ -62,9 +63,19 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
     if (!open) setUnits([])
   }, [open, isIndividual, loadUnits])
 
+  const [origin, setOrigin] = useState('')
+  useEffect(() => {
+    if (typeof window !== 'undefined') setOrigin(window.location.origin)
+  }, [])
+
   const qrValue = useMemo(
     () => String((article as { barcode?: string } | null)?.barcode ?? article?.artikelnummer ?? '').trim(),
     [article]
+  )
+  // QR-Inhalt = Scan-URL zum Artikel in der Lager-App (Fallback: Code-Text)
+  const qrPayload = useMemo(
+    () => buildLagerScanUrl(articleId, undefined, origin) || qrValue,
+    [articleId, origin, qrValue]
   )
   const displayCode = qrValue || '-'
   const seriennummer = (article as { seriennummer?: string })?.seriennummer?.trim() ?? ''
@@ -118,7 +129,7 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
     setIsDownloading(true)
     setDownloadError('')
     try {
-      const canvas = await drawLabelCanvas(qrValue, qrLabel.line1, qrLabel.line2)
+      const canvas = await drawLabelCanvas(qrPayload, qrLabel.line1, qrLabel.line2)
       const link = document.createElement('a')
       link.href = canvas.toDataURL('image/png')
       link.download = `${toSafeFileName(article.bezeichnung ?? article.artikelnummer ?? 'produkt')}-qr.png`
@@ -158,7 +169,7 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
   const handlePrint = async () => {
     if (!qrValue) return
     try {
-      const dataUrl = await QRCode.toDataURL(qrValue, { width: 400, margin: 1, errorCorrectionLevel: 'M' })
+      const dataUrl = await QRCode.toDataURL(qrPayload, { width: 400, margin: 1, errorCorrectionLevel: 'M' })
       const win = window.open('', '_blank')
       if (!win) return
       win.document.write(labelPrintHtml(dataUrl, qrLabel.line1, qrLabel.line2))
@@ -168,9 +179,13 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
     } catch (_) {}
   }
 
+  const unitScanUrl = (unit: ArticleUnit): string => {
+    const uid = unit.id ?? unit._id ?? ''
+    return buildLagerScanUrl(articleId, uid, origin) || (unit.barcode ?? unit.seriennummer)
+  }
+
   const generateUnitCanvas = async (unit: ArticleUnit): Promise<HTMLCanvasElement> => {
-    const code = unit.barcode ?? unit.seriennummer
-    return drawLabelCanvas(code, qrLabel.line1, unit.seriennummer)
+    return drawLabelCanvas(unitScanUrl(unit), qrLabel.line1, unit.seriennummer)
   }
 
   const handleBulkDownloadPng = async () => {
@@ -213,8 +228,7 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
     try {
       const qrImages: { dataUrl: string; sn: string }[] = []
       for (const unit of units) {
-        const code = unit.barcode ?? unit.seriennummer
-        const dataUrl = await QRCode.toDataURL(code, { width: 400, margin: 1, errorCorrectionLevel: 'M' })
+        const dataUrl = await QRCode.toDataURL(unitScanUrl(unit), { width: 400, margin: 1, errorCorrectionLevel: 'M' })
         qrImages.push({ dataUrl, sn: unit.seriennummer })
       }
       const win = window.open('', '_blank')
@@ -281,13 +295,13 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
                 <CardContent className="space-y-4 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Artikel QR-Code</p>
-                    <Badge variant="outline">Payload: Barcode</Badge>
+                    <Badge variant="outline">Scan öffnet Lager-App</Badge>
                   </div>
 
                   {qrValue ? (
                     <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-2xl border border-slate-300 bg-white p-3 dark:border-slate-600 dark:bg-slate-900">
                       <QRCodeCanvas
-                        value={qrValue}
+                        value={qrPayload}
                         size={190}
                         level="M"
                         marginSize={2}
@@ -367,14 +381,13 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
                   ) : (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                       {units.map((unit) => {
-                        const code = unit.barcode ?? unit.seriennummer
                         return (
                           <div
                             key={unit.id ?? unit._id}
                             className="flex flex-col items-center rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"
                           >
                             <QRCodeCanvas
-                              value={code}
+                              value={unitScanUrl(unit)}
                               size={100}
                               level="M"
                               marginSize={1}

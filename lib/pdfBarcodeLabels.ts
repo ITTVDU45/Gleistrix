@@ -8,6 +8,8 @@ export type LabelArticle = {
   kategorie?: string
   unterkategorie?: string
   seriennummer?: string
+  /** Scan-URL zum Artikel in der Lager-App; wird als QR-Inhalt bevorzugt */
+  scanUrl?: string
 }
 
 const LABEL_W = 50.8
@@ -49,7 +51,8 @@ export async function createBarcodeLabelsPDF(articles: LabelArticle[]): Promise<
       seriennummer: art.seriennummer,
     })
 
-    const qrDataUrl = await QRCode.toDataURL(art.barcode || art.artikelnummer, {
+    const qrContent = art.scanUrl || art.barcode || art.artikelnummer
+    const qrDataUrl = await QRCode.toDataURL(qrContent, {
       width: 200,
       margin: 1,
       errorCorrectionLevel: 'M',

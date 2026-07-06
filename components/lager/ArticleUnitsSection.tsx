@@ -21,6 +21,7 @@ import { Plus, Trash2, Pencil, Upload, QrCode, Download, Printer } from 'lucide-
 import type { ArticleUnit, ArticleUnitStatus, ArticleZustand } from '@/types/main'
 import { LagerApi } from '@/lib/api/lager'
 import { buildQrLabel } from '@/lib/lager/qrLabel'
+import { buildLagerScanUrl } from '@/lib/lager/scanUrl'
 import { QRCodeCanvas } from 'qrcode.react'
 import QRCode from 'qrcode'
 
@@ -58,6 +59,14 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, art
     unterkategorie: articleUnterkategorie,
     artikelnummer: articleArtikelnummer,
   }), [articleKategorie, articleUnterkategorie, articleArtikelnummer])
+  const [origin, setOrigin] = useState('')
+  useEffect(() => {
+    if (typeof window !== 'undefined') setOrigin(window.location.origin)
+  }, [])
+  const unitScanValue = useCallback((unit: ArticleUnit): string => {
+    const uid = unit.id ?? unit._id ?? ''
+    return buildLagerScanUrl(articleId, uid, origin) || (unit.barcode ?? unit.seriennummer)
+  }, [articleId, origin])
   const [units, setUnits] = useState<ArticleUnit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -174,7 +183,7 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, art
   const QR_PAD = 40
 
   const handleUnitQrDownload = async (unit: ArticleUnit) => {
-    const code = unit.barcode ?? unit.seriennummer
+    const code = unitScanValue(unit)
     if (!code) return
     const dataUrl = await QRCode.toDataURL(code, { width: QR_PX, margin: 1, errorCorrectionLevel: 'M' })
     const canvas = document.createElement('canvas')
@@ -207,7 +216,7 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, art
   }
 
   const handleUnitQrPrint = async (unit: ArticleUnit) => {
-    const code = unit.barcode ?? unit.seriennummer
+    const code = unitScanValue(unit)
     if (!code) return
     const dataUrl = await QRCode.toDataURL(code, { width: 400, margin: 1, errorCorrectionLevel: 'M' })
     const safeLabel = (unitQrLabel.line1 ?? '').replace(/</g, '&lt;')
@@ -404,7 +413,7 @@ export default function ArticleUnitsSection({ articleId, articleBezeichnung, art
             <div className="flex flex-col items-center space-y-3 py-2">
               <div className="rounded-2xl border border-slate-300 bg-white p-3 dark:border-slate-600 dark:bg-slate-900">
                 <QRCodeCanvas
-                  value={qrUnit.barcode ?? qrUnit.seriennummer}
+                  value={unitScanValue(qrUnit)}
                   size={180}
                   level="M"
                   marginSize={2}
