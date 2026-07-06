@@ -182,8 +182,8 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.artikelnummer?.trim() || !form.bezeichnung?.trim() || !form.kategorie?.trim()) {
-      setError('Artikelnummer, Bezeichnung und Kategorie sind Pflichtfelder.')
+    if (!form.bezeichnung?.trim() || !form.kategorie?.trim()) {
+      setError('Bezeichnung und Kategorie sind Pflichtfelder.')
       return
     }
 
@@ -193,7 +193,7 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
     try {
       const createPayload: Record<string, unknown> = {
         ...form,
-        artikelnummer: form.artikelnummer!,
+        artikelnummer: '',
         bezeichnung: form.bezeichnung!,
         kategorie: form.kategorie!,
         unterkategorie: form.unterkategorie ?? '',
@@ -378,18 +378,7 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
               {error}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="artikelnummer">Artikelnummer *</Label>
-              <Input
-                id="artikelnummer"
-                value={form.artikelnummer ?? ''}
-                onChange={(e) => update('artikelnummer', e.target.value)}
-                placeholder="z.B. ART-001"
-                className="rounded-xl h-10"
-                required
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="bezeichnung">Bezeichnung *</Label>
               <Input

@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status })
 
     const schema = z.object({
-      artikelnummer: z.string().min(1),
+      artikelnummer: z.string().optional().default(''),
       bezeichnung: z.string().min(1),
       kategorie: z.string().min(1),
       unterkategorie: z.string().optional().or(z.literal('')),
@@ -78,6 +78,17 @@ export async function POST(request: NextRequest) {
       )
     }
     const body = parseResult.data as Record<string, unknown>
+
+    if (!body.artikelnummer || body.artikelnummer === '') {
+      const lastArticle = await Article.findOne({}, { artikelnummer: 1 })
+        .sort({ artikelnummer: -1 })
+        .lean() as { artikelnummer?: string } | null
+      const lastNr = lastArticle?.artikelnummer
+      const lastNum = lastNr ? parseInt(lastNr, 10) : 0
+      const nextNum = (Number.isFinite(lastNum) ? lastNum : 0) + 1
+      body.artikelnummer = String(nextNum).padStart(3, '0')
+    }
+
     if (!body.barcode || body.barcode === '') {
       body.barcode = generateArticleBarcode()
     }
