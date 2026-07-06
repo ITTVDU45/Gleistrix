@@ -20,6 +20,7 @@ import AssignmentDialog from './AssignmentDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import ProjectFilterControl from './ProjectFilterControl'
+import PlantafelLegend from './PlantafelLegend'
 import EventTooltip from './EventTooltip'
 import ProjectCreateForm from '@/components/ProjectCreateForm'
 import { Button } from '@/components/ui/button'
@@ -386,6 +387,9 @@ export default function PlantafelBoard() {
           )}
         </div>
       </div>
+
+      {/* Farb-Legende (fachliche Einordnung) — nur wenn Projekte sichtbar */}
+      {filters.showProjects && calendarView !== 'day' && <PlantafelLegend />}
 
       {/* Hauptbereich */}
       <div

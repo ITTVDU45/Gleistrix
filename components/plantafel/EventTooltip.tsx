@@ -78,7 +78,13 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
             </div>
 
             <div className="text-slate-300">
-              {TYPE_LABELS[event.type] || event.type}
+              {event.sourceType === 'projekt'
+                ? event.type === 'projekt_plan'
+                  ? event.notStarted
+                    ? 'Projekt (nicht gestartet)'
+                    : 'Projekt (geplant)'
+                  : `Projekt (umgesetzt · ${event.shift === 'nacht' ? 'Nachtschicht' : 'Frühschicht'})`
+                : TYPE_LABELS[event.type] || event.type}
               {event.mitarbeiterName && !isAbsence && (
                 <> &middot; {event.mitarbeiterName}</>
               )}

@@ -163,7 +163,7 @@ function MonthCard({ month, eventsByDay, onMonthClick, onDayClick }: MonthCardPr
                       <span
                         key={i}
                         className="block h-1 w-1 rounded-full"
-                        style={{ backgroundColor: EVENT_TYPE_COLORS[e.type] || '#3b82f6' }}
+                        style={{ backgroundColor: e.color || EVENT_TYPE_COLORS[e.type] || '#3b82f6' }}
                       />
                     ))}
                   </span>
