@@ -16,7 +16,7 @@ import { useProjects } from '@/hooks/useProjects'
 import PlantafelToolbar from './PlantafelToolbar'
 import YearView from './YearView'
 import DayView from './DayView'
-import AssignmentDialog from './AssignmentDialog'
+import ProjectDayEditDialog, { type ProjectEditorTab } from './ProjectDayEditDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import ProjectFilterControl from './ProjectFilterControl'
@@ -27,7 +27,7 @@ import ProjectCreateForm from '@/components/ProjectCreateForm'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus } from 'lucide-react'
-import type { PlantafelEvent, PlantafelCalendarView, CreatePlantafelAssignmentRequest } from './types'
+import type { PlantafelEvent, PlantafelCalendarView, PlantafelDayProject } from './types'
 
 const locales = { de }
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales })
@@ -85,15 +85,25 @@ export default function PlantafelBoard() {
   const router = useRouter()
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [dialogEvent, setDialogEvent] = useState<PlantafelEvent | null>(null)
-  const [dialogDefaults, setDialogDefaults] = useState<{
-    start?: Date
-    end?: Date
-    resourceId?: string
-    projektId?: string
-    mitarbeiterId?: string
-  }>({})
+
+  // Zentraler Projekt-/Einsatz-Editor (vereinheitlichtes Popup)
+  interface EditorState {
+    open: boolean
+    projectId: string | null
+    projectName?: string
+    initialTab: ProjectEditorTab
+    einsatz: PlantafelEvent | null
+    einsatzDefaults?: { start?: Date; end?: Date; mitarbeiterId?: string }
+    dateKey: string
+  }
+  const [editor, setEditor] = useState<EditorState>({
+    open: false,
+    projectId: null,
+    initialTab: 'einsatz',
+    einsatz: null,
+    dateKey: format(new Date(), 'yyyy-MM-dd'),
+  })
+
   const [isConflictPanelOpen, setIsConflictPanelOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false)
@@ -115,31 +125,39 @@ export default function PlantafelBoard() {
   const handleSelectEvent = useCallback((event: PlantafelEvent) => {
     if (event.sourceType === 'feiertag' || event.sourceType === 'urlaub') return
     if (event.sourceType === 'projekt') {
-      if (event.projektId) router.push(`/projektdetail/${event.projektId}`)
+      if (event.projektId) {
+        setEditor({
+          open: true,
+          projectId: event.projektId,
+          projectName: event.projektName,
+          initialTab: 'zeiten',
+          einsatz: null,
+          dateKey: format(currentDate, 'yyyy-MM-dd'),
+        })
+      }
       return
     }
-    setDialogEvent(event)
-    setDialogDefaults({})
-    setIsDialogOpen(true)
-  }, [router])
+    // Einsatz-Event → Einsatz-Tab mit Daten
+    setEditor({
+      open: true,
+      projectId: event.projektId || null,
+      projectName: event.projektName,
+      initialTab: 'einsatz',
+      einsatz: event,
+      dateKey: format(new Date(event.start), 'yyyy-MM-dd'),
+    })
+  }, [currentDate])
 
   const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
-    setDialogEvent(null)
-    setDialogDefaults({ start, end })
-    setIsDialogOpen(true)
+    setEditor({
+      open: true,
+      projectId: null,
+      initialTab: 'einsatz',
+      einsatz: null,
+      einsatzDefaults: { start, end },
+      dateKey: format(start, 'yyyy-MM-dd'),
+    })
   }, [])
-
-  const handleSave = useCallback(async (data: CreatePlantafelAssignmentRequest) => {
-    await createAssignment(data)
-  }, [createAssignment])
-
-  const handleUpdate = useCallback(async (id: string, data: Partial<CreatePlantafelAssignmentRequest>) => {
-    await updateAssignment(id, data)
-  }, [updateAssignment])
-
-  const handleDelete = useCallback(async (id: string) => {
-    await deleteAssignment(id)
-  }, [deleteAssignment])
 
   const handleYearDayClick = useCallback((date: Date) => {
     setCurrentDate(date)
@@ -151,12 +169,28 @@ export default function PlantafelBoard() {
     setCalendarView('month')
   }, [setCurrentDate, setCalendarView])
 
-  const handleDayOpenDetail = useCallback((projectId: string) => {
+  const handleOpenDetail = useCallback((projectId: string) => {
     router.push(`/projektdetail/${projectId}`)
   }, [router])
 
-  const handleDayProjectSaved = useCallback(() => {
+  const handleDayProjectClick = useCallback((project: PlantafelDayProject) => {
+    setEditor({
+      open: true,
+      projectId: project.id,
+      projectName: project.name,
+      initialTab: 'zeiten',
+      einsatz: null,
+      dateKey: format(currentDate, 'yyyy-MM-dd'),
+    })
+  }, [currentDate])
+
+  const handleEditorClose = useCallback(() => {
+    setEditor((prev) => ({ ...prev, open: false, einsatz: null, einsatzDefaults: undefined }))
+  }, [])
+
+  const handleEditorSaved = useCallback(() => {
     fetchProjects()
+    setDayRefreshKey((k) => k + 1)
   }, [fetchProjects])
 
   const handleOpenProjectDialog = useCallback(() => {
@@ -178,20 +212,19 @@ export default function PlantafelBoard() {
       const endDate = new Date(end)
       const dropEnd = endDate > startDate ? endDate : addHours(startDate, 8)
 
-      const defaults: typeof dialogDefaults = {
-        start: startDate,
-        end: dropEnd,
-      }
-
-      if (dragItem.type === 'project') {
-        defaults.projektId = dragItem.id
-      } else if (dragItem.type === 'employee') {
-        defaults.mitarbeiterId = dragItem.id
-      }
-
-      setDialogEvent(null)
-      setDialogDefaults(defaults)
-      setIsDialogOpen(true)
+      setEditor({
+        open: true,
+        projectId: dragItem.type === 'project' ? dragItem.id : null,
+        projectName: dragItem.type === 'project' ? dragItem.name : undefined,
+        initialTab: 'einsatz',
+        einsatz: null,
+        einsatzDefaults: {
+          start: startDate,
+          end: dropEnd,
+          mitarbeiterId: dragItem.type === 'employee' ? dragItem.id : undefined,
+        },
+        dateKey: format(startDate, 'yyyy-MM-dd'),
+      })
       externalDragRef.current = null
     },
     []
@@ -399,7 +432,18 @@ export default function PlantafelBoard() {
             </Button>
           )}
 
-          <Button size="sm" onClick={() => { setDialogEvent(null); setDialogDefaults({}); setIsDialogOpen(true) }}>
+          <Button
+            size="sm"
+            onClick={() =>
+              setEditor({
+                open: true,
+                projectId: null,
+                initialTab: 'einsatz',
+                einsatz: null,
+                dateKey: format(currentDate, 'yyyy-MM-dd'),
+              })
+            }
+          >
             <Plus className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">Neuer Einsatz</span>
           </Button>
@@ -442,8 +486,7 @@ export default function PlantafelBoard() {
               date={currentDate}
               events={filteredEvents}
               onCreateProject={handleOpenProjectDialog}
-              onProjectSaved={handleDayProjectSaved}
-              onOpenDetail={handleDayOpenDetail}
+              onProjectClick={handleDayProjectClick}
               refreshKey={dayRefreshKey}
             />
           ) : (
@@ -511,22 +554,27 @@ export default function PlantafelBoard() {
         )}
       </div>
 
-      {/* Assignment Dialog */}
-      <AssignmentDialog
-        open={isDialogOpen}
-        onClose={() => { setIsDialogOpen(false); setDialogEvent(null) }}
-        event={dialogEvent}
-        employees={employees}
-        projects={projects}
-        onSave={handleSave}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        defaultStart={dialogDefaults.start}
-        defaultEnd={dialogDefaults.end}
-        defaultResourceId={dialogDefaults.resourceId}
-        defaultProjektId={dialogDefaults.projektId}
-        defaultMitarbeiterId={dialogDefaults.mitarbeiterId}
-      />
+      {/* Zentraler Projekt-/Einsatz-Editor (vereinheitlichtes Popup) */}
+      {editor.open && (
+        <ProjectDayEditDialog
+          open={editor.open}
+          projectId={editor.projectId}
+          projectName={editor.projectName}
+          dateKey={editor.dateKey}
+          initialTab={editor.initialTab}
+          einsatz={editor.einsatz}
+          einsatzDefaults={editor.einsatzDefaults}
+          projects={projects}
+          employees={employees}
+          events={events}
+          onClose={handleEditorClose}
+          onSaved={handleEditorSaved}
+          onOpenDetail={handleOpenDetail}
+          onEinsatzCreate={createAssignment}
+          onEinsatzUpdate={updateAssignment}
+          onEinsatzDelete={deleteAssignment}
+        />
+      )}
 
       {/* Neues-Projekt-Dialog (Tagesansicht) */}
       <Dialog open={isProjectDialogOpen} onOpenChange={(open) => !open && setIsProjectDialogOpen(false)}>

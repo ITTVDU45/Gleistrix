@@ -1,37 +1,74 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Loader2, ExternalLink, AlertTriangle } from 'lucide-react'
-import { useEmployees } from '@/hooks/useEmployees'
 import { useProjectEditing } from '@/hooks/useProjectEditing'
+import SearchableSelect from './SearchableSelect'
 import StammdatenTab from './edit/StammdatenTab'
 import ZeitenTab from './edit/ZeitenTab'
 import MaterialTab from './edit/MaterialTab'
 import FahrzeugeTab from './edit/FahrzeugeTab'
-import type { PlantafelDayProject } from './types'
+import EinsatzTab from './edit/EinsatzTab'
+import type {
+  PlantafelEvent,
+  CreatePlantafelAssignmentRequest,
+  UpdatePlantafelAssignmentRequest,
+} from './types'
+import type { Employee, Project } from '../../types'
 
-interface ProjectDayEditDialogProps {
-  project: PlantafelDayProject | null
-  dateKey: string
+export type ProjectEditorTab = 'einsatz' | 'stammdaten' | 'zeiten' | 'material' | 'fahrzeuge'
+
+interface ProjectEditorDialogProps {
   open: boolean
+  projectId: string | null
+  projectName?: string
+  dateKey: string
+  initialTab?: ProjectEditorTab
+  einsatz?: PlantafelEvent | null
+  einsatzDefaults?: { start?: Date; end?: Date; mitarbeiterId?: string }
+  projects: Project[]
+  employees: Employee[]
+  events: PlantafelEvent[]
   onClose: () => void
   onSaved: () => void
   onOpenDetail: (projectId: string) => void
+  onEinsatzCreate: (data: CreatePlantafelAssignmentRequest) => Promise<unknown>
+  onEinsatzUpdate: (id: string, data: UpdatePlantafelAssignmentRequest) => Promise<unknown>
+  onEinsatzDelete: (id: string) => Promise<unknown>
 }
 
 export default function ProjectDayEditDialog({
-  project,
-  dateKey,
   open,
+  projectId,
+  projectName,
+  dateKey,
+  initialTab,
+  einsatz,
+  einsatzDefaults,
+  projects,
+  employees,
+  events,
   onClose,
   onSaved,
   onOpenDetail,
-}: ProjectDayEditDialogProps) {
-  const projectId = project?.id || null
-  const { employees } = useEmployees()
+  onEinsatzCreate,
+  onEinsatzUpdate,
+  onEinsatzDelete,
+}: ProjectEditorDialogProps) {
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectId)
+  const [activeTab, setActiveTab] = useState<ProjectEditorTab>(initialTab ?? 'zeiten')
+  const [einsatzChanged, setEinsatzChanged] = useState(false)
+
+  useEffect(() => {
+    setSelectedProjectId(projectId)
+    setActiveTab(initialTab ?? 'zeiten')
+    setEinsatzChanged(false)
+  }, [projectId, initialTab, open])
+
   const {
     project: fullProject,
     isLoading,
@@ -46,34 +83,95 @@ export default function ProjectDayEditDialog({
     removeTechnik,
     addVehicle,
     notifyVehicleChanged,
-  } = useProjectEditing(projectId)
+  } = useProjectEditing(selectedProjectId)
 
   const [selectedDate, setSelectedDate] = useState(dateKey)
+  useEffect(() => setSelectedDate(dateKey), [dateKey, open])
 
   const handleClose = useCallback(() => {
-    if (changed) onSaved()
+    if (changed || einsatzChanged) onSaved()
     onClose()
-  }, [changed, onSaved, onClose])
+  }, [changed, einsatzChanged, onSaved, onClose])
 
   const handleStammdatenSaved = useCallback(() => {
     refetch()
     onSaved()
   }, [refetch, onSaved])
 
-  if (!project) return null
+  // Einsatz-Callbacks: Änderungen merken, damit die Tafel beim Schließen aktualisiert
+  const handleEinsatzCreate = useCallback(
+    async (data: CreatePlantafelAssignmentRequest) => {
+      const res = await onEinsatzCreate(data)
+      setEinsatzChanged(true)
+      return res
+    },
+    [onEinsatzCreate]
+  )
+  const handleEinsatzUpdate = useCallback(
+    async (id: string, data: UpdatePlantafelAssignmentRequest) => {
+      const res = await onEinsatzUpdate(id, data)
+      setEinsatzChanged(true)
+      return res
+    },
+    [onEinsatzUpdate]
+  )
+  const handleEinsatzDelete = useCallback(
+    async (id: string) => {
+      const res = await onEinsatzDelete(id)
+      setEinsatzChanged(true)
+      return res
+    },
+    [onEinsatzDelete]
+  )
+
+  const projectOptions = useMemo(
+    () =>
+      projects
+        .filter((p) => p.status === 'aktiv' || p.id === selectedProjectId)
+        .map((p) => ({ value: p.id, label: p.name })),
+    [projects, selectedProjectId]
+  )
+
+  const title =
+    fullProject?.name ||
+    projectName ||
+    (selectedProjectId ? 'Projekt' : 'Neuer Einsatz')
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="sm:max-w-3xl max-h-[88vh] overflow-y-auto">
         <DialogTitle className="flex items-center justify-between gap-2 pr-6">
-          <span className="truncate">{project.name}</span>
-          <Button variant="outline" size="sm" onClick={() => onOpenDetail(project.id)} className="shrink-0">
-            <ExternalLink className="h-4 w-4 mr-1" />
-            Projektseite
-          </Button>
+          <span className="truncate">{title}</span>
+          {selectedProjectId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenDetail(selectedProjectId)}
+              className="shrink-0"
+            >
+              <ExternalLink className="h-4 w-4 mr-1" />
+              Projektseite
+            </Button>
+          )}
         </DialogTitle>
 
-        {isLoading || !fullProject ? (
+        {/* Projekt-Auswahl im Create-Modus (kein Projektkontext) */}
+        {!selectedProjectId ? (
+          <div className="space-y-3 py-2">
+            <Label>Projekt auswählen *</Label>
+            <SearchableSelect
+              value={selectedProjectId || ''}
+              onValueChange={(v) => setSelectedProjectId(v)}
+              options={projectOptions}
+              placeholder="Projekt auswählen"
+              emptyLabel="Kein Projekt gefunden"
+              searchPlaceholder="Projekt suchen..."
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Nach der Auswahl können Einsätze geplant sowie Zeiten, Material und Fahrzeuge gepflegt werden.
+            </p>
+          </div>
+        ) : isLoading || !fullProject ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center space-y-3">
               <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
@@ -86,13 +184,27 @@ export default function ProjectDayEditDialog({
             <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
           </div>
         ) : (
-          <Tabs defaultValue="zeiten" className="w-full">
-            <TabsList className="grid grid-cols-4 w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProjectEditorTab)} className="w-full">
+            <TabsList className="grid grid-cols-5 w-full">
+              <TabsTrigger value="einsatz">Einsatz</TabsTrigger>
               <TabsTrigger value="stammdaten">Stammdaten</TabsTrigger>
               <TabsTrigger value="zeiten">Zeiten</TabsTrigger>
               <TabsTrigger value="material">Material</TabsTrigger>
               <TabsTrigger value="fahrzeuge">Fahrzeuge</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="einsatz" className="mt-4">
+              <EinsatzTab
+                projektId={selectedProjectId}
+                einsatz={einsatz}
+                defaults={einsatzDefaults}
+                employees={employees}
+                events={events}
+                onCreate={handleEinsatzCreate}
+                onUpdate={handleEinsatzUpdate}
+                onDelete={handleEinsatzDelete}
+              />
+            </TabsContent>
 
             <TabsContent value="stammdaten" className="mt-4">
               <StammdatenTab project={fullProject} onSaved={handleStammdatenSaved} />
