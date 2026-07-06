@@ -23,11 +23,14 @@ export async function GET(
     if (!article) {
       return NextResponse.json({ success: false, message: 'Artikel nicht gefunden' }, { status: 404 })
     }
-    const doc = article as { artikelnummer?: string; bezeichnung?: string; barcode?: string }
+    const doc = article as { artikelnummer?: string; bezeichnung?: string; barcode?: string; kategorie?: string; unterkategorie?: string; seriennummer?: string }
     const label = {
       artikelnummer: doc.artikelnummer ?? '',
       bezeichnung: doc.bezeichnung ?? '',
-      barcode: doc.barcode ?? doc.artikelnummer ?? ''
+      barcode: doc.barcode ?? doc.artikelnummer ?? '',
+      kategorie: doc.kategorie ?? '',
+      unterkategorie: doc.unterkategorie ?? '',
+      seriennummer: doc.seriennummer ?? '',
     }
     const buffer = await createBarcodeLabelsPDF([label])
     const safeName = (doc.artikelnummer ?? 'Artikel').replace(/[^a-zA-Z0-9-_]/g, '_')

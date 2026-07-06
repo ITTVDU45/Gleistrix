@@ -11,6 +11,7 @@ import type { Article, ArticleUnit } from '@/types/main'
 import { QRCodeCanvas } from 'qrcode.react'
 import QRCode from 'qrcode'
 import { LagerApi } from '@/lib/api/lager'
+import { buildQrLabel } from '@/lib/lager/qrLabel'
 import ArticleUnitsSection from './ArticleUnitsSection'
 
 interface ArticleDetailsDialogProps {
@@ -67,6 +68,12 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
   )
   const displayCode = qrValue || '-'
   const seriennummer = (article as { seriennummer?: string })?.seriennummer?.trim() ?? ''
+  const qrLabel = useMemo(() => buildQrLabel({
+    kategorie: article?.kategorie,
+    unterkategorie: article?.unterkategorie,
+    artikelnummer: article?.artikelnummer,
+    seriennummer,
+  }), [article, seriennummer])
 
   if (!article) return null
 
@@ -85,7 +92,9 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
 
       const canvas = document.createElement('canvas')
       const padding = 24
-      const textHeight = seriennummer ? 56 : 0
+      const lineHeight = 44
+      const textLines = qrLabel.line2 ? 2 : 1
+      const textHeight = lineHeight * textLines + 12
       const totalHeight = qrSize + padding * 2 + textHeight
       canvas.width = qrSize + padding * 2
       canvas.height = totalHeight
@@ -105,11 +114,13 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
         img.src = dataUrl
       })
 
-      if (seriennummer) {
-        ctx.fillStyle = '#111827'
-        ctx.font = 'bold 32px system-ui, sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillText(`Seriennummer: ${seriennummer}`, canvas.width / 2, qrSize + padding + 40)
+      ctx.fillStyle = '#111827'
+      ctx.font = 'bold 32px system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(qrLabel.line1, canvas.width / 2, qrSize + padding + 40)
+      if (qrLabel.line2) {
+        ctx.font = '28px system-ui, sans-serif'
+        ctx.fillText(qrLabel.line2, canvas.width / 2, qrSize + padding + 40 + lineHeight)
       }
 
       const link = document.createElement('a')
@@ -144,8 +155,8 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
               body { font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 24px; }
               .qr-wrap { margin-bottom: 16px; }
               .qr-wrap img { display: block; }
-              .seriennummer { font-size: 18px; font-weight: 600; letter-spacing: 0.05em; margin: 0 0 8px 0; }
-              .meta { font-size: 12px; color: #666; }
+              .label-line { font-size: 16px; font-weight: 600; letter-spacing: 0.03em; margin: 0 0 4px 0; }
+              .label-sn { font-size: 14px; font-weight: 500; color: #333; margin: 0; }
               @media print { body { padding: 16px; } }
             </style>
           </head>
@@ -153,8 +164,8 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
             <div class="qr-wrap">
               <img src="${dataUrl.replace(/"/g, '&quot;')}" alt="QR-Code" width="200" height="200" />
             </div>
-            ${seriennummer ? `<p class="seriennummer">Seriennummer: ${seriennummer.replace(/</g, '&lt;')}</p>` : ''}
-            <p class="meta">${(article.bezeichnung ?? '').replace(/</g, '&lt;')} · ${(article.artikelnummer ?? '').replace(/</g, '&lt;')}</p>
+            <p class="label-line">${qrLabel.line1.replace(/</g, '&lt;')}</p>
+            ${qrLabel.line2 ? `<p class="label-sn">${qrLabel.line2.replace(/</g, '&lt;')}</p>` : ''}
           </body>
         </html>
       `)
@@ -316,6 +327,14 @@ export default function ArticleDetailsDialog({ open, onOpenChange, article, onAr
                       <p className="mt-2 px-3 text-xs text-slate-500 dark:text-slate-400">Kein QR-Wert vorhanden (Barcode/Artikelnummer fehlt)</p>
                     </div>
                   )}
+
+                  <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Beschriftung</p>
+                    <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{qrLabel.line1}</p>
+                    {qrLabel.line2 && (
+                      <p className="mt-0.5 font-mono text-sm text-slate-700 dark:text-slate-300">{qrLabel.line2}</p>
+                    )}
+                  </div>
 
                   <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
                     <p className="text-xs text-slate-600 dark:text-slate-400">Code-Wert</p>

@@ -1,9 +1,13 @@
 import jsPDF from 'jspdf'
+import { buildQrLabel } from '@/lib/lager/qrLabel'
 
 export type LabelArticle = {
   artikelnummer: string
   bezeichnung: string
   barcode: string
+  kategorie?: string
+  unterkategorie?: string
+  seriennummer?: string
 }
 
 const LABEL_WIDTH = 90
@@ -32,13 +36,23 @@ export async function createBarcodeLabelsPDF(articles: LabelArticle[]): Promise<
     const x = MARGIN + col * LABEL_WIDTH
     const y = MARGIN + row * LABEL_HEIGHT
 
+    const label = buildQrLabel({
+      kategorie: art.kategorie,
+      unterkategorie: art.unterkategorie,
+      artikelnummer: art.artikelnummer,
+      seriennummer: art.seriennummer,
+    })
+
     pdf.setFontSize(FONT_SIZE)
     pdf.setFont('helvetica', 'bold')
-    pdf.text(truncate(art.artikelnummer, 18), x, y + 5)
-    pdf.setFont('helvetica', 'normal')
-    pdf.text(truncate(art.bezeichnung, 28), x, y + 11)
+    pdf.text(truncate(label.line1, 30), x, y + 5)
+    if (label.line2) {
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(truncate(label.line2, 30), x, y + 11)
+    }
     pdf.setFontSize(FONT_SIZE - 1)
-    pdf.text(truncate(art.barcode || art.artikelnummer, 28), x, y + 17)
+    pdf.setFont('helvetica', 'normal')
+    pdf.text(truncate(art.barcode || art.artikelnummer, 28), x, y + (label.line2 ? 17 : 11))
 
     labelIndex++
   }
