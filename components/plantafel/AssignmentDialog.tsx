@@ -13,14 +13,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
+import SearchableSelect from './SearchableSelect'
 import { Trash2 } from 'lucide-react'
 import type { PlantafelEvent, CreatePlantafelAssignmentRequest } from './types'
 import type { Employee, Project } from '@/types/main'
@@ -170,32 +164,30 @@ export default function AssignmentDialog({
           {/* Projekt */}
           <div className="space-y-1.5">
             <Label>Projekt *</Label>
-            <Select value={form.projektId} onValueChange={(v) => updateField('projektId', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Projekt auswählen" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeProjects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={form.projektId}
+              onValueChange={(v) => updateField('projektId', v)}
+              options={activeProjects.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="Projekt auswählen"
+              emptyLabel="Kein Projekt gefunden"
+              searchPlaceholder="Projekt suchen..."
+            />
           </div>
 
           {/* Mitarbeiter */}
           <div className="space-y-1.5">
             <Label>Mitarbeiter</Label>
-            <Select value={form.mitarbeiterId} onValueChange={(v) => updateField('mitarbeiterId', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Nicht zugewiesen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Nicht zugewiesen</SelectItem>
-                {activeEmployees.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={form.mitarbeiterId || '__none__'}
+              onValueChange={(v) => updateField('mitarbeiterId', v === '__none__' ? '' : v)}
+              options={[
+                { value: '__none__', label: 'Nicht zugewiesen' },
+                ...activeEmployees.map((e) => ({ value: e.id, label: e.name })),
+              ]}
+              placeholder="Mitarbeiter auswählen"
+              emptyLabel="Kein Mitarbeiter gefunden"
+              searchPlaceholder="Mitarbeiter suchen..."
+            />
           </div>
 
           {/* Zeitraum */}

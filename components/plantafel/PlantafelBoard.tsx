@@ -233,7 +233,7 @@ export default function PlantafelBoard() {
       </div>
 
       {/* Hauptbereich */}
-      <div className="relative rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800" style={{ minHeight: '60vh' }}>
+      <div className="relative rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
         {/* Kalender */}
         <div className="p-2 sm:p-4 overflow-x-auto" style={{ height: '70vh' }}>
           {isLoading ? (
