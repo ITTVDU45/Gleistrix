@@ -70,6 +70,14 @@ export default function EinstellungenPage() {
   const [configByKey, setConfigByKey] = useState<Record<string, any>>({});
   const [notificationLogs, setNotificationLogs] = useState<any[]>([]);
 
+  // Aktiven Tab aus URL übernehmen (z.B. nach OAuth-Redirect von Integrationen)
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'integrations' || tab === 'users' || tab === 'activity') {
+      setActiveTab(tab);
+    }
+  }, []);
+
   const fetchNotifications = async () => {
     try {
       const data = await NotificationsApi.getSettings();

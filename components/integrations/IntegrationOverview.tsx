@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,6 +16,13 @@ import MicrosoftIntegrationPanel from './MicrosoftIntegrationPanel'
 
 export default function IntegrationOverview() {
   const [selectedId, setSelectedId] = useState<IntegrationId | null>(null)
+
+  useEffect(() => {
+    const integration = new URLSearchParams(window.location.search).get('integration')
+    if (integration === 'microsoft' || integration === 'datev') {
+      setSelectedId(integration)
+    }
+  }, [])
 
   if (selectedId === 'datev') {
     return (

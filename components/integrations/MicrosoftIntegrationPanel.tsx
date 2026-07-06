@@ -21,6 +21,10 @@ import {
   Building2,
   MessageSquare,
   AlertTriangle,
+  Link,
+  Unlink,
+  User,
+  RefreshCw,
 } from 'lucide-react'
 
 type MicrosoftModule = 'outlook' | 'calendar' | 'onedrive' | 'sharepoint' | 'teams'
@@ -86,6 +90,14 @@ const DEFAULT_FORM: MicrosoftFormState = {
   subjectTemplate: '{{projektName}} - {{rolle}}',
 }
 
+interface ConnectionInfo {
+  status: string
+  connectedUser?: { displayName?: string; email?: string } | null
+  enabledModules?: string[]
+  lastCheckedAt?: string | null
+  lastError?: string | null
+}
+
 export default function MicrosoftIntegrationPanel() {
   const [form, setForm] = useState<MicrosoftFormState>(DEFAULT_FORM)
   const [status, setStatus] = useState<string>('disconnected')
@@ -93,6 +105,10 @@ export default function MicrosoftIntegrationPanel() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo | null>(null)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
 
   const loadConfig = useCallback(async () => {
     try {
@@ -125,7 +141,74 @@ export default function MicrosoftIntegrationPanel() {
     }
   }, [])
 
+  const checkConnectionStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integrations/microsoft/status')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.data) {
+          setConnectionInfo(data.data)
+          setStatus(data.data.status || 'disconnected')
+        }
+      }
+    } catch {
+      // silently fail
+    }
+  }, [])
+
+  const handleConnect = async () => {
+    setIsConnecting(true)
+    setConnectionError(null)
+    try {
+      const res = await fetch('/api/integrations/microsoft/auth')
+      const data = await res.json()
+      if (data.success && data.data?.authUrl) {
+        window.location.href = data.data.authUrl
+      } else {
+        setConnectionError(data.error || 'Verbindung konnte nicht gestartet werden')
+      }
+    } catch {
+      setConnectionError('Netzwerkfehler beim Verbinden')
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true)
+    try {
+      const res = await fetch('/api/integrations/microsoft/disconnect', { method: 'POST' })
+      if (res.ok) {
+        setStatus('disconnected')
+        setConnectionInfo(null)
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setIsDisconnecting(false)
+    }
+  }
+
   useEffect(() => { loadConfig() }, [loadConfig])
+
+  useEffect(() => {
+    if (!isLoading) {
+      checkConnectionStatus()
+    }
+  }, [isLoading, checkConnectionStatus])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') === 'true') {
+      checkConnectionStatus()
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    const error = params.get('error')
+    if (error) {
+      setConnectionError(decodeURIComponent(error))
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [checkConnectionStatus])
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -271,6 +354,92 @@ export default function MicrosoftIntegrationPanel() {
               )
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Verbindung */}
+      <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+            <Link className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            Microsoft 365 Verbindung
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {status === 'connected' && connectionInfo?.connectedUser ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 p-4">
+                <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                  <User className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
+                    {connectionInfo.connectedUser.displayName || 'Verbunden'}
+                  </p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 truncate">
+                    {connectionInfo.connectedUser.email}
+                  </p>
+                </div>
+                <Badge variant="outline" className="border-emerald-300 text-emerald-700 dark:border-emerald-600 dark:text-emerald-300 shrink-0">
+                  Verbunden
+                </Badge>
+              </div>
+              {connectionInfo.lastCheckedAt && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Zuletzt geprüft: {new Date(connectionInfo.lastCheckedAt).toLocaleString('de-DE')}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => checkConnectionStatus()}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Status prüfen
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  disabled={isDisconnecting}
+                  className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
+                >
+                  {isDisconnecting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Unlink className="h-4 w-4 mr-1" />}
+                  Trennen
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {status === 'error' && (
+                <div className="flex items-start gap-3 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 p-3">
+                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+                  <p className="text-sm text-red-700 dark:text-red-400">
+                    {connectionInfo?.lastError || 'Verbindung fehlerhaft — bitte erneut verbinden'}
+                  </p>
+                </div>
+              )}
+              {connectionError && (
+                <div className="flex items-start gap-3 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 p-3">
+                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+                  <p className="text-sm text-red-700 dark:text-red-400">{connectionError}</p>
+                </div>
+              )}
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Verbinden Sie Ihr Microsoft 365-Konto, um Outlook, Kalender, OneDrive, SharePoint und Teams zu nutzen.
+              </p>
+              <Button
+                onClick={handleConnect}
+                disabled={isConnecting || !form.clientId}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isConnecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Cloud className="h-4 w-4 mr-2" />}
+                Mit Microsoft 365 verbinden
+              </Button>
+              {!form.clientId && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Bitte zuerst die Azure App-Registrierung konfigurieren und speichern.
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
