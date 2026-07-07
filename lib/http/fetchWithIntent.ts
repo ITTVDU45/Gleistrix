@@ -21,6 +21,7 @@ export type IntentKey =
   | 'lager:unit:create' | 'lager:unit:update' | 'lager:unit:delete' | 'lager:unit:bulk'
   | 'lager:article-type:create'
   | 'plantafel:create' | 'plantafel:update' | 'plantafel:delete'
+  | 'plantafel:meeting:create' | 'plantafel:meeting:update' | 'plantafel:meeting:delete'
   | 'integrations:gaeb-config'
   | 'gaeb:upload' | 'gaeb:import-delete' | 'gaeb:validate' | 'gaeb:analyze' | 'gaeb:assign' | 'gaeb:ask';
 

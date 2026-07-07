@@ -17,6 +17,7 @@ import PlantafelToolbar from './PlantafelToolbar'
 import YearView from './YearView'
 import DayView from './DayView'
 import ProjectDayEditDialog, { type ProjectEditorTab } from './ProjectDayEditDialog'
+import MeetingDialog from './MeetingDialog'
 import DocumentDropUploadDialog from './DocumentDropUploadDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
@@ -79,7 +80,10 @@ export default function PlantafelBoard() {
     createAssignment,
     updateAssignment,
     deleteAssignment,
+    fetchData,
   } = usePlantafel()
+
+  const [meetingOpen, setMeetingOpen] = useState(false)
 
   const { employees } = useEmployees()
   const { projects, fetchProjects } = useProjects()
@@ -564,6 +568,11 @@ export default function PlantafelBoard() {
             <span className="hidden sm:inline">Neuer Einsatz</span>
           </Button>
 
+          <Button size="sm" variant="outline" onClick={() => setMeetingOpen(true)}>
+            <Video className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Meeting planen</span>
+          </Button>
+
           {calendarView === 'day' && (
             <Button size="sm" variant="outline" onClick={handleOpenProjectDialog}>
               <FolderPlus className="h-4 w-4 sm:mr-1" />
@@ -690,6 +699,17 @@ export default function PlantafelBoard() {
           onEinsatzCreate={createAssignment}
           onEinsatzUpdate={updateAssignment}
           onEinsatzDelete={deleteAssignment}
+        />
+      )}
+
+      {/* Meeting planen (Teams-Online-Meeting mit Mitarbeitern + externen E-Mails) */}
+      {meetingOpen && (
+        <MeetingDialog
+          open={meetingOpen}
+          onClose={() => setMeetingOpen(false)}
+          onCreated={fetchData}
+          employees={employees}
+          defaultDate={format(currentDate, 'yyyy-MM-dd')}
         />
       )}
 

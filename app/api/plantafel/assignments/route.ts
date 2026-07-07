@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
+import PlantafelMeeting from '@/lib/models/PlantafelMeeting'
 import { Holiday } from '@/lib/models/Holiday'
 import { getIslamicHolidaysInRange, holidaysToPlantafelEvents, type PlantafelHoliday } from '@/lib/services/plantafel/holidayService'
 import { getPlannedColor, detectEntryShift } from '@/lib/plantafel/projectColors'
@@ -123,6 +124,45 @@ export async function GET(req: NextRequest) {
 
   const view = searchParams.get('view') || 'team'
 
+  // Meetings (projektunabhängig) – je Mitarbeiter-Teilnehmer eine Zeile; nur Team-Ansicht
+  const meetingEvents: Record<string, unknown>[] = []
+  if (view === 'team') {
+    const meetings = await PlantafelMeeting.find({
+      von: { $lte: new Date(to) },
+      bis: { $gte: new Date(from) },
+    }).lean()
+
+    for (const m of meetings as Record<string, unknown>[]) {
+      const attendees = (Array.isArray(m.attendees) ? m.attendees : []) as Array<{ employeeId?: string | null; name?: string; email?: string }>
+      const joinUrl = (m.msCalendar as { joinUrl?: string } | null)?.joinUrl ?? undefined
+      const employeeAttendees = attendees.filter((a) => a.employeeId)
+      const externals = attendees.filter((a) => !a.employeeId).map((a) => a.name || a.email).filter(Boolean)
+      const summary = [
+        employeeAttendees.map((a) => a.name).filter(Boolean).join(', '),
+        externals.length ? `extern: ${externals.join(', ')}` : '',
+      ].filter(Boolean).join(' · ')
+      const lanes = employeeAttendees.length > 0
+        ? employeeAttendees.map((a) => String(a.employeeId))
+        : ['__unassigned__']
+
+      for (const laneId of lanes) {
+        meetingEvents.push({
+          id: `meeting-${String(m._id)}-${laneId}`,
+          title: (m.titel as string) || 'Meeting',
+          start: m.von,
+          end: m.bis,
+          resourceId: laneId,
+          type: 'meeting',
+          sourceType: 'meeting',
+          sourceId: String(m._id),
+          notes: [(m.notizen as string) || '', summary].filter(Boolean).join(' — '),
+          msJoinUrl: joinUrl,
+          hasConflict: false,
+        })
+      }
+    }
+  }
+
   const showAbsences = searchParams.get('showAbsences') !== 'false'
   const showGermanHolidays = searchParams.get('showGermanHolidays') !== 'false'
   const showIslamicHolidays = searchParams.get('showIslamicHolidays') === 'true'
@@ -242,7 +282,7 @@ export async function GET(req: NextRequest) {
       })
     : []
 
-  const events = [...einsatzEvents, ...absenceEvents, ...holidayEvents, ...projectEvents]
+  const events = [...einsatzEvents, ...meetingEvents, ...absenceEvents, ...holidayEvents, ...projectEvents]
   const resources = view === 'team'
     ? employees.map((e) => ({
         resourceId: String(e._id),

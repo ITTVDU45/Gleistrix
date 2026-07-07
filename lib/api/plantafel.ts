@@ -44,4 +44,20 @@ export const PlantafelApi = {
 
   deleteAssignment: (id: string) =>
     delJSON<ApiResponse<null>>(`/api/plantafel/assignments/${id}`, 'plantafel:delete'),
+
+  createMeeting: (data: {
+    titel: string
+    von: string
+    bis: string
+    notizen?: string
+    attendees: Array<{ employeeId?: string | null; name?: string; email: string }>
+  }) =>
+    postJSON<ApiResponse<{ id: string }>>(
+      '/api/plantafel/meetings',
+      data as unknown as Record<string, unknown>,
+      'plantafel:meeting:create'
+    ),
+
+  deleteMeeting: (id: string) =>
+    delJSON<ApiResponse<null>>(`/api/plantafel/meetings/${id}`, 'plantafel:meeting:delete'),
 }
