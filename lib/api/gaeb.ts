@@ -23,6 +23,8 @@ export interface GaebConfigResponse {
   data: {
     settings: GaebIntegrationSettings
     status: string
+    /** Ob die native XSD-Engine (libxmljs2) verfügbar ist (nur GET). */
+    xsdEngineAvailable?: boolean
   }
 }
 

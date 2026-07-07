@@ -31,6 +31,15 @@ function optionalRequire(moduleName: string): unknown {
   }
 }
 
+/** Sichere libxml-Parse-Optionen: kein Netzwerk, kein DTD/Entity-Laden (XXE). */
+const SAFE_PARSE_OPTS = { nonet: true, dtdload: false, dtdvalid: false, noent: false, replaceEntities: false }
+
+/** Ob die native XSD-Engine (libxmljs2) verfügbar ist. */
+export function isXsdEngineAvailable(): boolean {
+  const lib = optionalRequire('libxmljs2') as { parseXml?: unknown } | null
+  return Boolean(lib && typeof lib.parseXml === 'function')
+}
+
 export async function validateAgainstXsd(
   rawXml: string,
   xsdPath?: string
@@ -40,7 +49,7 @@ export async function validateAgainstXsd(
   }
 
   const libxml = optionalRequire('libxmljs2') as
-    | { parseXml: (s: string) => { validate: (schema: unknown) => boolean; validationErrors: unknown[] } }
+    | { parseXml: (s: string, opts?: object) => { validate: (schema: unknown) => boolean; validationErrors: unknown[] } }
     | null
   if (!libxml || typeof libxml.parseXml !== 'function') {
     return { available: false, reason: 'libxmljs2 nicht installiert – strukturelle Validierung wird verwendet' }
@@ -59,8 +68,8 @@ export async function validateAgainstXsd(
   }
 
   try {
-    const xmlDoc = libxml.parseXml(rawXml)
-    const xsdDoc = libxml.parseXml(xsdContent)
+    const xmlDoc = libxml.parseXml(rawXml, SAFE_PARSE_OPTS)
+    const xsdDoc = libxml.parseXml(xsdContent, SAFE_PARSE_OPTS)
     const valid = xmlDoc.validate(xsdDoc)
     if (valid) {
       return { available: true, errors: [] }

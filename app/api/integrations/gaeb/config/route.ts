@@ -4,6 +4,7 @@ import dbConnect from '@/lib/dbConnect'
 import { requireAuth } from '@/lib/security/requireAuth'
 import IntegrationConfig from '@/lib/models/IntegrationConfig'
 import { mergeGaebSettings } from '@/lib/gaeb/registry'
+import { isXsdEngineAvailable } from '@/lib/gaeb/validator/xsdValidator'
 import type { GaebIntegrationSettings } from '@/types/gaeb'
 
 const INTEGRATION_ID = 'gaeb'
@@ -33,7 +34,10 @@ export async function GET(req: NextRequest) {
   const settings = mergeGaebSettings((doc?.config as Partial<GaebIntegrationSettings>) ?? null)
   const status = (doc?.status as string) ?? 'disconnected'
 
-  return NextResponse.json({ success: true, data: { settings, status } })
+  return NextResponse.json({
+    success: true,
+    data: { settings, status, xsdEngineAvailable: isXsdEngineAvailable() },
+  })
 }
 
 export async function POST(req: NextRequest) {

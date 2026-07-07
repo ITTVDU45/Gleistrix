@@ -29,6 +29,7 @@ export default function GaebIntegrationPanel() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [importRefresh, setImportRefresh] = useState(0)
+  const [xsdAvailable, setXsdAvailable] = useState(false)
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -37,6 +38,7 @@ export default function GaebIntegrationPanel() {
       const res = await GaebApi.config.get()
       setSettings(res.data.settings)
       setStatus(res.data.status)
+      setXsdAvailable(Boolean(res.data.xsdEngineAvailable))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Konfiguration konnte nicht geladen werden')
     } finally {
@@ -184,9 +186,21 @@ export default function GaebIntegrationPanel() {
         <CardContent className="space-y-4 p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="font-medium text-slate-900 dark:text-white">Strikte XSD-Validierung</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-slate-900 dark:text-white">Strikte XSD-Validierung</p>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    xsdAvailable
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                  }`}
+                >
+                  {xsdAvailable ? 'XSD-Engine aktiv' : 'Fallback (strukturell)'}
+                </span>
+              </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Importe werden gegen offizielle GAEB-XSD-Schemata geprüft.
+                {!xsdAvailable && ' XSD-Schemata unter lib/gaeb/xsd/ ablegen, um die Prüfung zu aktivieren.'}
               </p>
             </div>
             <Switch
