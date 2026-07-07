@@ -5,6 +5,7 @@ import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
 import { Holiday } from '@/lib/models/Holiday'
 import { getIslamicHolidaysInRange, holidaysToPlantafelEvents, type PlantafelHoliday } from '@/lib/services/plantafel/holidayService'
 import { getPlannedColor, detectEntryShift } from '@/lib/plantafel/projectColors'
+import { syncAssignmentToCalendar } from '@/lib/services/microsoft/plantafel-sync'
 import mongoose from 'mongoose'
 
 const VACATION_TYPE_KEYWORDS: { keyword: string; type: 'krankheit' | 'sonderurlaub' | 'unbezahlt' }[] = [
@@ -78,6 +79,7 @@ export async function GET(req: NextRequest) {
     setupDate: a.setupDate,
     dismantleDate: a.dismantleDate,
     einsatzLinkId: a.einsatzLinkId ?? undefined,
+    msJoinUrl: (a.msCalendar as { joinUrl?: string } | null)?.joinUrl ?? undefined,
     hasConflict: false,
   }))
 
@@ -315,6 +317,9 @@ export async function POST(req: NextRequest) {
     dismantleDate: dismantleDate || null,
     einsatzLinkId: einsatzLinkId || null,
   })
+
+  // Best-effort: Outlook-/Teams-Termin im verbundenen Postfach erzeugen
+  await syncAssignmentToCalendar(String(assignment._id))
 
   return NextResponse.json({ success: true, data: { id: String(assignment._id) } }, { status: 201 })
 }

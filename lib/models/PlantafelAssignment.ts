@@ -14,6 +14,17 @@ const plantafelAssignmentSchema = new mongoose.Schema({
   dismantleDate: { type: String, default: null },
   // Verknüpfung zum automatisch erzeugten Projekt-Zeiteintrag (Dual-Write)
   einsatzLinkId: { type: String, default: null },
+  // Microsoft-365-Kalender-/Teams-Sync (Outlook-Termin im verbundenen Postfach)
+  msCalendar: {
+    type: {
+      eventId: { type: String, default: null },
+      iCalUId: { type: String, default: null },
+      joinUrl: { type: String, default: null },
+      lastSyncedAt: { type: Date, default: null },
+      source: { type: String, enum: ['plantafel', 'outlook'], default: 'plantafel' },
+    },
+    default: null,
+  },
 }, {
   timestamps: true,
 })

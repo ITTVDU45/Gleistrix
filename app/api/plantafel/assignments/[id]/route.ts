@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
+import { syncAssignmentToCalendar, removeAssignmentFromCalendar } from '@/lib/services/microsoft/plantafel-sync'
 import mongoose from 'mongoose'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -51,6 +52,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ success: false, error: 'Einsatz nicht gefunden' }, { status: 404 })
   }
 
+  // Best-effort: verknüpften Outlook-/Teams-Termin aktualisieren (oder anlegen)
+  await syncAssignmentToCalendar(id)
+
   return NextResponse.json({ success: true, data: null })
 }
 
@@ -68,6 +72,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!result) {
     return NextResponse.json({ success: false, error: 'Einsatz nicht gefunden' }, { status: 404 })
   }
+
+  // Best-effort: verknüpften Outlook-/Teams-Termin entfernen
+  await removeAssignmentFromCalendar((result as { msCalendar?: { eventId?: string | null } | null }).msCalendar)
 
   return NextResponse.json({ success: true, data: null })
 }
