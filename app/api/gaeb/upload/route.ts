@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
   }
 
   const blob = file as File
+  const projectIdRaw = formData.get('projectId')
+  const projectId = typeof projectIdRaw === 'string' && projectIdRaw.trim() ? projectIdRaw.trim() : undefined
   const validation = validateGaebUpload({
     name: blob.name,
     sizeBytes: blob.size,
@@ -61,6 +63,7 @@ export async function POST(req: NextRequest) {
   const job = await GaebImportJob.create({
     fileId: 'pending',
     status: 'hochgeladen',
+    assignment: projectId ? { projectId } : null,
     createdByUserId: (auth.token as { sub?: string })?.sub ?? null,
   })
   const jobId = String(job._id)

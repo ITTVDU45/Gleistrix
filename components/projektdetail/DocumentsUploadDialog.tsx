@@ -3,7 +3,9 @@ import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Upload, X, FileText, Image } from 'lucide-react';
+import { Upload, X, FileText, Image, FileCode2 } from 'lucide-react';
+import { useGaebAccess } from '../gaeb/useGaebAccess';
+import GaebImportPanel from '../gaeb/GaebImportPanel';
 
 interface Props {
   open: boolean;
@@ -32,6 +34,8 @@ export default function DocumentsUploadDialog({ open, onOpenChange, onUpload, pr
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { isGaebAdmin } = useGaebAccess();
+  const [mode, setMode] = useState<'manuell' | 'gaeb'>('manuell');
 
   const addFiles = (newFiles: FileList | File[]) => {
     const list = Array.isArray(newFiles) ? newFiles : Array.from(newFiles);
@@ -130,7 +134,34 @@ export default function DocumentsUploadDialog({ open, onOpenChange, onUpload, pr
       <DialogContent className="w-[92vw] max-w-6xl max-h-[90vh] rounded-2xl border-0 shadow-2xl bg-white dark:bg-slate-800 flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="shrink-0 pb-4 pt-6 px-6 border-b border-slate-100 dark:border-slate-700">
           <DialogTitle className="text-xl font-semibold">Dokumente hochladen</DialogTitle>
+          {isGaebAdmin && (
+            <div className="mt-3 inline-flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setMode('manuell')}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === 'manuell' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+              >
+                Dokument(e) hochladen
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('gaeb')}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === 'gaeb' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+              >
+                <FileCode2 className="h-4 w-4" /> GAEB-LV importieren
+              </button>
+            </div>
+          )}
         </DialogHeader>
+
+        {mode === 'gaeb' ? (
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+            <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
+              GAEB-Datei importieren – wird validiert, geparst und diesem Projekt als Ausschreibung zugeordnet.
+            </p>
+            <GaebImportPanel projectId={projectId} />
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <input
             ref={fileInputRef}
@@ -222,6 +253,7 @@ export default function DocumentsUploadDialog({ open, onOpenChange, onUpload, pr
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

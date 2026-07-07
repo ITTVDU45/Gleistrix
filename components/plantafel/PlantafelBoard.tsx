@@ -24,7 +24,7 @@ import ProjectFilterControl from './ProjectFilterControl'
 import PlantafelLegend from './PlantafelLegend'
 import EventTooltip from './EventTooltip'
 import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR } from '@/lib/plantafel/projectColors'
-import ProjectCreateForm from '@/components/ProjectCreateForm'
+import ProjectCreateWithGaeb from '@/components/ProjectCreateWithGaeb'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus, Upload } from 'lucide-react'
@@ -696,7 +696,7 @@ export default function PlantafelBoard() {
       <Dialog open={isProjectDialogOpen} onOpenChange={(open) => !open && setIsProjectDialogOpen(false)}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogTitle>Neues Projekt erstellen</DialogTitle>
-          <ProjectCreateForm
+          <ProjectCreateWithGaeb
             onSuccess={handleProjectCreated}
             onCancel={() => setIsProjectDialogOpen(false)}
             initialValues={{

@@ -47,6 +47,22 @@ export interface GaebUploadResult {
   status: GaebImportStatus
 }
 
+export interface GaebAusschreibungListItem {
+  id: string
+  projectId: string
+  kind: string
+  source: string
+  name: string
+  version: string | null
+  phase: string | null
+  importJobId: string | null
+  boqId: string | null
+  positionCount: number
+  netSum: number | null
+  currency: string
+  createdAt: string
+}
+
 export const GaebApi = {
   config: {
     get: () => getJSON<GaebConfigResponse>('/api/integrations/gaeb/config'),
@@ -58,10 +74,11 @@ export const GaebApi = {
       ),
   },
 
-  /** GAEB-Datei hochladen (FormData). */
-  upload: async (file: File): Promise<{ success: boolean; data: GaebUploadResult }> => {
+  /** GAEB-Datei hochladen (FormData). Optional projektbezogen. */
+  upload: async (file: File, projectId?: string): Promise<{ success: boolean; data: GaebUploadResult }> => {
     const form = new FormData()
     form.append('file', file)
+    if (projectId) form.append('projectId', projectId)
     const res = await fetchWithIntent('/api/gaeb/upload', {
       method: 'POST',
       intent: 'gaeb:upload',
@@ -72,6 +89,14 @@ export const GaebApi = {
       throw new Error(json?.error || 'Upload fehlgeschlagen')
     }
     return json
+  },
+
+  /** Projektbezogene GAEB-Ausschreibungen/LVs. */
+  ausschreibungen: {
+    listForProject: (projectId: string) =>
+      getJSON<{ success: boolean; data: GaebAusschreibungListItem[] }>(
+        `/api/projects/${projectId}/ausschreibungen`
+      ),
   },
 
   imports: {

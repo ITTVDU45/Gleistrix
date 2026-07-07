@@ -19,6 +19,7 @@ import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import TechnikList from './TechnikList';
 import DocumentsCard from './projektdetail/DocumentsCard';
+import GaebAusschreibungenCard from './gaeb/GaebAusschreibungenCard';
 import VehicleAssignmentList from './VehicleAssignmentList';
 import { EditTimeEntryForm } from './EditTimeEntryForm';
 import { TimeEntryForm } from './TimeEntryForm';
@@ -1257,6 +1258,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               }
             }}
           />
+
+          {/* GAEB-Ausschreibungen / LV (blendet sich aus, wenn keine vorhanden) */}
+          <GaebAusschreibungenCard projectId={project.id as string} />
 
           {/* Technik */}
           <Card className="bg-white dark:bg-slate-800 border border-[#C0D4DE] dark:border-slate-700">

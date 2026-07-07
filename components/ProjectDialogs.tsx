@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import ProjectCreateForm from './ProjectCreateForm';
+import ProjectCreateWithGaeb from './ProjectCreateWithGaeb';
 import ProjectEditForm from './ProjectEditForm';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import type { Project } from '../types';
@@ -29,7 +29,7 @@ export default function ProjectDialogs({ projects }: ProjectDialogsProps) {
       <Dialog open={createOpen} onOpenChange={open => !open && handleClose()}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogTitle>Neues Projekt erstellen</DialogTitle>
-          <ProjectCreateForm onSuccess={handleClose} onCancel={handleClose} />
+          <ProjectCreateWithGaeb onSuccess={handleClose} onCancel={handleClose} />
         </DialogContent>
       </Dialog>
       <Dialog open={!!editId && !!editProject} onOpenChange={open => !open && handleClose()}>

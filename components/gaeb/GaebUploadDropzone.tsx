@@ -8,11 +8,13 @@ import { GAEB_ALLOWED_EXTENSIONS } from '@/lib/gaeb/upload'
 interface GaebUploadDropzoneProps {
   onUploaded: (result: GaebUploadResult) => void
   disabled?: boolean
+  /** Optionale Projektbindung – erzeugt eine projektbezogene Ausschreibung. */
+  projectId?: string
 }
 
 const ACCEPT = GAEB_ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(',')
 
-export default function GaebUploadDropzone({ onUploaded, disabled }: GaebUploadDropzoneProps) {
+export default function GaebUploadDropzone({ onUploaded, disabled, projectId }: GaebUploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -22,7 +24,7 @@ export default function GaebUploadDropzone({ onUploaded, disabled }: GaebUploadD
     setIsUploading(true)
     setError('')
     try {
-      const res = await GaebApi.upload(file)
+      const res = await GaebApi.upload(file, projectId)
       onUploaded(res.data)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload fehlgeschlagen')
