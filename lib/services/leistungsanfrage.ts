@@ -6,9 +6,19 @@
  * eingefügte Seitentext (Fallback, falls die Seite Login-geschützt ist).
  */
 
+import { extractText, getDocumentProxy } from 'unpdf'
+
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 const DEFAULT_OPENAI_MODEL = 'gpt-4o'
 const MAX_TEXT_CHARS = 16000
+
+/** Text aus einer hochgeladenen PDF-Leistungsanfrage extrahieren. */
+export async function extractTextFromPdf(data: Uint8Array): Promise<string> {
+  const pdf = await getDocumentProxy(data)
+  const { text } = await extractText(pdf, { mergePages: true })
+  const merged = Array.isArray(text) ? text.join('\n') : String(text || '')
+  return merged.replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT_CHARS)
+}
 
 export interface LeistungsanfrageResult {
   configured: boolean

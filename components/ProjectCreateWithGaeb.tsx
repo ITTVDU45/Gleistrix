@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FileCode2, Sparkles, Link2, Loader2, AlertTriangle } from 'lucide-react'
+import { FileCode2, Sparkles, Link2, Loader2, AlertTriangle, FileUp } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import ProjectCreateForm from './ProjectCreateForm'
@@ -39,40 +39,49 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
   const [reqError, setReqError] = useState('')
   const [reqExtra, setReqExtra] = useState<{ summe?: string; aufgaben?: string; ansprechpartner?: string } | null>(null)
 
-  const analyzeRequest = async () => {
-    const body = reqText.trim() ? { text: reqText.trim() } : reqUrl.trim() ? { url: reqUrl.trim() } : null
-    if (!body || isAnalyzing) return
+  const applyExtracted = (json: { data?: ProjectPrefill; extra?: typeof reqExtra }) => {
+    const data = (json.data || {}) as ProjectPrefill
+    const merged: ProjectPrefill = {}
+    for (const [k, v] of Object.entries(data)) {
+      if (typeof v === 'string' && v.trim()) (merged as Record<string, unknown>)[k] = v.trim()
+    }
+    setPrefill((prev) => ({ ...prev, ...merged }))
+    setFormKey((k) => k + 1)
+    setReqExtra(json.extra || null)
+    setShowRequest(false)
+  }
+
+  const runAnalyze = async (fetchInit: RequestInit) => {
+    if (isAnalyzing) return
     setIsAnalyzing(true)
     setReqError('')
     setReqExtra(null)
     try {
-      const res = await fetch('/api/projects/prefill-from-request', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      })
+      const res = await fetch('/api/projects/prefill-from-request', { credentials: 'include', method: 'POST', ...fetchInit })
       const json = await res.json().catch(() => ({}))
       if (!res.ok || !json?.success) {
         setReqError(json?.error || 'Auswertung fehlgeschlagen.')
-        if (json?.error && /login/i.test(String(json.error))) setShowTextFallback(true)
+        if (json?.error && /login|browser geladen/i.test(String(json.error))) setShowTextFallback(true)
         return
       }
-      const data = (json.data || {}) as ProjectPrefill
-      // Nur nicht-leere Felder übernehmen
-      const merged: ProjectPrefill = {}
-      for (const [k, v] of Object.entries(data)) {
-        if (typeof v === 'string' && v.trim()) (merged as Record<string, unknown>)[k] = v.trim()
-      }
-      setPrefill((prev) => ({ ...prev, ...merged }))
-      setFormKey((k) => k + 1)
-      setReqExtra(json.extra || null)
-      setShowRequest(false)
+      applyExtracted(json)
     } catch {
       setReqError('Netzwerkfehler bei der Auswertung.')
     } finally {
       setIsAnalyzing(false)
     }
+  }
+
+  const analyzeRequest = () => {
+    const body = reqText.trim() ? { text: reqText.trim() } : reqUrl.trim() ? { url: reqUrl.trim() } : null
+    if (!body) return
+    runAnalyze({ headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  }
+
+  const analyzePdf = (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    runAnalyze({ body: fd })
   }
 
   const handleImported = ({ boq, upload }: { boq: { projectName?: string } | null; upload: { importJobId: string } }) => {
@@ -130,7 +139,7 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
           <div>
             <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Aus Leistungsanfrage vorbefüllen (KI)</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Link zur Leistungsanfrage einfügen – relevante Felder werden automatisch übernommen.
+              Link, PDF oder Seitentext der Leistungsanfrage – relevante Felder werden automatisch übernommen.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => setShowRequest((s) => !s)}>
@@ -157,13 +166,30 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
               </Button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowTextFallback((s) => !s)}
-              className="text-xs text-slate-500 underline-offset-2 hover:underline dark:text-slate-400"
-            >
-              {showTextFallback ? 'Text-Eingabe ausblenden' : 'Seite Login-geschützt? Seitentext einfügen'}
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className={`inline-flex cursor-pointer items-center gap-1 text-xs text-slate-600 hover:underline dark:text-slate-300 ${isAnalyzing ? 'pointer-events-none opacity-60' : ''}`}>
+                <FileUp className="h-3.5 w-3.5" /> PDF hochladen
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  disabled={isAnalyzing}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) analyzePdf(f)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              <span className="text-xs text-slate-300 dark:text-slate-600">·</span>
+              <button
+                type="button"
+                onClick={() => setShowTextFallback((s) => !s)}
+                className="text-xs text-slate-500 underline-offset-2 hover:underline dark:text-slate-400"
+              >
+                {showTextFallback ? 'Text-Eingabe ausblenden' : 'Seite Login-geschützt? Seitentext einfügen'}
+              </button>
+            </div>
 
             {showTextFallback && (
               <textarea
