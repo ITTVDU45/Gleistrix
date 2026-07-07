@@ -72,6 +72,13 @@ export async function POST(req: NextRequest) {
     updatedConfig.clientSecret = existingConfig.clientSecret
   }
 
+  // Verbindungs-/Laufzeitdaten beim Speichern der Einstellungen NICHT verwerfen
+  // (sonst geht die bestehende Microsoft-365-Verbindung verloren).
+  if (existingConfig.tokens) updatedConfig.tokens = existingConfig.tokens
+  if (existingConfig.connectedUser) updatedConfig.connectedUser = existingConfig.connectedUser
+  if (existingConfig.oauthState) updatedConfig.oauthState = existingConfig.oauthState
+  if (existingConfig.webhook) updatedConfig.webhook = existingConfig.webhook
+
   await IntegrationConfig.findOneAndUpdate(
     { integrationId: 'microsoft' },
     {
