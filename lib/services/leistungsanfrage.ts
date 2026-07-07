@@ -51,18 +51,43 @@ export async function fetchPageText(url: string): Promise<{ ok: boolean; text?: 
     if (!res.ok) return { ok: false, reason: `Seite nicht erreichbar (HTTP ${res.status}).` }
 
     const html = await res.text()
-    const text = htmlToText(html)
-    if (text.length < 200) {
+    // Sichtbarer Text + in der Seite eingebettete JSON-Daten (SPA-State), da
+    // Portale die Inhalte oft nicht als sichtbaren HTML-Text ausliefern.
+    const visible = htmlToText(html)
+    const embedded = extractEmbeddedJson(html)
+    const combined = [visible, embedded].filter(Boolean).join('\n').trim()
+
+    if (combined.length < 200) {
       return {
         ok: false,
         reason:
-          'Die Seite liefert kaum Text – vermutlich ist ein Login nötig. Bitte den Seitentext kopieren und unten einfügen.',
+          'Die Seite liefert kaum Text – vermutlich ist ein Login nötig oder die Inhalte werden erst im Browser geladen. Bitte den Seitentext kopieren und unten einfügen.',
       }
     }
-    return { ok: true, text: text.slice(0, MAX_TEXT_CHARS) }
+    return { ok: true, text: combined.slice(0, MAX_TEXT_CHARS) }
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : 'Laden fehlgeschlagen.' }
   }
+}
+
+/** In der Seite eingebettete JSON-Daten (SPA-State) grob extrahieren. */
+function extractEmbeddedJson(html: string): string {
+  const chunks: string[] = []
+  // <script type="application/json">…</script> und id="__NEXT_DATA__"
+  const scriptRe = /<script[^>]*(?:type=["']application\/json["']|id=["']__NEXT_DATA__["'])[^>]*>([\s\S]*?)<\/script>/gi
+  let m: RegExpExecArray | null
+  while ((m = scriptRe.exec(html)) !== null) {
+    const body = (m[1] || '').trim()
+    if (body.length > 20) chunks.push(body)
+  }
+  // Inline-State-Zuweisungen (window.__…__ = {…};)
+  const stateRe = /(?:window\.__[A-Z_]+__|__INITIAL_STATE__|__APP_STATE__)\s*=\s*(\{[\s\S]*?\})\s*;?\s*<\/script>/gi
+  while ((m = stateRe.exec(html)) !== null) {
+    const body = (m[1] || '').trim()
+    if (body.length > 20) chunks.push(body)
+  }
+  // Auf sinnvolle Länge begrenzen
+  return chunks.join('\n').slice(0, MAX_TEXT_CHARS)
 }
 
 function htmlToText(html: string): string {
