@@ -48,6 +48,9 @@ const EMPLOYEE_COLORS = [
 ]
 const UNASSIGNED_COLOR = '#64748b' // Nicht zugewiesen (slate)
 
+// Zeitraster oben bei 00:00 beginnen lassen.
+const SCROLL_TO_MIDNIGHT = new Date(1970, 0, 1, 0, 0, 0)
+
 /** Deterministische, konsistente Farbe je Mitarbeiter-ID. */
 function employeeColor(id?: string | null): string {
   if (!id) return UNASSIGNED_COLOR
@@ -659,7 +662,7 @@ export default function PlantafelBoard() {
       {/* Hauptbereich */}
       <div
         className="relative rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-        style={{ height: '70vh' }}
+        style={{ height: '82vh' }}
       >
         {/* Kalender */}
         <div className="h-full p-2 sm:p-4 overflow-auto">
@@ -700,6 +703,7 @@ export default function PlantafelBoard() {
               onView={() => {}}
               onSelectEvent={handleSelectEvent}
               onSelectSlot={handleSelectSlot}
+              scrollToTime={SCROLL_TO_MIDNIGHT}
               selectable
               eventPropGetter={eventStyleGetter}
               components={calendarComponents}

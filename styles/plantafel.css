@@ -88,6 +88,8 @@
 
 .rbc-timeslot-group {
   border-bottom: 1px solid var(--border, #f1f5f9);
+  /* Kompaktere Stundenzeilen → mehr Stunden ohne Scrollen sichtbar */
+  min-height: 30px;
 }
 
 .dark .rbc-timeslot-group {
@@ -117,6 +119,10 @@
 
 .rbc-allday-cell {
   min-height: 30px;
+  /* Projekt-Laufzeitbalken deckeln, damit sie nicht die halbe Karte einnehmen;
+     bei vielen Projekten wird innerhalb der Zeile gescrollt. */
+  max-height: 130px;
+  overflow-y: auto;
 }
 
 .rbc-toolbar {
