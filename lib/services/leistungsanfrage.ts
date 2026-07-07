@@ -162,15 +162,22 @@ function htmlToText(html: string): string {
 }
 
 const SYSTEM_PROMPT = [
-  'Du extrahierst Projekt-Stammdaten aus einer Leistungsanfrage (z.B. Deutsche Bahn Lieferantenportal).',
-  'Die Eingabe kann Freitext oder JSON aus einer Portal-API sein – werte beides aus.',
+  'Du extrahierst Projekt-Stammdaten aus einer Leistungsanfrage des Deutsche Bahn Lieferantenportals.',
+  'Die Eingabe kann Freitext oder JSON aus der Portal-API sein – werte beides aus.',
   'Gib ausschließlich gültiges JSON zurück mit genau diesen Feldern (fehlende Werte = leerer String):',
-  'name (Projekt-/Maßnahmenbezeichnung), auftraggeber (bestellende Firma/Stelle), baustelle (Leistungsort/Adresse),',
-  'auftragsnummer (Anfrage-/Bestell-/Ausschreibungsnummer), sapNummer, telefonnummer (Kontakt-Telefon),',
-  'ansprechpartner (Name der Kontaktperson), datumBeginn (Leistungsbeginn als YYYY-MM-DD), datumEnde (Leistungsende als YYYY-MM-DD),',
-  'summe (Auftragswert/Budget inkl. Währung als Text), aufgaben (Kurzbeschreibung der zu erledigenden Leistungen).',
-  'Datumsangaben immer als YYYY-MM-DD normalisieren. Nichts erfinden – nur was im Text steht.',
-].join(' ')
+  '- name: die Maßnahmenbezeichnung (Feld "Maßnahme", z.B. "Sicherungsleistung für Ortsbegehung"). NICHT die Maßnahmennummer.',
+  '- auftraggeber: die abrufende Stelle/Firma (Feld "Abrufer*in"/"DB InfraGO AG" o.ä.). NIEMALS der Lieferant (das sind wir).',
+  '- baustelle: Leistungsort/Örtlichkeit (Strecke, km, Bahnhof/Verkehrsstation aus Beschreibung, sonst "Raumlos").',
+  '- auftragsnummer: die Maßnahmennummer, meist mit "A" beginnend (z.B. "A708563").',
+  '- sapNummer: die "SAP-RV-Nummer" bzw. SAP-Nummer, rein numerisch (z.B. "92344854").',
+  '- telefonnummer: Telefonnummer des Ansprechpartners vor Ort.',
+  '- ansprechpartner: Name des Ansprechpartners vor Ort.',
+  '- datumBeginn / datumEnde: aus "Leistungszeitraum" (Start bzw. Ende), als YYYY-MM-DD.',
+  '- summe: "Gesamtsumme vorläufig netto" als deutsch formatierter Euro-Betrag mit Tausenderpunkt, Dezimalkomma und "€" (z.B. "2.025,00 €").',
+  '  Falls der Wert als reine Ganzzahl in Cent vorliegt (z.B. 202500), durch 100 teilen und so formatieren (→ "2.025,00 €").',
+  '- aufgaben: Kurzliste der Leistungsphasen/Positionen (kommagetrennt).',
+  'Datumsangaben immer als YYYY-MM-DD. Nichts erfinden – nur was in den Daten steht.',
+].join('\n')
 
 /** Extrahiert die Felder aus Freitext (Seiteninhalt) via OpenAI. */
 export async function extractFromText(text: string): Promise<LeistungsanfrageResult> {
