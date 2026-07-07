@@ -13,6 +13,8 @@ import { FileCode2, Save, Loader2, CheckCircle2, AlertTriangle, Info } from 'luc
 import { GaebApi } from '@/lib/api/gaeb'
 import { GAEB_VERSIONS, DEFAULT_GAEB_SETTINGS } from '@/lib/gaeb/registry'
 import type { GaebIntegrationSettings } from '@/types/gaeb'
+import GaebUploadDropzone from '@/components/gaeb/GaebUploadDropzone'
+import GaebImportHistory from '@/components/gaeb/GaebImportHistory'
 
 /** Alle über die Registry bekannten Phasen (dedupliziert, mit Label). */
 const ALL_PHASES = Array.from(
@@ -26,6 +28,7 @@ export default function GaebIntegrationPanel() {
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [importRefresh, setImportRefresh] = useState(0)
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -209,11 +212,33 @@ export default function GaebIntegrationPanel() {
         </CardContent>
       </Card>
 
-      {/* Upload/Import-Platzhalter (Folge-Phasen) */}
+      {/* Upload-Testbereich + Import-Historie */}
+      <Card className="rounded-2xl border-slate-200 dark:border-slate-700">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Upload-Testbereich</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 p-5 pt-0">
+          <GaebUploadDropzone
+            disabled={!settings.enabled}
+            onUploaded={() => setImportRefresh((k) => k + 1)}
+          />
+          {!settings.enabled && (
+            <p className="text-xs text-slate-400">
+              Aktivieren und speichern, um GAEB-Dateien hochladen zu können.
+            </p>
+          )}
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">Import-Historie</p>
+            <GaebImportHistory refreshKey={importRefresh} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Hinweis auf Folge-Phasen */}
       <div className="flex items-start gap-2 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        Upload-Testbereich, Validierungsprotokoll und Import-Historie folgen in den nächsten Ausbaustufen
-        (Upload/Storage → XSD-Validierung → Parsing → Vorschau).
+        Uploads werden aktuell gespeichert und in der Historie geführt. XSD-Validierung, Parsing der
+        LV-Struktur und Vorschau folgen in den nächsten Ausbaustufen.
       </div>
 
       {/* Speichern */}

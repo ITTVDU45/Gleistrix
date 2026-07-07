@@ -140,4 +140,10 @@ export function getArticleImageObjectKey(articleId: string, filename: string) {
   return `article-images/${articleId}/${date}/${safeFileName}`
 }
 
+export function getGaebObjectKey(importJobId: string, filename: string) {
+  const safeFileName = filename.replace(/[^a-zA-Z0-9-_.]/g, '_')
+  const date = new Date().toISOString().slice(0, 10)
+  return `gaeb/${date}/${importJobId}/${safeFileName}`
+}
+
 
