@@ -39,8 +39,10 @@ export function parseSecureXml(raw: string): SecureXmlResult {
   if (Buffer.byteLength(raw, 'utf8') > MAX_XML_BYTES) {
     return { ok: false, error: 'Datei überschreitet die maximale XML-Größe' }
   }
-  // DTD/Entity-Deklarationen ablehnen (XXE / Entity-Expansion)
-  const head = raw.slice(0, 4096).toLowerCase()
+  // DTD/Entity-Deklarationen ablehnen (XXE / Entity-Expansion).
+  // DOCTYPE steht laut XML-Spezifikation vor dem Wurzelelement; ein großzügiges
+  // 64-KB-Fenster deckt auch führende Kommentare/Whitespace ab.
+  const head = raw.slice(0, 64 * 1024).toLowerCase()
   if (head.includes('<!doctype') || head.includes('<!entity')) {
     return { ok: false, error: 'DOCTYPE/ENTITY in GAEB-Dateien nicht zulässig (Sicherheit)' }
   }

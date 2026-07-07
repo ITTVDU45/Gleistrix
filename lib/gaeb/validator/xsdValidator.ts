@@ -46,7 +46,11 @@ export async function validateAgainstXsd(
     return { available: false, reason: 'libxmljs2 nicht installiert – strukturelle Validierung wird verwendet' }
   }
 
-  const absXsd = path.join(XSD_ROOT, xsdPath)
+  // Path-Traversal absichern: aufgelöster Pfad muss unterhalb von XSD_ROOT liegen
+  const absXsd = path.resolve(XSD_ROOT, xsdPath)
+  if (absXsd !== XSD_ROOT && !absXsd.startsWith(XSD_ROOT + path.sep)) {
+    return { available: false, reason: 'Ungültiger XSD-Pfad' }
+  }
   let xsdContent: string
   try {
     xsdContent = await fs.readFile(absXsd, 'utf8')
