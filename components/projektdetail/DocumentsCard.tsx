@@ -6,13 +6,14 @@ import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '.
 import DocumentsUploadDialog from './DocumentsUploadDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { ConfirmDeleteModal } from '../ConfirmDeleteModal';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Cloud } from 'lucide-react';
 
 interface DocumentItem {
   id: string;
   name: string;
   description?: string;
   url?: string;
+  oneDriveUrl?: string;
 }
 
 interface DocumentsCardProps {
@@ -244,6 +245,17 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
                       >
                         Download
                       </a>
+                      {doc.oneDriveUrl && (
+                        <a
+                          href={doc.oneDriveUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 text-[#0364b8]"
+                          title="Diese Datei liegt auch in OneDrive"
+                        >
+                          <Cloud className="h-4 w-4" /> In OneDrive öffnen
+                        </a>
+                      )}
                       <button onClick={() => handleDelete(doc.id)} className="text-red-600">Löschen</button>
                     </div>
                   </TableCell>
