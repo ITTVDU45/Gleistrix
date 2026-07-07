@@ -53,6 +53,7 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmNoAttendees, setConfirmNoAttendees] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<{
     sync?: MeetingSyncResult
@@ -91,6 +92,20 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
     return [...list].sort((a, b) => a.name.localeCompare(b.name))
   }, [employees, search])
 
+  // Wie viele Teilnehmer bekommen tatsächlich eine Einladung (gültige E-Mail)?
+  const invitableCount = useMemo(() => {
+    const emps = employees.filter((e) => selectedIds.has(e.id) && isEmail((e.email || '').trim())).length
+    return emps + externals.length
+  }, [employees, selectedIds, externals])
+
+  // Sobald Teilnehmer vorhanden sind, den Ohne-Teilnehmer-Hinweis zurücksetzen.
+  useEffect(() => {
+    if (invitableCount > 0) {
+      setConfirmNoAttendees(false)
+      setError((e) => (e.startsWith('Kein Teilnehmer') ? '' : e))
+    }
+  }, [invitableCount])
+
   const toggleEmployee = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -122,6 +137,13 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
 
     const externalAttendees: Attendee[] = externals.map((email) => ({ employeeId: null, name: '', email }))
     const attendees = [...employeeAttendees, ...externalAttendees]
+
+    // Ohne Teilnehmer würde keine Einladung versendet – einmal nachfragen.
+    if (attendees.length === 0 && !confirmNoAttendees) {
+      setConfirmNoAttendees(true)
+      setError('Kein Teilnehmer mit E-Mail ausgewählt – es wird keine Einladung versendet. Zum Fortfahren erneut auf „Meeting anlegen" klicken.')
+      return
+    }
 
     const payload = {
       titel: titel.trim(),
@@ -345,6 +367,12 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
               </div>
             )}
           </div>
+
+          <p className={`text-xs ${invitableCount === 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+            {invitableCount === 0
+              ? 'Noch keine Teilnehmer mit E-Mail – es wird keine Einladung versendet.'
+              : `${invitableCount} Teilnehmer erhalten eine Einladung.`}
+          </p>
 
           <div className="space-y-1.5">
             <Label>Notizen</Label>
