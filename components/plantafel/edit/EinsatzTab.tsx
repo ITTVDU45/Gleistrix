@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { format, addYears } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
-import { Trash2, Plus, Pencil, CheckCircle2 } from 'lucide-react'
+import { Trash2, Plus, Pencil, CheckCircle2, Video } from 'lucide-react'
 import { TimeEntryForm } from '@/components/TimeEntryForm'
 import { PlantafelApi } from '@/lib/api/plantafel'
 import type {
@@ -308,6 +308,20 @@ export default function EinsatzTab({
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    {e.msJoinUrl && (
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[#4b53bc] hover:bg-[#4b53bc]/10 dark:text-indigo-300"
+                        title="Teams-Meeting beitreten"
+                      >
+                        <a href={e.msJoinUrl} target="_blank" rel="noopener noreferrer">
+                          <Video className="h-3.5 w-3.5 mr-1" />
+                          <span className="text-xs">Teams</span>
+                        </a>
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

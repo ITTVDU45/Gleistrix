@@ -82,6 +82,9 @@ export interface PlantafelEvent {
 
   /** Verknüpfung zum automatisch erzeugten Projekt-Zeiteintrag (Dual-Write) */
   einsatzLinkId?: string
+
+  /** Join-Link des verknüpften Teams-Meetings (Microsoft-365-Sync) */
+  msJoinUrl?: string
 }
 
 export interface PlantafelResource {
