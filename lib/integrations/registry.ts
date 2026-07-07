@@ -1,14 +1,15 @@
 import {
   Calculator,
   Cloud,
+  FileCode2,
   type LucideIcon,
 } from 'lucide-react'
 
-export type IntegrationId = 'datev' | 'microsoft'
+export type IntegrationId = 'datev' | 'microsoft' | 'gaeb'
 
 export type IntegrationStatus = 'active' | 'configured' | 'available' | 'planned'
 
-export type IntegrationCategory = 'Finanzen' | 'Produktivitaet'
+export type IntegrationCategory = 'Finanzen' | 'Produktivitaet' | 'Ausschreibung'
 
 export interface IntegrationModule {
   id: IntegrationId
@@ -48,6 +49,21 @@ export const integrationModules: IntegrationModule[] = [
       'OneDrive Dokumentenablage',
       'SharePoint Projektordner',
       'Teams Benachrichtigungen',
+    ],
+  },
+  {
+    id: 'gaeb',
+    title: 'GAEB',
+    description: 'Import, Validierung und Auswertung von GAEB-DA-XML-Dateien (LV, Ausschreibung, Angebot, Rechnung).',
+    category: 'Ausschreibung',
+    status: 'available',
+    icon: FileCode2,
+    features: [
+      'GAEB DA XML Import',
+      'XML/XSD-Validierung',
+      'LV-Positionen erkennen',
+      'Versionen & Phasen konfigurierbar',
+      'Import-Historie',
     ],
   },
 ]

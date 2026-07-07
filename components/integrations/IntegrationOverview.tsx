@@ -13,16 +13,28 @@ import {
 } from '@/lib/integrations/registry'
 import DatevIntegrationPanel from './DatevIntegrationPanel'
 import MicrosoftIntegrationPanel from './MicrosoftIntegrationPanel'
+import GaebIntegrationPanel from './GaebIntegrationPanel'
 
 export default function IntegrationOverview() {
   const [selectedId, setSelectedId] = useState<IntegrationId | null>(null)
 
   useEffect(() => {
     const integration = new URLSearchParams(window.location.search).get('integration')
-    if (integration === 'microsoft' || integration === 'datev') {
+    if (integration === 'microsoft' || integration === 'datev' || integration === 'gaeb') {
       setSelectedId(integration)
     }
   }, [])
+
+  if (selectedId === 'gaeb') {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>
+          ← Zurück zur Übersicht
+        </Button>
+        <GaebIntegrationPanel />
+      </div>
+    )
+  }
 
   if (selectedId === 'datev') {
     return (

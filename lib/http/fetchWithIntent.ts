@@ -20,7 +20,8 @@ export type IntentKey =
   | 'lager:inventory:create' | 'lager:inventory:update' | 'lager:inventory:scan' | 'lager:inventory:scan-session' | 'lager:inventory:delete' | 'lager:inventory:complete'
   | 'lager:unit:create' | 'lager:unit:update' | 'lager:unit:delete' | 'lager:unit:bulk'
   | 'lager:article-type:create'
-  | 'plantafel:create' | 'plantafel:update' | 'plantafel:delete';
+  | 'plantafel:create' | 'plantafel:update' | 'plantafel:delete'
+  | 'integrations:gaeb-config';
 
 type FetchOptions = RequestInit & { intent?: IntentKey };
 
