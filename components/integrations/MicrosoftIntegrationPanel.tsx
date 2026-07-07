@@ -109,6 +109,14 @@ export default function MicrosoftIntegrationPanel() {
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo | null>(null)
   const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [callbackUrl, setCallbackUrl] = useState('')
+
+  // Empfohlene Redirect URI (Callback-Endpunkt) aus dem aktuellen Origin ableiten
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCallbackUrl(`${window.location.origin}/api/integrations/microsoft/callback`)
+    }
+  }, [])
 
   const loadConfig = useCallback(async () => {
     try {
@@ -300,9 +308,32 @@ export default function MicrosoftIntegrationPanel() {
                 onChange={(e) => updateField('clientSecret', e.target.value)}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <Label>Redirect URI</Label>
-              <Input value={form.redirectUri} onChange={(e) => updateField('redirectUri', e.target.value)} />
+              <Input
+                value={form.redirectUri}
+                onChange={(e) => updateField('redirectUri', e.target.value)}
+                placeholder={callbackUrl}
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Muss der Callback-Endpunkt sein (kein sichtbarer Seiten-Pfad) und exakt
+                so auch in Azure unter „Authentifizierung → Web" hinterlegt sein:
+              </p>
+              {callbackUrl && (
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                    {callbackUrl}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateField('redirectUri', callbackUrl)}
+                  >
+                    Übernehmen
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Tenant-Modus</Label>
