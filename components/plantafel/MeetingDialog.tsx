@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Plus, X, Users, Video, Trash2 } from 'lucide-react'
+import { Loader2, Plus, X, Users, Video, Trash2, CheckCircle2, AlertTriangle, Copy, ExternalLink } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { PlantafelApi } from '@/lib/api/plantafel'
+import { PlantafelApi, type MeetingSyncResult } from '@/lib/api/plantafel'
 import type { Employee } from '../../types'
 
 interface MeetingDialogProps {
@@ -54,6 +54,14 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
   const [isLoading, setIsLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
+  const [result, setResult] = useState<{
+    sync?: MeetingSyncResult
+    titel: string
+    von: string
+    bis: string
+    attendees: Attendee[]
+  } | null>(null)
+  const [copied, setCopied] = useState('')
 
   // Bearbeiten: bestehendes Meeting laden und Felder vorbelegen
   useEffect(() => {
@@ -132,13 +140,29 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
         setError('Meeting konnte nicht gespeichert werden.')
         return
       }
-      onCreated()
-      onClose()
+      onCreated() // Board im Hintergrund aktualisieren
+      setResult({ sync: res.data?.sync, titel: payload.titel, von: payload.von, bis: payload.bis, attendees })
     } catch {
       setError('Netzwerkfehler beim Speichern des Meetings.')
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const copy = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(key)
+      setTimeout(() => setCopied(''), 1500)
+    } catch {
+      /* Clipboard evtl. blockiert */
+    }
+  }
+
+  function fmt(iso: string): string {
+    const d = new Date(iso)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
   const handleDelete = async () => {
@@ -165,7 +189,85 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
           </DialogTitle>
         </DialogHeader>
 
-        {isLoading ? (
+        {result ? (
+          <div className="space-y-4">
+            {result.sync?.created ? (
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-700 dark:bg-emerald-900/20">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-sm text-emerald-800 dark:text-emerald-300">
+                  Meeting geplant – Einladungen wurden an {result.attendees.length} Teilnehmer versendet.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-900/20">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="text-sm text-amber-800 dark:text-amber-300">
+                  <p className="font-medium">Plantafel-Eintrag angelegt, aber kein Teams-Meeting / keine Einladung.</p>
+                  <p className="mt-0.5 text-xs">
+                    {result.sync?.reason === 'not_connected'
+                      ? 'Microsoft 365 ist nicht verbunden. Bitte in den Einstellungen verbinden.'
+                      : result.sync?.reason === 'no_calendar_module'
+                        ? 'Das Modul „Kalender" ist in den Microsoft-365-Einstellungen nicht aktiviert. Modul aktivieren, danach neu verbinden (für die Kalender-Berechtigung) und das Meeting erneut speichern.'
+                        : `Grund: ${result.sync?.reason || 'unbekannt'}. Ggf. Microsoft 365 mit aktiviertem Modul „Kalender" neu verbinden.`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
+              <p className="font-medium text-slate-800 dark:text-slate-100">{result.titel}</p>
+              <p className="text-slate-500 dark:text-slate-400">{fmt(result.von)} – {fmt(result.bis)}</p>
+              {result.attendees.length > 0 && (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Teilnehmer: {result.attendees.map((a) => a.name || a.email).join(', ')}
+                </p>
+              )}
+            </div>
+
+            {result.sync?.joinUrl && (
+              <div className="space-y-2">
+                <Label>Microsoft-Teams-Besprechung</Label>
+                <div className="flex gap-2">
+                  <Button asChild className="flex-1 bg-[#4b53bc] text-white hover:bg-[#3f46a8]">
+                    <a href={result.sync.joinUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="mr-1 h-4 w-4" /> An Besprechung teilnehmen
+                    </a>
+                  </Button>
+                  <Button variant="outline" onClick={() => copy(result.sync!.joinUrl!, 'join')}>
+                    <Copy className="mr-1 h-4 w-4" /> {copied === 'join' ? 'Kopiert' : 'Link'}
+                  </Button>
+                </div>
+                {result.sync.eventId && (
+                  <p className="text-[11px] text-slate-400">Meeting-Referenz: {result.sync.eventId}</p>
+                )}
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      copy(
+                        [
+                          result.titel,
+                          `${fmt(result.von)} – ${fmt(result.bis)}`,
+                          '',
+                          `An Microsoft-Teams-Besprechung teilnehmen:`,
+                          result.sync!.joinUrl!,
+                        ].join('\n'),
+                        'invite'
+                      )
+                    }
+                  >
+                    <Copy className="mr-1 h-4 w-4" /> {copied === 'invite' ? 'Kopiert' : 'Einladungstext kopieren'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-1">
+              <Button onClick={onClose}>Schließen</Button>
+            </div>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center gap-2 py-8 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin" /> Meeting wird geladen…
           </div>

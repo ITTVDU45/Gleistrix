@@ -61,8 +61,8 @@ export async function POST(req: NextRequest) {
     createdByUserId: auth.token?.id || null,
   })
 
-  // Best-effort: Teams-Meeting erzeugen + Teilnehmer einladen
-  await syncMeetingToCalendar(String(meeting._id))
+  // Teams-Meeting erzeugen + Teilnehmer einladen (Ergebnis für UI-Feedback)
+  const sync = await syncMeetingToCalendar(String(meeting._id))
 
-  return NextResponse.json({ success: true, data: { id: String(meeting._id) } }, { status: 201 })
+  return NextResponse.json({ success: true, data: { id: String(meeting._id), sync } }, { status: 201 })
 }

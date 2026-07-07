@@ -8,6 +8,13 @@ import type {
 } from '@/components/plantafel/types'
 import type { ApiResponse } from '@/types/main'
 
+export interface MeetingSyncResult {
+  created: boolean
+  joinUrl?: string | null
+  eventId?: string | null
+  reason?: string
+}
+
 export const PlantafelApi = {
   getAssignments: (params: {
     from: string
@@ -52,7 +59,7 @@ export const PlantafelApi = {
     notizen?: string
     attendees: Array<{ employeeId?: string | null; name?: string; email: string }>
   }) =>
-    postJSON<ApiResponse<{ id: string }>>(
+    postJSON<ApiResponse<{ id: string; sync?: MeetingSyncResult }>>(
       '/api/plantafel/meetings',
       data as unknown as Record<string, unknown>,
       'plantafel:meeting:create'
@@ -78,7 +85,7 @@ export const PlantafelApi = {
       attendees: Array<{ employeeId?: string | null; name?: string; email: string }>
     }
   ) =>
-    patchJSON<ApiResponse<null>>(
+    patchJSON<ApiResponse<{ sync?: MeetingSyncResult }>>(
       `/api/plantafel/meetings/${id}`,
       data as unknown as Record<string, unknown>,
       'plantafel:meeting:update'

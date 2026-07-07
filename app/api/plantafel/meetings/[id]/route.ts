@@ -49,9 +49,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ success: false, error: 'Meeting nicht gefunden' }, { status: 404 })
   }
 
-  await syncMeetingToCalendar(id)
+  const sync = await syncMeetingToCalendar(id)
 
-  return NextResponse.json({ success: true, data: null })
+  return NextResponse.json({ success: true, data: { sync } })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

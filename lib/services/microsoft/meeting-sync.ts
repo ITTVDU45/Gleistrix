@@ -35,12 +35,21 @@ interface GraphEventResponse {
   onlineMeeting?: { joinUrl?: string } | null
 }
 
-async function isConnectedWithCalendar(): Promise<boolean> {
+export interface MeetingSyncResult {
+  /** Teams-Meeting im Postfach erstellt/aktualisiert (Einladungen versendet). */
+  created: boolean
+  joinUrl?: string | null
+  eventId?: string | null
+  /** Grund, falls nicht erstellt: 'not_connected' | 'no_calendar_module' | Fehlertext. */
+  reason?: string
+}
+
+async function connectionState(): Promise<{ connected: boolean; calendar: boolean }> {
   await dbConnect()
   const doc = (await IntegrationConfig.findOne({ integrationId: 'microsoft' }).lean()) as Record<string, unknown> | null
   const config = (doc?.config as Record<string, unknown>) || {}
   const modules = (config.enabledModules as string[]) || []
-  return doc?.status === 'connected' && modules.includes('calendar')
+  return { connected: doc?.status === 'connected', calendar: modules.includes('calendar') }
 }
 
 function toGraphDateTime(date: Date): string {
@@ -70,32 +79,42 @@ async function timeZone(): Promise<string> {
   return (outlook.timeZone as string) || 'Europe/Berlin'
 }
 
-/** Legt den Teams-Meeting-Termin an oder aktualisiert ihn. Best effort. */
-export async function syncMeetingToCalendar(meetingId: string): Promise<void> {
-  try {
-    if (!(await isConnectedWithCalendar())) return
-    const m = (await PlantafelMeeting.findById(meetingId).lean()) as MeetingDoc | null
-    if (!m) return
+/**
+ * Legt den Teams-Meeting-Termin an oder aktualisiert ihn und versendet dabei die
+ * Einladungen an alle Teilnehmer. Liefert das Ergebnis zurück (für UI-Feedback).
+ */
+export async function syncMeetingToCalendar(meetingId: string): Promise<MeetingSyncResult> {
+  const state = await connectionState()
+  if (!state.connected) return { created: false, reason: 'not_connected' }
+  if (!state.calendar) return { created: false, reason: 'no_calendar_module' }
 
+  const m = (await PlantafelMeeting.findById(meetingId).lean()) as MeetingDoc | null
+  if (!m) return { created: false, reason: 'Meeting nicht gefunden' }
+
+  try {
     const tz = await timeZone()
     const payload = buildPayload(m, tz)
     const existingEventId = m.msCalendar?.eventId || null
 
+    // POST /me/events mit Teilnehmern versendet die Einladungen automatisch.
     const ev = existingEventId
       ? { ...(await graphPatch<GraphEventResponse>(`/me/events/${existingEventId}`, payload)), id: existingEventId }
       : await graphPost<GraphEventResponse>('/me/events', payload)
 
+    const joinUrl = ev.onlineMeeting?.joinUrl ?? null
     await PlantafelMeeting.findByIdAndUpdate(meetingId, {
       msCalendar: {
         eventId: ev.id,
         iCalUId: ev.iCalUId ?? null,
-        joinUrl: ev.onlineMeeting?.joinUrl ?? null,
+        joinUrl,
         lastSyncedAt: new Date(),
         source: 'plantafel',
       },
     })
+    return { created: true, joinUrl, eventId: ev.id }
   } catch (err) {
     console.error('[Meeting→MS] Sync fehlgeschlagen:', err)
+    return { created: false, reason: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
 }
 
@@ -106,7 +125,8 @@ export async function removeMeetingFromCalendar(
   const eventId = msCalendar?.eventId
   if (!eventId) return
   try {
-    if (!(await isConnectedWithCalendar())) return
+    const state = await connectionState()
+    if (!state.connected) return
     await graphDelete(`/me/events/${eventId}`)
   } catch (err) {
     console.error('[Meeting→MS] Entfernen fehlgeschlagen:', err)
