@@ -38,6 +38,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.von !== undefined) update.von = new Date(body.von)
   if (body.bis !== undefined) update.bis = new Date(body.bis)
   if (body.notizen !== undefined) update.notizen = body.notizen
+  if (body.modus !== undefined) {
+    const modus = body.modus === 'vorOrt' ? 'vorOrt' : 'teams'
+    update.modus = modus
+    update.ort = modus === 'vorOrt' ? String(body.ort || '').trim() : ''
+  } else if (body.ort !== undefined) {
+    update.ort = String(body.ort || '').trim()
+  }
   if (body.attendees !== undefined) {
     update.attendees = (Array.isArray(body.attendees) ? (body.attendees as AttendeeInput[]) : [])
       .filter((a) => typeof a.email === 'string' && a.email.includes('@'))

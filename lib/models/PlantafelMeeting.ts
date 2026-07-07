@@ -19,6 +19,9 @@ const plantafelMeetingSchema = new mongoose.Schema(
     titel: { type: String, required: true },
     von: { type: Date, required: true },
     bis: { type: Date, required: true },
+    // 'teams' = Online-Besprechung mit Join-Link, 'vorOrt' = Präsenz mit Adresse
+    modus: { type: String, enum: ['teams', 'vorOrt'], default: 'teams' },
+    ort: { type: String, default: '' },
     notizen: { type: String, default: '' },
     attendees: { type: [attendeeSchema], default: [] },
     createdByUserId: { type: String, default: null },

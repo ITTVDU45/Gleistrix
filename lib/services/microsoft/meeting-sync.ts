@@ -24,6 +24,8 @@ interface MeetingDoc {
   titel: string
   von: Date
   bis: Date
+  modus?: 'teams' | 'vorOrt'
+  ort?: string
   notizen?: string
   attendees?: Attendee[]
   msCalendar?: { eventId?: string | null } | null
@@ -61,18 +63,30 @@ function buildPayload(m: MeetingDoc): Record<string, unknown> {
     .filter((a) => a.email)
     .map((a) => ({ emailAddress: { address: a.email, name: a.name || a.email }, type: 'required' }))
 
+  const vorOrt = m.modus === 'vorOrt'
+
   // Die gespeicherte Zeit ist echtes UTC – daher als UTC an Graph senden
   // (nicht die UTC-Uhrzeit fälschlich als lokale Zeitzone labeln → 2h-Versatz).
-  return {
+  const payload: Record<string, unknown> = {
     subject: m.titel || 'Meeting',
     start: { dateTime: toGraphDateTime(m.von), timeZone: 'UTC' },
     end: { dateTime: toGraphDateTime(m.bis), timeZone: 'UTC' },
     body: { contentType: 'text', content: m.notizen || 'Erstellt aus der Gleistrix-Plantafel.' },
-    isOnlineMeeting: true,
-    onlineMeetingProvider: 'teamsForBusiness',
     attendees,
     singleValueExtendedProperties: [{ id: EXT_PROP_ID, value: String(m._id) }],
   }
+
+  if (vorOrt) {
+    // Präsenztermin mit Adresse, kein Teams-Link
+    payload.isOnlineMeeting = false
+    if (m.ort) payload.location = { displayName: m.ort }
+  } else {
+    // Online-Besprechung mit Teams-Join-Link
+    payload.isOnlineMeeting = true
+    payload.onlineMeetingProvider = 'teamsForBusiness'
+  }
+
+  return payload
 }
 
 /**

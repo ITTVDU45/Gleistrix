@@ -56,6 +56,8 @@ export const PlantafelApi = {
     titel: string
     von: string
     bis: string
+    modus: 'teams' | 'vorOrt'
+    ort?: string
     notizen?: string
     attendees: Array<{ employeeId?: string | null; name?: string; email: string }>
   }) =>
@@ -71,6 +73,8 @@ export const PlantafelApi = {
       titel: string
       von: string
       bis: string
+      modus?: 'teams' | 'vorOrt'
+      ort?: string
       notizen?: string
       attendees?: Array<{ employeeId?: string | null; name?: string; email: string }>
     }>>(`/api/plantafel/meetings/${id}`),
@@ -81,6 +85,8 @@ export const PlantafelApi = {
       titel: string
       von: string
       bis: string
+      modus: 'teams' | 'vorOrt'
+      ort?: string
       notizen?: string
       attendees: Array<{ employeeId?: string | null; name?: string; email: string }>
     }

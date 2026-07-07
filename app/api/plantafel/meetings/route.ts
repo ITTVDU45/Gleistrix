@@ -47,6 +47,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'titel, von und bis sind erforderlich' }, { status: 400 })
   }
 
+  const modus = body.modus === 'vorOrt' ? 'vorOrt' : 'teams'
+  const ort = modus === 'vorOrt' ? String(body.ort || '').trim() : ''
+
   // Teilnehmer normalisieren: nur mit gültiger E-Mail übernehmen.
   const attendees = (Array.isArray(body.attendees) ? (body.attendees as AttendeeInput[]) : [])
     .filter((a) => typeof a.email === 'string' && a.email.includes('@'))
@@ -56,6 +59,8 @@ export async function POST(req: NextRequest) {
     titel: String(titel).trim(),
     von: new Date(von),
     bis: new Date(bis),
+    modus,
+    ort,
     notizen: notizen || '',
     attendees,
     createdByUserId: auth.token?.id || null,

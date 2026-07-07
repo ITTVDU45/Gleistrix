@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Plus, X, Users, Video, Trash2, CheckCircle2, AlertTriangle, Copy, ExternalLink } from 'lucide-react'
+import { Loader2, Plus, X, Users, Video, Trash2, CheckCircle2, AlertTriangle, Copy, ExternalLink, MapPin } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,6 +46,8 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
   const [von, setVon] = useState(`${defaultDate}T09:00`)
   const [bis, setBis] = useState(`${defaultDate}T10:00`)
   const [notizen, setNotizen] = useState('')
+  const [modus, setModus] = useState<'teams' | 'vorOrt'>('teams')
+  const [ort, setOrt] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [externals, setExternals] = useState<string[]>([])
   const [externalInput, setExternalInput] = useState('')
@@ -61,6 +63,8 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
     von: string
     bis: string
     attendees: Attendee[]
+    modus: 'teams' | 'vorOrt'
+    ort: string
   } | null>(null)
   const [copied, setCopied] = useState('')
 
@@ -76,6 +80,8 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
         setTitel(m.titel || '')
         setVon(toLocalInput(m.von))
         setBis(toLocalInput(m.bis))
+        setModus(m.modus === 'vorOrt' ? 'vorOrt' : 'teams')
+        setOrt(m.ort || '')
         setNotizen(m.notizen || '')
         const atts = m.attendees || []
         setSelectedIds(new Set(atts.filter((a) => a.employeeId).map((a) => String(a.employeeId))))
@@ -155,6 +161,8 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
       titel: titel.trim(),
       von: new Date(von).toISOString(),
       bis: new Date(bis).toISOString(),
+      modus,
+      ort: modus === 'vorOrt' ? ort.trim() : '',
       notizen: notizen.trim(),
       attendees,
     }
@@ -169,7 +177,7 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
         return
       }
       onCreated() // Board im Hintergrund aktualisieren
-      setResult({ sync: res.data?.sync, titel: payload.titel, von: payload.von, bis: payload.bis, attendees })
+      setResult({ sync: res.data?.sync, titel: payload.titel, von: payload.von, bis: payload.bis, attendees, modus, ort: payload.ort })
     } catch {
       setError('Netzwerkfehler beim Speichern des Meetings.')
     } finally {
@@ -245,6 +253,11 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
             <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
               <p className="font-medium text-slate-800 dark:text-slate-100">{result.titel}</p>
               <p className="text-slate-500 dark:text-slate-400">{fmt(result.von)} – {fmt(result.bis)}</p>
+              {result.modus === 'vorOrt' && result.ort && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" /> {result.ort}
+                </p>
+              )}
               {result.attendees.length > 0 && (
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Teilnehmer: {result.attendees.map((a) => a.name || a.email).join(', ')}
@@ -319,6 +332,35 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
               <Label>Bis</Label>
               <Input type="datetime-local" value={bis} onChange={(e) => setBis(e.target.value)} />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Ort</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={modus === 'teams' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => setModus('teams')}
+              >
+                <Video className="mr-1 h-4 w-4" /> Teams-Besprechung
+              </Button>
+              <Button
+                type="button"
+                variant={modus === 'vorOrt' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => setModus('vorOrt')}
+              >
+                <MapPin className="mr-1 h-4 w-4" /> Vor Ort
+              </Button>
+            </div>
+            {modus === 'vorOrt' ? (
+              <Input value={ort} onChange={(e) => setOrt(e.target.value)} placeholder="Adresse / Ort der Besprechung" />
+            ) : (
+              <p className="text-xs text-slate-400">Es wird ein Teams-Meeting mit Join-Link erstellt.</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
