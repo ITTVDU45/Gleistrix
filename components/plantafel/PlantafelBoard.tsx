@@ -24,18 +24,24 @@ import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import ProjectFilterControl from './ProjectFilterControl'
 import PlantafelLegend from './PlantafelLegend'
 import EventTooltip from './EventTooltip'
-import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR, detectEntryShift } from '@/lib/plantafel/projectColors'
+import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR } from '@/lib/plantafel/projectColors'
 
-/** Date → lokaler ISO-Zeitstempel (yyyy-MM-ddTHH:mm) für die Schicht-Erkennung. */
-function toLocalIso(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  const dt = new Date(d)
-  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`
-}
+// Farbpalette für die Mitarbeiter-Codierung von Einsätzen (dunkel genug für
+// weiße Schrift, visuell gut unterscheidbar).
+const EMPLOYEE_COLORS = [
+  '#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed',
+  '#0891b2', '#db2777', '#4f46e5', '#ca8a04', '#059669',
+  '#e11d48', '#0d9488', '#9333ea', '#c2410c', '#1d4ed8',
+  '#be123c', '#15803d', '#a21caf', '#b45309', '#0369a1',
+]
+const UNASSIGNED_COLOR = '#64748b' // Nicht zugewiesen (slate)
 
-/** Schicht-Farbe eines Einsatzes anhand von Start/Ende (Früh = grün, Nacht = rot). */
-function einsatzShiftColor(start: Date, end: Date): string {
-  return detectEntryShift(toLocalIso(start), toLocalIso(end)) === 'nacht' ? SHIFT_NIGHT_COLOR : SHIFT_DAY_COLOR
+/** Deterministische, konsistente Farbe je Mitarbeiter-ID. */
+function employeeColor(id?: string | null): string {
+  if (!id) return UNASSIGNED_COLOR
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  return EMPLOYEE_COLORS[hash % EMPLOYEE_COLORS.length]
 }
 import ProjectCreateWithGaeb from '@/components/ProjectCreateWithGaeb'
 import { Button } from '@/components/ui/button'
@@ -452,10 +458,10 @@ export default function PlantafelBoard() {
   const eventStyleGetter = useCallback((event: PlantafelEvent) => {
     const isDraggable = event.sourceType === 'einsatz'
     const isPlanned = event.type === 'projekt_plan'
-    // Einsätze nach Schicht einfärben (Früh = grün, Nacht = rot) → überlappende
-    // Schichten sind unterscheidbar; sonst normale Event-Farbe.
+    // Einsätze pro Mitarbeiter einfärben (konsistente Farbe je Person) →
+    // überlappende Einsätze verschiedener Mitarbeiter sind unterscheidbar.
     const bgColor = event.color
-      || (isDraggable ? einsatzShiftColor(new Date(event.start), new Date(event.end)) : EVENT_COLORS[event.type])
+      || (isDraggable ? employeeColor(event.mitarbeiterId) : EVENT_COLORS[event.type])
       || '#3b82f6'
     return {
       style: {
