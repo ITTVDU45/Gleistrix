@@ -98,6 +98,26 @@ export const MOCK_AGENTS: Agent[] = [
     mehrwert: 'Schnellere Angebotsbearbeitung und geringeres Fehlerrisiko.',
   },
   {
+    id: 'agent-gaeb',
+    slug: 'gaeb',
+    name: 'GAEB Agent',
+    description:
+      'Analysiert importierte GAEB-Leistungsverzeichnisse: erkennt Risiken und fehlende Angaben, clustert Positionen nach Gewerken und leitet Ressourcen- sowie Projektanlage-Vorschläge ab.',
+    category: 'ausschreibung',
+    status: 'aktiv',
+    icon: 'FileSpreadsheet',
+    nutzen: [
+      'GAEB-Dateien analysieren (DA XML)',
+      'Leistungsverzeichnisse zusammenfassen',
+      'Risiken und fehlende Angaben erkennen',
+      'Positionen nach Gewerken clustern',
+      'Ressourcen-Vorschläge (Mitarbeiter/Fahrzeuge/Lager)',
+      'Projektanlage aus GAEB-Daten vorschlagen',
+    ],
+    mehrwert:
+      'Schnellere Angebotsvorbereitung, weniger Fehlerrisiko und direkte Handlungsempfehlungen aus dem LV.',
+  },
+  {
     id: 'agent-kalkulation',
     slug: 'kalkulation',
     name: 'Kalkulationsagent',

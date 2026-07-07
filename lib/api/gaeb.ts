@@ -15,6 +15,7 @@ import type {
   GaebExchangePhaseCode,
   GaebValidationResult,
   GaebBillOfQuantities,
+  GaebAgentAnalysis,
 } from '@/types/gaeb'
 
 export interface GaebConfigResponse {
@@ -115,6 +116,12 @@ export const GaebApi = {
         success: boolean
         data: { ok: boolean; status: GaebImportStatus; validation: GaebValidationResult; boqId?: string; positionCount?: number }
       }>(`/api/gaeb/imports/${id}/validate`, undefined, 'gaeb:validate'),
+    analyze: (id: string) =>
+      postJSON<{ success: boolean; data: GaebAgentAnalysis }>(
+        `/api/gaeb/imports/${id}/analyze`,
+        undefined,
+        'gaeb:analyze'
+      ),
     remove: (id: string) => delJSON<{ success: boolean }>(`/api/gaeb/imports/${id}`, 'gaeb:import-delete'),
   },
 }
