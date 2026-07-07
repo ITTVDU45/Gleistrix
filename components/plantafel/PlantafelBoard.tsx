@@ -24,7 +24,19 @@ import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import ProjectFilterControl from './ProjectFilterControl'
 import PlantafelLegend from './PlantafelLegend'
 import EventTooltip from './EventTooltip'
-import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR } from '@/lib/plantafel/projectColors'
+import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR, detectEntryShift } from '@/lib/plantafel/projectColors'
+
+/** Date → lokaler ISO-Zeitstempel (yyyy-MM-ddTHH:mm) für die Schicht-Erkennung. */
+function toLocalIso(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  const dt = new Date(d)
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`
+}
+
+/** Schicht eines Einsatzes anhand Start/Ende. */
+function shiftOf(start: Date, end: Date): 'tag' | 'nacht' {
+  return detectEntryShift(toLocalIso(start), toLocalIso(end))
+}
 
 // Farbpalette für die Mitarbeiter-Codierung von Einsätzen (dunkel genug für
 // weiße Schrift, visuell gut unterscheidbar).
@@ -361,14 +373,28 @@ export default function PlantafelBoard() {
                 <Upload className="h-3.5 w-3.5" /> Ablegen
               </span>
             ) : event.sourceType === 'einsatz' ? (
-              <span className="flex min-w-0 flex-col leading-tight">
-                <span className="truncate text-xs font-semibold">
-                  {event.mitarbeiterName || 'Nicht zugewiesen'}
+              <>
+                <span className="flex min-w-0 flex-col leading-tight">
+                  <span className="truncate text-xs font-semibold">
+                    {event.mitarbeiterName || 'Nicht zugewiesen'}
+                  </span>
+                  <span className="truncate text-[10px] opacity-90">
+                    {event.title}{event.rolle ? ` · ${event.rolle}` : ''}
+                  </span>
                 </span>
-                <span className="truncate text-[10px] opacity-90">
-                  {event.title}{event.rolle ? ` · ${event.rolle}` : ''}
-                </span>
-              </span>
+                {(() => {
+                  const nacht = shiftOf(new Date(event.start), new Date(event.end)) === 'nacht'
+                  return (
+                    <span
+                      className="ml-auto shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
+                      style={{ backgroundColor: nacht ? SHIFT_NIGHT_COLOR : SHIFT_DAY_COLOR }}
+                      title={nacht ? 'Nachtschicht' : 'Frühschicht (04–22 Uhr)'}
+                    >
+                      {nacht ? 'Nacht' : 'Früh'}
+                    </span>
+                  )
+                })()}
+              </>
             ) : (
               <span className="truncate text-xs">{event.title}</span>
             )}
