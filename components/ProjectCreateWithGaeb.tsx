@@ -6,6 +6,7 @@ import { Button } from './ui/button'
 import ProjectCreateForm from './ProjectCreateForm'
 import GaebImportPanel from './gaeb/GaebImportPanel'
 import { useGaebAccess } from './gaeb/useGaebAccess'
+import { GaebApi } from '@/lib/api/gaeb'
 import type { Project } from '../types'
 
 type ProjectPrefill = Partial<Omit<Project, 'id' | 'mitarbeiterZeiten'>>
@@ -26,13 +27,27 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
   const [showGaeb, setShowGaeb] = useState(false)
   const [prefill, setPrefill] = useState<ProjectPrefill>({})
   const [formKey, setFormKey] = useState(0)
+  const [pendingImportJobId, setPendingImportJobId] = useState<string | null>(null)
 
-  const handleImported = ({ boq }: { boq: { projectName?: string } | null }) => {
+  const handleImported = ({ boq, upload }: { boq: { projectName?: string } | null; upload: { importJobId: string } }) => {
+    setPendingImportJobId(upload.importJobId)
     if (boq?.projectName) {
       setPrefill({ name: boq.projectName })
       setFormKey((k) => k + 1) // Remount, damit initialValues greifen
       setShowGaeb(false)
     }
+  }
+
+  // Nach erfolgreicher Projektanlage: importiertes LV automatisch verknüpfen
+  const handleCreated = async (createdProjectId?: string) => {
+    if (pendingImportJobId && createdProjectId) {
+      try {
+        await GaebApi.imports.assign(pendingImportJobId, createdProjectId)
+      } catch {
+        /* Verknüpfung best-effort; LV bleibt als globaler Import erhalten */
+      }
+    }
+    onSuccess()
   }
 
   return (
@@ -65,7 +80,7 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
 
       <ProjectCreateForm
         key={formKey}
-        onSuccess={onSuccess}
+        onSuccess={handleCreated}
         onCancel={onCancel}
         initialValues={{ ...initialValues, ...prefill }}
       />

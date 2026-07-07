@@ -53,12 +53,21 @@ export function useProjects(options?: { includeTimes?: boolean; includeVehicles?
   }, [options?.includeTimes, options?.includeVehicles, options?.includeTechnik])
 
   // Projekt anlegen
-  const addProject = async (projectData: Omit<Project, 'id' | 'mitarbeiterZeiten'>) => {
+  const addProject = async (
+    projectData: Omit<Project, 'id' | 'mitarbeiterZeiten'>
+  ): Promise<Project | undefined> => {
     try {
-      await ProjectsApi.create(projectData)
+      const res = await ProjectsApi.create(projectData)
       await fetchProjects()
+      const created = (res as unknown as { project?: { id?: unknown; _id?: unknown } })?.project
+      if (created) {
+        const pid = created.id ?? created._id
+        return { ...(created as object), id: pid != null ? String(pid) : undefined } as unknown as Project
+      }
+      return undefined
     } catch (error) {
       console.error('Fehler beim Anlegen des Projekts:', error)
+      return undefined
     }
   }
 

@@ -124,6 +124,8 @@ export const GaebApi = {
         undefined,
         'gaeb:analyze'
       ),
+    assign: (id: string, projectId: string) =>
+      postJSON<{ success: boolean }>(`/api/gaeb/imports/${id}/assign`, { projectId }, 'gaeb:assign'),
     remove: (id: string) => delJSON<{ success: boolean }>(`/api/gaeb/imports/${id}`, 'gaeb:import-delete'),
   },
 }

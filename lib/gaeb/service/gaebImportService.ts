@@ -3,7 +3,7 @@ import { getObjectBufferAsync } from '@/lib/storage/minioClient'
 import GaebFile from '@/lib/models/GaebFile'
 import GaebImportJob from '@/lib/models/GaebImportJob'
 import GaebBillOfQuantities from '@/lib/models/GaebBillOfQuantities'
-import Ausschreibung from '@/lib/models/Ausschreibung'
+import { upsertAusschreibung } from '@/lib/gaeb/service/projectLinkService'
 import { validateGaeb } from '@/lib/gaeb/validator'
 import { parseGaeb } from '@/lib/gaeb/parser/parseGaeb'
 import { loadGaebSettings } from '@/lib/gaeb/settingsService'
@@ -98,25 +98,15 @@ export async function runGaebImport(jobId: string): Promise<GaebImportRunResult>
     const projectId = (job.assignment as { projectId?: string } | null)?.projectId
     let assignedStatus = 'geparst'
     if (projectId) {
-      await Ausschreibung.findOneAndUpdate(
-        { importJobId: jobId },
-        {
-          projectId,
-          kind: 'ausschreibung',
-          source: 'gaeb',
-          name: boq.projectName || String(file.originalName) || 'GAEB-LV',
-          version: boq.version,
-          phase: boq.phase,
-          importJobId: jobId,
-          boqId: String(saved._id),
-          fileId: String(job.fileId),
-          positionCount: boq.positionCount,
-          netSum: boq.netSum ?? null,
-          currency: boq.currency,
-          createdByUserId: (job.createdByUserId as string) ?? null,
-        },
-        { upsert: true, new: true }
-      )
+      await upsertAusschreibung({
+        jobId,
+        projectId,
+        boq,
+        boqId: String(saved._id),
+        fileId: String(job.fileId),
+        userId: (job.createdByUserId as string) ?? null,
+        fallbackName: String(file.originalName),
+      })
       assignedStatus = 'zugeordnet'
     }
 

@@ -10,7 +10,8 @@ import { useProjects } from '../hooks/useProjects';
 import type { Project } from '../types';
 
 interface ProjectCreateFormProps {
-  onSuccess: () => void;
+  /** Erhält optional die ID des neu erstellten Projekts. */
+  onSuccess: (createdProjectId?: string) => void;
   onCancel: () => void;
   initialValues?: Partial<Omit<Project, 'id' | 'mitarbeiterZeiten'>>;
 }
@@ -52,8 +53,8 @@ export default function ProjectCreateForm({ onSuccess, onCancel, initialValues }
     setIsSubmitting(true);
     setError(null);
     try {
-      await addProject(form);
-      onSuccess();
+      const created = await addProject(form);
+      onSuccess(created?.id);
     } catch (err) {
       setError('Fehler beim Erstellen des Projekts. Bitte versuchen Sie es erneut.');
     } finally {
