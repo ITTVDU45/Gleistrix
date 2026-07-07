@@ -254,15 +254,21 @@ export default function EinsatzTab({
     }
   }
 
-  // Prefill für den Edit-Modus: Einsatz -> Zeiteintrag-Formularwerte
+  // Prefill für den Edit-Modus: Einsatz -> Zeiteintrag-Formularwerte.
+  // Das Zeitformular erwartet start/ende als lokale Uhrzeit "HH:mm".
   const initialEntry = useMemo(() => {
     if (!editTarget) return undefined
+    const hhmm = (d: Date | string) => {
+      const dt = new Date(d)
+      const p = (n: number) => String(n).padStart(2, '0')
+      return `${p(dt.getHours())}:${p(dt.getMinutes())}`
+    }
     return {
       id: editTarget.sourceId,
       name: editTarget.mitarbeiterName || '',
       funktion: editTarget.rolle || '',
-      start: new Date(editTarget.start).toISOString(),
-      ende: new Date(editTarget.end).toISOString(),
+      start: hhmm(editTarget.start),
+      ende: hhmm(editTarget.end),
       bemerkung: editTarget.notes || '',
     } as Partial<TimeEntry>
   }, [editTarget])
@@ -365,6 +371,7 @@ export default function EinsatzTab({
       {showForm && (
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
           <TimeEntryForm
+            key={editTarget?.sourceId || 'neu'}
             project={project}
             selectedDate={formDate}
             employees={employees}
