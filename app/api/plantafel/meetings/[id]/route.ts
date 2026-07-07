@@ -10,6 +10,20 @@ interface AttendeeInput {
   email?: string
 }
 
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth(req)
+  if (!auth.ok) {
+    return NextResponse.json({ success: false, error: auth.error }, { status: auth.status })
+  }
+  const { id } = await params
+  await dbConnect()
+  const meeting = await PlantafelMeeting.findById(id).lean()
+  if (!meeting) {
+    return NextResponse.json({ success: false, error: 'Meeting nicht gefunden' }, { status: 404 })
+  }
+  return NextResponse.json({ success: true, data: meeting })
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth(req)
   if (!auth.ok) {

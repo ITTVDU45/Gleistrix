@@ -58,6 +58,32 @@ export const PlantafelApi = {
       'plantafel:meeting:create'
     ),
 
+  getMeeting: (id: string) =>
+    getJSON<ApiResponse<{
+      _id: string
+      titel: string
+      von: string
+      bis: string
+      notizen?: string
+      attendees?: Array<{ employeeId?: string | null; name?: string; email: string }>
+    }>>(`/api/plantafel/meetings/${id}`),
+
+  updateMeeting: (
+    id: string,
+    data: {
+      titel: string
+      von: string
+      bis: string
+      notizen?: string
+      attendees: Array<{ employeeId?: string | null; name?: string; email: string }>
+    }
+  ) =>
+    patchJSON<ApiResponse<null>>(
+      `/api/plantafel/meetings/${id}`,
+      data as unknown as Record<string, unknown>,
+      'plantafel:meeting:update'
+    ),
+
   deleteMeeting: (id: string) =>
     delJSON<ApiResponse<null>>(`/api/plantafel/meetings/${id}`, 'plantafel:meeting:delete'),
 }

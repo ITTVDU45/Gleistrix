@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Loader2, Plus, X, Users, Video } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Loader2, Plus, X, Users, Video, Trash2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,8 +16,10 @@ interface MeetingDialogProps {
   onClose: () => void
   onCreated: () => void
   employees: Employee[]
-  /** Vorbelegtes Datum (yyyy-MM-dd) für Start/Ende. */
+  /** Vorbelegtes Datum (yyyy-MM-dd) für Start/Ende (Neuanlage). */
   defaultDate: string
+  /** Wenn gesetzt: Bearbeiten eines bestehenden Meetings. */
+  meetingId?: string | null
 }
 
 interface Attendee {
@@ -30,7 +32,16 @@ function isEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
 }
 
-export default function MeetingDialog({ open, onClose, onCreated, employees, defaultDate }: MeetingDialogProps) {
+/** UTC-ISO → lokaler datetime-local-Wert (yyyy-MM-ddTHH:mm). */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+export default function MeetingDialog({ open, onClose, onCreated, employees, defaultDate, meetingId }: MeetingDialogProps) {
+  const isEdit = Boolean(meetingId)
+
   const [titel, setTitel] = useState('')
   const [von, setVon] = useState(`${defaultDate}T09:00`)
   const [bis, setBis] = useState(`${defaultDate}T10:00`)
@@ -40,7 +51,31 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
   const [externalInput, setExternalInput] = useState('')
   const [search, setSearch] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
+
+  // Bearbeiten: bestehendes Meeting laden und Felder vorbelegen
+  useEffect(() => {
+    if (!open || !meetingId) return
+    let active = true
+    setIsLoading(true)
+    PlantafelApi.getMeeting(meetingId)
+      .then((res) => {
+        if (!active || !res.success || !res.data) return
+        const m = res.data
+        setTitel(m.titel || '')
+        setVon(toLocalInput(m.von))
+        setBis(toLocalInput(m.bis))
+        setNotizen(m.notizen || '')
+        const atts = m.attendees || []
+        setSelectedIds(new Set(atts.filter((a) => a.employeeId).map((a) => String(a.employeeId))))
+        setExternals(atts.filter((a) => !a.employeeId).map((a) => a.email))
+      })
+      .catch(() => setError('Meeting konnte nicht geladen werden.'))
+      .finally(() => { if (active) setIsLoading(false) })
+    return () => { active = false }
+  }, [open, meetingId])
 
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -77,31 +112,45 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
       .map((e) => ({ employeeId: e.id, name: e.name, email: (e.email || '').trim() }))
       .filter((a) => isEmail(a.email))
 
-    const missingEmail = employees.filter((e) => selectedIds.has(e.id) && !isEmail((e.email || '').trim()))
     const externalAttendees: Attendee[] = externals.map((email) => ({ employeeId: null, name: '', email }))
     const attendees = [...employeeAttendees, ...externalAttendees]
 
+    const payload = {
+      titel: titel.trim(),
+      von: new Date(von).toISOString(),
+      bis: new Date(bis).toISOString(),
+      notizen: notizen.trim(),
+      attendees,
+    }
+
     setIsSaving(true)
     try {
-      const res = await PlantafelApi.createMeeting({
-        titel: titel.trim(),
-        von: new Date(von).toISOString(),
-        bis: new Date(bis).toISOString(),
-        notizen: notizen.trim(),
-        attendees,
-      })
+      const res = isEdit
+        ? await PlantafelApi.updateMeeting(meetingId!, payload)
+        : await PlantafelApi.createMeeting(payload)
       if (!res.success) {
-        setError('Meeting konnte nicht angelegt werden.')
+        setError('Meeting konnte nicht gespeichert werden.')
         return
-      }
-      if (missingEmail.length > 0) {
-        // Kein harter Fehler – Meeting ist angelegt, nur ohne diese Teilnehmer.
-        console.warn('Mitarbeiter ohne E-Mail übersprungen:', missingEmail.map((e) => e.name))
       }
       onCreated()
       onClose()
     } catch {
-      setError('Netzwerkfehler beim Anlegen des Meetings.')
+      setError('Netzwerkfehler beim Speichern des Meetings.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!meetingId) return
+    if (!confirmDelete) { setConfirmDelete(true); return }
+    setIsSaving(true)
+    try {
+      await PlantafelApi.deleteMeeting(meetingId)
+      onCreated()
+      onClose()
+    } catch {
+      setError('Netzwerkfehler beim Löschen des Meetings.')
     } finally {
       setIsSaving(false)
     }
@@ -112,10 +161,15 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5 text-[#4b53bc]" /> Meeting planen
+            <Video className="h-5 w-5 text-[#4b53bc]" /> {isEdit ? 'Meeting bearbeiten' : 'Meeting planen'}
           </DialogTitle>
         </DialogHeader>
 
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-8 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Meeting wird geladen…
+          </div>
+        ) : (
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Titel</Label>
@@ -193,14 +247,30 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" onClick={onClose} disabled={isSaving}>Abbrechen</Button>
-            <Button onClick={handleSubmit} disabled={isSaving}>
-              {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Video className="h-4 w-4 mr-1" />}
-              Meeting anlegen
-            </Button>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <div>
+              {isEdit && (
+                <Button
+                  variant="outline"
+                  onClick={handleDelete}
+                  disabled={isSaving}
+                  className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  {confirmDelete ? 'Wirklich löschen?' : 'Löschen'}
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose} disabled={isSaving}>Abbrechen</Button>
+              <Button onClick={handleSubmit} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Video className="h-4 w-4 mr-1" />}
+                {isEdit ? 'Speichern' : 'Meeting anlegen'}
+              </Button>
+            </div>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   )

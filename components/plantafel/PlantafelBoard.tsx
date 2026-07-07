@@ -83,7 +83,7 @@ export default function PlantafelBoard() {
     fetchData,
   } = usePlantafel()
 
-  const [meetingOpen, setMeetingOpen] = useState(false)
+  const [meeting, setMeeting] = useState<{ open: boolean; id?: string }>({ open: false })
 
   const { employees } = useEmployees()
   const { projects, fetchProjects } = useProjects()
@@ -132,6 +132,10 @@ export default function PlantafelBoard() {
 
   const handleSelectEvent = useCallback((event: PlantafelEvent) => {
     if (event.sourceType === 'feiertag' || event.sourceType === 'urlaub') return
+    if (event.sourceType === 'meeting') {
+      setMeeting({ open: true, id: event.sourceId })
+      return
+    }
     if (event.sourceType === 'projekt') {
       if (event.projektId) {
         setEditor({
@@ -568,7 +572,7 @@ export default function PlantafelBoard() {
             <span className="hidden sm:inline">Neuer Einsatz</span>
           </Button>
 
-          <Button size="sm" variant="outline" onClick={() => setMeetingOpen(true)}>
+          <Button size="sm" variant="outline" onClick={() => setMeeting({ open: true })}>
             <Video className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">Meeting planen</span>
           </Button>
@@ -702,11 +706,12 @@ export default function PlantafelBoard() {
         />
       )}
 
-      {/* Meeting planen (Teams-Online-Meeting mit Mitarbeitern + externen E-Mails) */}
-      {meetingOpen && (
+      {/* Meeting planen/bearbeiten (Teams-Meeting mit Mitarbeitern + externen E-Mails) */}
+      {meeting.open && (
         <MeetingDialog
-          open={meetingOpen}
-          onClose={() => setMeetingOpen(false)}
+          open={meeting.open}
+          meetingId={meeting.id}
+          onClose={() => setMeeting({ open: false })}
           onCreated={fetchData}
           employees={employees}
           defaultDate={format(currentDate, 'yyyy-MM-dd')}
