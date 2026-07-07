@@ -6,6 +6,7 @@ import { Holiday } from '@/lib/models/Holiday'
 import { getIslamicHolidaysInRange, holidaysToPlantafelEvents, type PlantafelHoliday } from '@/lib/services/plantafel/holidayService'
 import { getPlannedColor, detectEntryShift } from '@/lib/plantafel/projectColors'
 import { syncAssignmentToCalendar } from '@/lib/services/microsoft/plantafel-sync'
+import { ensureEventsSubscription } from '@/lib/services/microsoft/subscriptions'
 import mongoose from 'mongoose'
 
 const VACATION_TYPE_KEYWORDS: { keyword: string; type: 'krankheit' | 'sonderurlaub' | 'unbezahlt' }[] = [
@@ -42,6 +43,9 @@ export async function GET(req: NextRequest) {
   }
 
   await dbConnect()
+
+  // Webhook-Subscription lazy erneuern (nur wenn nötig; best effort, intern geschützt)
+  await ensureEventsSubscription()
 
   const query: Record<string, unknown> = {
     von: { $lte: new Date(to) },

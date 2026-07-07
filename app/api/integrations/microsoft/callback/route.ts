@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import IntegrationConfig from '@/lib/models/IntegrationConfig'
 import { exchangeCodeForTokens, validateToken } from '@/lib/services/microsoft/oauth'
+import { ensureEventsSubscription } from '@/lib/services/microsoft/subscriptions'
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
@@ -66,6 +67,9 @@ export async function GET(req: NextRequest) {
         },
       }
     )
+
+    // Eingehenden Sync (Outlook/Teams → Plantafel) aktivieren – best effort.
+    await ensureEventsSubscription()
 
     return NextResponse.redirect(new URL(`${settingsUrl}&success=true`, req.url))
   } catch (err) {

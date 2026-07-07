@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { requireAuth } from '@/lib/security/requireAuth'
 import IntegrationConfig from '@/lib/models/IntegrationConfig'
+import { deleteEventsSubscription } from '@/lib/services/microsoft/subscriptions'
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req)
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
   }
 
   await dbConnect()
+
+  // Webhook-Subscription entfernen, solange die Tokens noch gültig sind.
+  await deleteEventsSubscription()
 
   await IntegrationConfig.findOneAndUpdate(
     { integrationId: 'microsoft' },
