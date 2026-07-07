@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
 import { requireAuth } from '@/lib/security/requireAuth';
-import minioClient from '@/lib/storage/minioClient';
+import minioClient, { getObjectBufferAsync } from '@/lib/storage/minioClient';
+import { syncProjectDocumentToOneDrive } from '@/lib/services/microsoft/projectDocumentSync';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,9 +32,9 @@ export async function POST(request: NextRequest) {
       // Try to stat object to get size and lastModified
       let size: number | null = null;
       let lastModified: string | null = null;
+      let key = '';
       try {
         // d.url expected like minio://bucket/key
-        let key = '';
         if (typeof d.url === 'string' && d.url.startsWith('minio://')) {
           const parts = d.url.replace('minio://', '').split('/');
           parts.shift(); // remove bucket
@@ -53,7 +54,22 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         // ignore stat errors
       }
-      const doc = { id: docId, name: d.name, url: d.url, description: d.description || '', size, lastModified };
+      // Best-effort: aus MinIO holen und in den Projektordner in OneDrive spiegeln
+      let oneDriveUrl: string | undefined;
+      if (key) {
+        try {
+          const buffer = await getObjectBufferAsync(bucketName, key);
+          const res = await syncProjectDocumentToOneDrive({
+            project,
+            fileName: d.name || key.split('/').pop() || 'dokument',
+            content: buffer as Buffer,
+          });
+          if (res.uploaded) oneDriveUrl = res.webUrl;
+        } catch { /* Sync ist optional */ }
+      }
+
+      const doc: Record<string, unknown> = { id: docId, name: d.name, url: d.url, description: d.description || '', size, lastModified };
+      if (oneDriveUrl) doc.oneDriveUrl = oneDriveUrl;
       (project as any).dokumente['all'].push(doc);
       added.push(doc);
     }

@@ -4,6 +4,7 @@ import { Project } from '@/lib/models/Project';
 import { requireAuth } from '@/lib/security/requireAuth';
 import { getCurrentUser } from '@/lib/auth/getCurrentUser';
 import minioClient, { getProjectObjectKey } from '@/lib/storage/minioClient';
+import { syncProjectDocumentToOneDrive } from '@/lib/services/microsoft/projectDocumentSync';
 import stream from 'stream';
 import { promisify } from 'util';
 
@@ -90,14 +91,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const customName = (nameList[index] ?? namesJson[index] ?? '').trim();
       const name = customName || originalName;
       const key = getProjectObjectKey(project, originalName);
+      let fileBuffer: Buffer | null = null;
       try {
         // convert Blob/File to readable stream
         const buffer = await (f as any).arrayBuffer();
+        fileBuffer = Buffer.from(buffer);
         const readable = new stream.Readable();
         readable._read = () => {}; // noop
-        readable.push(Buffer.from(buffer));
+        readable.push(fileBuffer);
         readable.push(null);
-        await promisify(minioClient.putObject.bind(minioClient))(bucketName, key, readable, buffer.byteLength);
+        await promisify(minioClient.putObject.bind(minioClient))(bucketName, key, readable, fileBuffer.byteLength);
       } catch (e) {
         console.error('MinIO upload failed for', name, e);
       }
@@ -106,7 +109,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         descriptionsJson[index] ??
         description ??
         '';
-      const docMeta = { id: idStr, name, description: resolvedDescription, url: `minio://${bucketName}/${key}` };
+      // Best-effort: zusätzlich in den Projektordner in OneDrive spiegeln
+      let oneDriveUrl: string | undefined
+      if (fileBuffer) {
+        try {
+          const res = await syncProjectDocumentToOneDrive({
+            project,
+            fileName: originalName,
+            content: fileBuffer,
+            contentType: (f as any).type,
+          });
+          if (res.uploaded) oneDriveUrl = res.webUrl;
+        } catch { /* Sync ist optional */ }
+      }
+
+      const docMeta: Record<string, unknown> = { id: idStr, name, description: resolvedDescription, url: `minio://${bucketName}/${key}` };
+      if (oneDriveUrl) docMeta.oneDriveUrl = oneDriveUrl;
       if (!(project as any).dokumente['all']) (project as any).dokumente['all'] = [];
       (project as any).dokumente['all'].push(docMeta);
       uploaded.push(docMeta);
