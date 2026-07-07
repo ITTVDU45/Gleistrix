@@ -170,8 +170,9 @@ const SYSTEM_PROMPT = [
   '- baustelle: Leistungsort/Örtlichkeit (Strecke, km, Bahnhof/Verkehrsstation aus Beschreibung, sonst "Raumlos").',
   '- auftragsnummer: die Maßnahmennummer, meist mit "A" beginnend (z.B. "A708563").',
   '- sapNummer: die "SAP-RV-Nummer" bzw. SAP-Nummer, rein numerisch (z.B. "92344854").',
+  '- ansprechpartner: Name des Ansprechpartners vor Ort (Feld "Ansprechpartner vor Ort").',
   '- telefonnummer: Telefonnummer des Ansprechpartners vor Ort.',
-  '- ansprechpartner: Name des Ansprechpartners vor Ort.',
+  '- email: E-Mail-Adresse des Ansprechpartners vor Ort.',
   '- datumBeginn / datumEnde: aus "Leistungszeitraum" (Start bzw. Ende), als YYYY-MM-DD.',
   '- summe: "Gesamtsumme vorläufig netto" als deutsch formatierter Euro-Betrag mit Tausenderpunkt, Dezimalkomma und "€" (z.B. "2.025,00 €").',
   '  Falls der Wert als reine Ganzzahl in Cent vorliegt (z.B. 202500), durch 100 teilen und so formatieren (→ "2.025,00 €").',
@@ -216,6 +217,13 @@ export async function extractFromText(text: string): Promise<LeistungsanfrageRes
   }
 
   const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+
+  // Kontakt (Name · Telefon · E-Mail) in das eine Ansprechpartner-Feld bündeln.
+  const kName = s(parsed.ansprechpartner)
+  const kTel = s(parsed.telefonnummer)
+  const kMail = s(parsed.email)
+  const kontakt = [kName, kTel, kMail].filter(Boolean).join(' · ')
+
   return {
     configured: true,
     data: {
@@ -224,14 +232,14 @@ export async function extractFromText(text: string): Promise<LeistungsanfrageRes
       baustelle: s(parsed.baustelle),
       auftragsnummer: s(parsed.auftragsnummer),
       sapNummer: s(parsed.sapNummer),
-      telefonnummer: s(parsed.telefonnummer) || s(parsed.ansprechpartner),
+      telefonnummer: kontakt || kTel || kName,
       datumBeginn: s(parsed.datumBeginn),
       datumEnde: s(parsed.datumEnde),
     },
     extra: {
       summe: s(parsed.summe),
       aufgaben: s(parsed.aufgaben),
-      ansprechpartner: s(parsed.ansprechpartner),
+      ansprechpartner: kontakt,
     },
   }
 }
