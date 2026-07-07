@@ -634,6 +634,7 @@ export default function PlantafelBoard() {
               startAccessor="start"
               endAccessor="end"
               titleAccessor="title"
+              tooltipAccessor={null}
               view={VIEW_MAP[calendarView] as 'day' | 'week' | 'month'}
               date={currentDate}
               onNavigate={setCurrentDate}
