@@ -5,14 +5,15 @@ import type { GaebBillOfQuantities, GaebPosition, GaebAgentAnalysis } from '@/ty
  *
  * Baut aus dem geparsten LV (deterministisch) + der regelbasierten Analyse
  * einen kompakten, geerdeten Kontext und beantwortet eine Freitext-Frage über
- * die Anthropic Messages API (per fetch, ohne zusätzliche Dependency).
+ * die OpenAI Chat Completions API (per fetch, ohne zusätzliche Dependency).
  *
- * Deploy-sicher: Ohne `ANTHROPIC_API_KEY` wird die Frage nicht abgelehnt,
+ * Deploy-sicher: Ohne `OPENAI_API_KEY` wird die Frage nicht abgelehnt,
  * sondern ein klarer Hinweis zurückgegeben (`configured: false`).
+ * Das Modell ist über `OPENAI_MODEL` überschreibbar (Default: gpt-4o).
  */
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const ANTHROPIC_MODEL = 'claude-opus-4-8'
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
+const DEFAULT_OPENAI_MODEL = 'gpt-4o'
 const MAX_POSITIONS_IN_CONTEXT = 120
 const SHORT_TEXT_MAX = 140
 
@@ -93,12 +94,12 @@ export async function askGaebAgent(
   analysis: GaebAgentAnalysis,
   question: string
 ): Promise<GaebAskResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     return {
       configured: false,
       answer:
-        'Die LLM-Anbindung ist nicht konfiguriert (ANTHROPIC_API_KEY fehlt). ' +
+        'Die LLM-Anbindung ist nicht konfiguriert (OPENAI_API_KEY fehlt). ' +
         'Die regelbasierte Analyse oben steht weiterhin zur Verfügung.',
     }
   }
@@ -106,40 +107,32 @@ export async function askGaebAgent(
   const context = buildContext(boq, analysis)
   const userContent = `${context}\n\n# Frage\n${question.trim()}`
 
-  const res = await fetch(ANTHROPIC_URL, {
+  const res = await fetch(OPENAI_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
+      authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
+      model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
       max_tokens: 1500,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userContent }],
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent },
+      ],
     }),
   })
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    throw new Error(`Anthropic-API-Fehler (${res.status}): ${detail.slice(0, 300)}`)
+    throw new Error(`OpenAI-API-Fehler (${res.status}): ${detail.slice(0, 300)}`)
   }
 
   const json = (await res.json()) as {
-    stop_reason?: string
-    content?: Array<{ type: string; text?: string }>
+    choices?: Array<{ message?: { content?: string | null } }>
   }
 
-  if (json.stop_reason === 'refusal') {
-    return { configured: true, answer: 'Die Anfrage wurde vom Modell abgelehnt. Bitte anders formulieren.' }
-  }
-
-  const answer = (json.content ?? [])
-    .filter((b) => b.type === 'text' && b.text)
-    .map((b) => b.text as string)
-    .join('\n')
-    .trim()
+  const answer = (json.choices?.[0]?.message?.content ?? '').trim()
 
   return { configured: true, answer: answer || 'Keine Antwort erhalten.' }
 }
