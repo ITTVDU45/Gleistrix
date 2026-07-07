@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/security/requireAuth'
 import { removeObject } from '@/lib/storage/minioClient'
 import GaebImportJob from '@/lib/models/GaebImportJob'
 import GaebFile from '@/lib/models/GaebFile'
+import GaebBillOfQuantities from '@/lib/models/GaebBillOfQuantities'
 
 function isValidId(id: string): boolean {
   return mongoose.Types.ObjectId.isValid(id)
@@ -27,8 +28,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ success: false, error: 'Import nicht gefunden' }, { status: 404 })
   }
   const file = (await GaebFile.findById(String(job.fileId)).lean()) as Record<string, unknown> | null
+  const boq = job.boqId
+    ? await GaebBillOfQuantities.findById(String(job.boqId)).lean()
+    : null
 
-  return NextResponse.json({ success: true, data: { job, file } })
+  return NextResponse.json({ success: true, data: { job, file, boq } })
 }
 
 /** DELETE: Job + Datei-Metadaten + MinIO-Objekt entfernen. */

@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     const filename = sanitizeFilename(String(doc?.name || 'document'))
     const contentType = guessContentTypeFromName(filename)
 
-    return new NextResponse(data, {
+    return new NextResponse(new Uint8Array(data), {
       status: 200,
       headers: {
         'Content-Type': contentType,

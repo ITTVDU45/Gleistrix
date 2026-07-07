@@ -126,7 +126,7 @@ export async function graphUpload(path: string, content: Buffer | Uint8Array, co
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': contentType,
     },
-    body: content,
+    body: new Uint8Array(content),
   })
 
   if (!res.ok) {

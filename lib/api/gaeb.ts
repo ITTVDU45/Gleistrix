@@ -8,7 +8,14 @@
 
 import { getJSON, postJSON, delJSON } from '@/lib/http/apiClient'
 import { fetchWithIntent } from '@/lib/http/fetchWithIntent'
-import type { GaebIntegrationSettings, GaebImportStatus, GaebVersionId, GaebExchangePhaseCode } from '@/types/gaeb'
+import type {
+  GaebIntegrationSettings,
+  GaebImportStatus,
+  GaebVersionId,
+  GaebExchangePhaseCode,
+  GaebValidationResult,
+  GaebBillOfQuantities,
+} from '@/types/gaeb'
 
 export interface GaebConfigResponse {
   success: boolean
@@ -69,6 +76,20 @@ export const GaebApi = {
 
   imports: {
     list: () => getJSON<{ success: boolean; data: GaebImportListItem[] }>('/api/gaeb/imports'),
+    get: (id: string) =>
+      getJSON<{
+        success: boolean
+        data: {
+          job: Record<string, unknown>
+          file: Record<string, unknown> | null
+          boq: GaebBillOfQuantities | null
+        }
+      }>(`/api/gaeb/imports/${id}`),
+    validate: (id: string) =>
+      postJSON<{
+        success: boolean
+        data: { ok: boolean; status: GaebImportStatus; validation: GaebValidationResult; boqId?: string; positionCount?: number }
+      }>(`/api/gaeb/imports/${id}/validate`, undefined, 'gaeb:validate'),
     remove: (id: string) => delJSON<{ success: boolean }>(`/api/gaeb/imports/${id}`, 'gaeb:import-delete'),
   },
 }

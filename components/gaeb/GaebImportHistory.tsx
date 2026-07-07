@@ -1,10 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, Trash2, FileCode2 } from 'lucide-react'
+import { Loader2, Trash2, FileCode2, ShieldCheck, Eye } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { GaebApi, type GaebImportListItem } from '@/lib/api/gaeb'
 import { toneStyle, type Tone } from '@/components/shared/toneStyles'
-import type { GaebImportStatus } from '@/types/gaeb'
+import GaebBoqPreview from './GaebBoqPreview'
+import type { GaebImportStatus, GaebBillOfQuantities } from '@/types/gaeb'
 
 const STATUS_META: Record<GaebImportStatus, { label: string; tone: Tone }> = {
   hochgeladen: { label: 'Hochgeladen', tone: 'info' },
@@ -30,6 +32,10 @@ export default function GaebImportHistory({ refreshKey = 0 }: GaebImportHistoryP
   const [items, setItems] = useState<GaebImportListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [validatingId, setValidatingId] = useState<string | null>(null)
+  const [previewBoq, setPreviewBoq] = useState<GaebBillOfQuantities | null>(null)
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState('')
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -61,6 +67,36 @@ export default function GaebImportHistory({ refreshKey = 0 }: GaebImportHistoryP
     }
   }
 
+  const handleValidate = async (id: string) => {
+    setValidatingId(id)
+    try {
+      await GaebApi.imports.validate(id)
+    } catch {
+      /* Status/Fehler wird über Neuladen sichtbar */
+    } finally {
+      setValidatingId(null)
+      await load()
+    }
+  }
+
+  const handlePreview = async (id: string) => {
+    setPreviewLoadingId(id)
+    setPreviewError('')
+    try {
+      const res = await GaebApi.imports.get(id)
+      if (res.data.boq) {
+        setPreviewBoq(res.data.boq)
+      } else {
+        setPreviewError('Für diesen Import liegt noch keine geparste Struktur vor. Bitte zuerst „Prüfen".')
+        setPreviewBoq(null)
+      }
+    } catch {
+      setPreviewError('Vorschau konnte nicht geladen werden.')
+    } finally {
+      setPreviewLoadingId(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -78,6 +114,10 @@ export default function GaebImportHistory({ refreshKey = 0 }: GaebImportHistoryP
   }
 
   return (
+    <>
+    {previewError && (
+      <p className="mb-2 text-sm text-amber-600 dark:text-amber-400">{previewError}</p>
+    )}
     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
       <table className="w-full text-sm">
         <thead className="bg-slate-50 dark:bg-slate-800/50">
@@ -114,15 +154,39 @@ export default function GaebImportHistory({ refreshKey = 0 }: GaebImportHistoryP
                 <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
                   {item.createdAt ? new Date(item.createdAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                 </td>
-                <td className="px-3 py-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item.importJobId)}
-                    className="inline-flex h-7 items-center justify-center rounded-md px-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                    title="Löschen"
-                  >
-                    {confirmId === item.importJobId ? <span className="text-xs">Wirklich?</span> : <Trash2 className="h-4 w-4" />}
-                  </button>
+                <td className="px-3 py-2">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleValidate(item.importJobId)}
+                      disabled={validatingId === item.importJobId}
+                      className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                      title="Prüfen & Parsen"
+                    >
+                      {validatingId === item.importJobId ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePreview(item.importJobId)}
+                      disabled={previewLoadingId === item.importJobId}
+                      className="inline-flex h-7 items-center justify-center rounded-md px-2 text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                      title="Vorschau"
+                    >
+                      {previewLoadingId === item.importJobId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.importJobId)}
+                      className="inline-flex h-7 items-center justify-center rounded-md px-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                      title="Löschen"
+                    >
+                      {confirmId === item.importJobId ? <span className="text-xs">Wirklich?</span> : <Trash2 className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </td>
               </tr>
             )
@@ -130,5 +194,15 @@ export default function GaebImportHistory({ refreshKey = 0 }: GaebImportHistoryP
         </tbody>
       </table>
     </div>
+
+    <Dialog open={!!previewBoq} onOpenChange={(o) => { if (!o) setPreviewBoq(null) }}>
+      <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>GAEB-Vorschau</DialogTitle>
+        </DialogHeader>
+        {previewBoq && <GaebBoqPreview boq={previewBoq} />}
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

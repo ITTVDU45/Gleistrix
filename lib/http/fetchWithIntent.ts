@@ -22,7 +22,7 @@ export type IntentKey =
   | 'lager:article-type:create'
   | 'plantafel:create' | 'plantafel:update' | 'plantafel:delete'
   | 'integrations:gaeb-config'
-  | 'gaeb:upload' | 'gaeb:import-delete';
+  | 'gaeb:upload' | 'gaeb:import-delete' | 'gaeb:validate';
 
 type FetchOptions = RequestInit & { intent?: IntentKey };
 
