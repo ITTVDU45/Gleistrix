@@ -55,9 +55,9 @@ export function buildAuthorizationUrl(config: OAuthConfig, enabledModules: strin
   const scopes = buildScopes(enabledModules)
 
   const params = new URLSearchParams({
-    client_id: config.clientId,
+    client_id: config.clientId.trim(),
     response_type: 'code',
-    redirect_uri: config.redirectUri,
+    redirect_uri: config.redirectUri.trim(),
     scope: scopes,
     response_mode: 'query',
     state,
@@ -76,10 +76,10 @@ export async function exchangeCodeForTokens(
   const scopes = buildScopes(enabledModules)
 
   const body = new URLSearchParams({
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
+    client_id: config.clientId.trim(),
+    client_secret: config.clientSecret.trim(),
     code,
-    redirect_uri: config.redirectUri,
+    redirect_uri: config.redirectUri.trim(),
     grant_type: 'authorization_code',
     scope: scopes,
   })
@@ -91,8 +91,7 @@ export async function exchangeCodeForTokens(
   })
 
   if (!res.ok) {
-    const errBody = await res.text()
-    throw new Error(`Token exchange failed: ${res.status} ${errBody}`)
+    throw new Error(`Token-Austausch fehlgeschlagen (${res.status}): ${await describeOAuthError(res)}`)
   }
 
   const data = (await res.json()) as TokenResponse
@@ -103,6 +102,22 @@ export async function exchangeCodeForTokens(
     expiresAt: Date.now() + data.expires_in * 1000,
     scope: data.scope,
   }
+}
+
+/**
+ * Extrahiert die aussagekräftige Fehlerbeschreibung (inkl. AADSTS-Code) aus einer
+ * fehlgeschlagenen OAuth-Antwort von Microsoft; fällt auf den Rohtext zurück.
+ */
+async function describeOAuthError(res: Response): Promise<string> {
+  const raw = await res.text().catch(() => '')
+  try {
+    const json = JSON.parse(raw) as { error?: string; error_description?: string }
+    if (json.error_description) return json.error_description.split('\n')[0]
+    if (json.error) return json.error
+  } catch {
+    /* kein JSON – Rohtext verwenden */
+  }
+  return raw.slice(0, 300) || 'Unbekannter Fehler'
 }
 
 export async function refreshAccessToken(config: OAuthConfig, refreshToken: string): Promise<TokenSet> {
@@ -122,8 +137,7 @@ export async function refreshAccessToken(config: OAuthConfig, refreshToken: stri
   })
 
   if (!res.ok) {
-    const errBody = await res.text()
-    throw new Error(`Token refresh failed: ${res.status} ${errBody}`)
+    throw new Error(`Token-Refresh fehlgeschlagen (${res.status}): ${await describeOAuthError(res)}`)
   }
 
   const data = (await res.json()) as TokenResponse

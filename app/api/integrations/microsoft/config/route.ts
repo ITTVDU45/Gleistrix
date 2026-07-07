@@ -45,9 +45,13 @@ export async function POST(req: NextRequest) {
   const existing = await IntegrationConfig.findOne({ integrationId: 'microsoft' }).lean() as Record<string, unknown> | null
   const existingConfig = (existing?.config as Record<string, unknown>) || {}
 
+  // Whitespace/Zeilenumbrüche aus Copy-Paste entfernen – sonst wird die
+  // Authorize-URL ungültig (Microsoft antwortet mit `invalid_request`).
+  const trimStr = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
+
   const updatedConfig: Record<string, unknown> = {
-    clientId: body.clientId || '',
-    redirectUri: body.redirectUri || '',
+    clientId: trimStr(body.clientId),
+    redirectUri: trimStr(body.redirectUri),
     tenantMode: body.tenantMode || 'organizations',
     enabledModules: body.enabledModules || ['outlook', 'calendar'],
     storage: {
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.clientSecret) {
-    updatedConfig.clientSecret = body.clientSecret
+    updatedConfig.clientSecret = trimStr(body.clientSecret)
   } else if (existingConfig.clientSecret) {
     updatedConfig.clientSecret = existingConfig.clientSecret
   }
