@@ -29,6 +29,16 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [oneDriveActive, setOneDriveActive] = useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    fetch('/api/integrations/microsoft/storage-status', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (active) setOneDriveActive(Boolean(j?.data?.onedriveActive)); })
+      .catch(() => { if (active) setOneDriveActive(false); });
+    return () => { active = false; };
+  }, []);
 
   const allSelected = localDocs.length > 0 && localDocs.every(d => selectedDocIds.has(d.id));
   const someSelected = selectedDocIds.size > 0 && !allSelected;
@@ -160,6 +170,14 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
         <div className="flex justify-between items-center mb-4">
           <div>
             <h3 className="text-xl font-semibold">Projektdokumente</h3>
+            {oneDriveActive !== null && (
+              <p className={`mt-0.5 flex items-center gap-1 text-xs ${oneDriveActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                <Cloud className="h-3.5 w-3.5 shrink-0" />
+                {oneDriveActive
+                  ? 'OneDrive verbunden – neue Dokumente werden gespiegelt'
+                  : 'OneDrive nicht verbunden – Dokumente nur lokal gespeichert'}
+              </p>
+            )}
             {selectedDocIds.size > 0 && (
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
                 ({selectedDocIds.size} ausgewählt)
