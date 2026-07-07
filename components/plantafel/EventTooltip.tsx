@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Video, MapPin } from 'lucide-react'
@@ -64,7 +65,7 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
       onMouseLeave={handleMouseLeave}
     >
       {children}
-      {show && (
+      {show && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed z-[9999] pointer-events-none"
           style={{ left: pos.x, top: pos.y - 8, transform: 'translate(-50%, -100%)' }}
@@ -151,7 +152,8 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
