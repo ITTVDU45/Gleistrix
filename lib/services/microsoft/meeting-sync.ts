@@ -56,27 +56,23 @@ function toGraphDateTime(date: Date): string {
   return new Date(date).toISOString().replace('Z', '')
 }
 
-function buildPayload(m: MeetingDoc, timeZone: string): Record<string, unknown> {
+function buildPayload(m: MeetingDoc): Record<string, unknown> {
   const attendees = (m.attendees || [])
     .filter((a) => a.email)
     .map((a) => ({ emailAddress: { address: a.email, name: a.name || a.email }, type: 'required' }))
 
+  // Die gespeicherte Zeit ist echtes UTC – daher als UTC an Graph senden
+  // (nicht die UTC-Uhrzeit fälschlich als lokale Zeitzone labeln → 2h-Versatz).
   return {
     subject: m.titel || 'Meeting',
-    start: { dateTime: toGraphDateTime(m.von), timeZone },
-    end: { dateTime: toGraphDateTime(m.bis), timeZone },
+    start: { dateTime: toGraphDateTime(m.von), timeZone: 'UTC' },
+    end: { dateTime: toGraphDateTime(m.bis), timeZone: 'UTC' },
     body: { contentType: 'text', content: m.notizen || 'Erstellt aus der Gleistrix-Plantafel.' },
     isOnlineMeeting: true,
     onlineMeetingProvider: 'teamsForBusiness',
     attendees,
     singleValueExtendedProperties: [{ id: EXT_PROP_ID, value: String(m._id) }],
   }
-}
-
-async function timeZone(): Promise<string> {
-  const doc = (await IntegrationConfig.findOne({ integrationId: 'microsoft' }).lean()) as Record<string, unknown> | null
-  const outlook = ((doc?.config as Record<string, unknown>)?.outlook as Record<string, unknown>) || {}
-  return (outlook.timeZone as string) || 'Europe/Berlin'
 }
 
 /**
@@ -92,8 +88,7 @@ export async function syncMeetingToCalendar(meetingId: string): Promise<MeetingS
   if (!m) return { created: false, reason: 'Meeting nicht gefunden' }
 
   try {
-    const tz = await timeZone()
-    const payload = buildPayload(m, tz)
+    const payload = buildPayload(m)
     const existingEventId = m.msCalendar?.eventId || null
 
     // POST /me/events mit Teilnehmern versendet die Einladungen automatisch.

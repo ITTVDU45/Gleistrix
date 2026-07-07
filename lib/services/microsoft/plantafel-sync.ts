@@ -86,8 +86,7 @@ async function resolveAttendee(mitarbeiterId?: string | null): Promise<{ address
 
 function buildEventPayload(
   a: AssignmentDoc,
-  attendee: { address: string; name: string } | null,
-  timeZone: string
+  attendee: { address: string; name: string } | null
 ): Record<string, unknown> {
   const subjectParts = [a.projektName || 'Einsatz', a.rolle].filter(Boolean)
   const bodyLines = [
@@ -97,10 +96,11 @@ function buildEventPayload(
     'Erstellt aus der Gleistrix-Plantafel.',
   ].filter(Boolean)
 
+  // Gespeicherte Zeit ist echtes UTC → als UTC senden (kein 2h-Versatz).
   return {
     subject: subjectParts.join(' – '),
-    start: { dateTime: toGraphDateTime(a.von), timeZone },
-    end: { dateTime: toGraphDateTime(a.bis), timeZone },
+    start: { dateTime: toGraphDateTime(a.von), timeZone: 'UTC' },
+    end: { dateTime: toGraphDateTime(a.bis), timeZone: 'UTC' },
     body: { contentType: 'text', content: bodyLines.join('\n') },
     isOnlineMeeting: true,
     onlineMeetingProvider: 'teamsForBusiness',
@@ -148,7 +148,7 @@ export async function syncAssignmentToCalendar(assignmentId: string): Promise<vo
     }
 
     const attendee = await resolveAttendee(a.mitarbeiterId)
-    const payload = buildEventPayload(a, attendee, settings.timeZone)
+    const payload = buildEventPayload(a, attendee)
 
     if (existingEventId) {
       const ev = await graphPatch<GraphEventResponse>(`/me/events/${existingEventId}`, payload)
