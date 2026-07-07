@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { Video } from 'lucide-react'
+import { Video, MapPin } from 'lucide-react'
 import type { PlantafelEvent } from './types'
 
 const EVENT_COLORS: Record<string, string> = {
@@ -142,6 +142,12 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
             {event.msJoinUrl && (
               <div className="flex items-center gap-1 text-indigo-300 text-[10px] mt-1 border-t border-slate-700 pt-1">
                 <Video className="h-3 w-3 shrink-0" /> Teams-Meeting verknüpft
+              </div>
+            )}
+
+            {!event.msJoinUrl && event.ort && (
+              <div className="flex items-center gap-1 text-slate-300 text-[10px] mt-1 border-t border-slate-700 pt-1">
+                <MapPin className="h-3 w-3 shrink-0" /> {event.ort}
               </div>
             )}
           </div>

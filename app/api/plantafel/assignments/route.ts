@@ -135,6 +135,7 @@ export async function GET(req: NextRequest) {
     for (const m of meetings as Record<string, unknown>[]) {
       const attendees = (Array.isArray(m.attendees) ? m.attendees : []) as Array<{ employeeId?: string | null; name?: string; email?: string }>
       const joinUrl = (m.msCalendar as { joinUrl?: string } | null)?.joinUrl ?? undefined
+      const ort = m.modus === 'vorOrt' ? ((m.ort as string) || '') : ''
       const employeeAttendees = attendees.filter((a) => a.employeeId)
       const externals = attendees.filter((a) => !a.employeeId).map((a) => a.name || a.email).filter(Boolean)
       const summary = [
@@ -157,6 +158,7 @@ export async function GET(req: NextRequest) {
           sourceId: String(m._id),
           notes: [(m.notizen as string) || '', summary].filter(Boolean).join(' — '),
           msJoinUrl: joinUrl,
+          ort: ort || undefined,
           hasConflict: false,
         })
       }

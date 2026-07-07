@@ -85,6 +85,9 @@ export interface PlantafelEvent {
 
   /** Join-Link des verknüpften Teams-Meetings (Microsoft-365-Sync) */
   msJoinUrl?: string
+
+  /** Ort/Adresse bei Vor-Ort-Meetings */
+  ort?: string
 }
 
 export interface PlantafelResource {

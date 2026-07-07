@@ -28,7 +28,7 @@ import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR } from '@/lib/plantafel/projectColor
 import ProjectCreateWithGaeb from '@/components/ProjectCreateWithGaeb'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus, Upload, Video } from 'lucide-react'
+import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus, Upload, Video, MapPin } from 'lucide-react'
 import type { PlantafelEvent, PlantafelCalendarView, PlantafelDayProject } from './types'
 
 const locales = { de }
@@ -357,6 +357,14 @@ export default function PlantafelBoard() {
               >
                 <Video className="h-3 w-3 text-white" />
               </a>
+            )}
+            {!fileOver && !event.msJoinUrl && event.ort && (
+              <span
+                title={`Vor Ort: ${event.ort}`}
+                className="ml-auto flex shrink-0 items-center rounded bg-white/25 px-0.5"
+              >
+                <MapPin className="h-3 w-3 text-white" />
+              </span>
             )}
             {!fileOver && isProjekt && counts && counts.tag > 0 && (
               <span
