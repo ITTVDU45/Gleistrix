@@ -38,7 +38,49 @@ export interface LeistungsanfrageResult {
   reason?: string
 }
 
-/** Sichtbaren Text einer Seite laden (HTML grob zu Text reduziert). */
+const DB_PORTAL_HOST = 'lieferantenportal.deutschebahn.com'
+const GUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+
+const JSON_HEADERS = {
+  accept: 'application/json, text/plain, */*',
+  'accept-language': 'de-DE,de;q=0.9',
+  'user-agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+}
+
+/**
+ * DB-Lieferantenportal: die Daten liegen hinter einer öffentlichen API (nur der
+ * GUID nötig, kein Login). Direkt die Measure- + Contacts-Endpunkte abrufen.
+ */
+async function fetchDbPortalMeasure(guid: string): Promise<{ ok: boolean; text?: string; reason?: string }> {
+  const base = `https://${DB_PORTAL_HOST}/api/external/measures/${guid}`
+  try {
+    const res = await fetch(base, { headers: JSON_HEADERS, redirect: 'follow' })
+    if (!res.ok) {
+      return { ok: false, reason: `Leistungsanfrage nicht abrufbar (HTTP ${res.status}). Link evtl. abgelaufen.` }
+    }
+    const measure = await res.text()
+
+    // Ansprechpartner best-effort ergänzen
+    let contacts = ''
+    try {
+      const cRes = await fetch(`${base}/contacts`, { headers: JSON_HEADERS, redirect: 'follow' })
+      if (cRes.ok) contacts = await cRes.text()
+    } catch {
+      /* optional */
+    }
+
+    const combined = [measure, contacts && `\n\nKontakte:\n${contacts}`].filter(Boolean).join('')
+    if (combined.trim().length < 30) {
+      return { ok: false, reason: 'Leere Antwort vom Portal.' }
+    }
+    return { ok: true, text: combined.slice(0, MAX_TEXT_CHARS) }
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : 'Abruf fehlgeschlagen.' }
+  }
+}
+
+/** Sichtbaren Text/Daten einer Seite laden (Portal-API bevorzugt, sonst HTML). */
 export async function fetchPageText(url: string): Promise<{ ok: boolean; text?: string; reason?: string }> {
   let parsed: URL
   try {
@@ -46,6 +88,12 @@ export async function fetchPageText(url: string): Promise<{ ok: boolean; text?: 
     if (!/^https?:$/.test(parsed.protocol)) return { ok: false, reason: 'Nur http(s)-Links werden unterstützt.' }
   } catch {
     return { ok: false, reason: 'Ungültiger Link.' }
+  }
+
+  // DB-Lieferantenportal direkt über die öffentliche API abrufen
+  if (parsed.hostname.endsWith(DB_PORTAL_HOST)) {
+    const m = url.match(GUID_RE)
+    if (m) return fetchDbPortalMeasure(m[0])
   }
 
   try {
@@ -115,6 +163,7 @@ function htmlToText(html: string): string {
 
 const SYSTEM_PROMPT = [
   'Du extrahierst Projekt-Stammdaten aus einer Leistungsanfrage (z.B. Deutsche Bahn Lieferantenportal).',
+  'Die Eingabe kann Freitext oder JSON aus einer Portal-API sein – werte beides aus.',
   'Gib ausschließlich gültiges JSON zurück mit genau diesen Feldern (fehlende Werte = leerer String):',
   'name (Projekt-/Maßnahmenbezeichnung), auftraggeber (bestellende Firma/Stelle), baustelle (Leistungsort/Adresse),',
   'auftragsnummer (Anfrage-/Bestell-/Ausschreibungsnummer), sapNummer, telefonnummer (Kontakt-Telefon),',
