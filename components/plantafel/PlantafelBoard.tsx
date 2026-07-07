@@ -27,7 +27,7 @@ import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR } from '@/lib/plantafel/projectColor
 import ProjectCreateWithGaeb from '@/components/ProjectCreateWithGaeb'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus, Upload } from 'lucide-react'
+import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus, Upload, Video } from 'lucide-react'
 import type { PlantafelEvent, PlantafelCalendarView, PlantafelDayProject } from './types'
 
 const locales = { de }
@@ -336,6 +336,19 @@ export default function PlantafelBoard() {
               </span>
             ) : (
             <span className="truncate text-xs">{event.title}</span>
+            )}
+            {!fileOver && event.msJoinUrl && (
+              <a
+                href={event.msJoinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Teams-Meeting beitreten"
+                className="ml-auto flex shrink-0 items-center rounded bg-white/25 px-0.5 hover:bg-white/40"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Video className="h-3 w-3 text-white" />
+              </a>
             )}
             {!fileOver && isProjekt && counts && counts.tag > 0 && (
               <span
