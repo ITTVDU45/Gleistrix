@@ -126,6 +126,12 @@ export const GaebApi = {
       ),
     assign: (id: string, projectId: string) =>
       postJSON<{ success: boolean }>(`/api/gaeb/imports/${id}/assign`, { projectId }, 'gaeb:assign'),
+    ask: (id: string, question: string) =>
+      postJSON<{ success: boolean; data: { configured: boolean; answer: string } }>(
+        `/api/gaeb/imports/${id}/ask`,
+        { question },
+        'gaeb:ask'
+      ),
     remove: (id: string) => delJSON<{ success: boolean }>(`/api/gaeb/imports/${id}`, 'gaeb:import-delete'),
   },
 }

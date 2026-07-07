@@ -18,6 +18,12 @@ export default function GaebAgentView() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState('')
 
+  // Fragen an den Agenten (LLM)
+  const [question, setQuestion] = useState('')
+  const [answer, setAnswer] = useState('')
+  const [isAsking, setIsAsking] = useState(false)
+  const [askError, setAskError] = useState('')
+
   const loadImports = useCallback(async () => {
     try {
       const res = await GaebApi.imports.list()
@@ -46,6 +52,23 @@ export default function GaebAgentView() {
       setIsAnalyzing(false)
     }
   }, [])
+
+  const askQuestion = useCallback(async () => {
+    const q = question.trim()
+    const jobId = analysis?.importJobId || selectedId
+    if (!q || !jobId || isAsking) return
+    setIsAsking(true)
+    setAskError('')
+    setAnswer('')
+    try {
+      const res = await GaebApi.imports.ask(jobId, q)
+      setAnswer(res.data.answer)
+    } catch (e) {
+      setAskError(e instanceof Error ? e.message : 'Frage konnte nicht beantwortet werden')
+    } finally {
+      setIsAsking(false)
+    }
+  }, [question, analysis?.importJobId, selectedId, isAsking])
 
   return (
     <div className="space-y-5">
@@ -221,22 +244,43 @@ export default function GaebAgentView() {
             </Card>
           )}
 
-          {/* Fragen an den Agenten (Platzhalter für spätere LLM-Anbindung) */}
-          <Card className="rounded-2xl border-dashed border-slate-300 dark:border-slate-700">
+          {/* Fragen an den Agenten (LLM, geerdet auf LV + Analyse) */}
+          <Card className="rounded-2xl border-slate-200 dark:border-slate-700">
             <CardContent className="p-5">
               <h3 className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-100">Fragen an den Agenten</h3>
               <div className="flex gap-2">
                 <input
-                  disabled
-                  placeholder="Freitext-Frage zum LV (in Vorbereitung)"
-                  className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800/50"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      askQuestion()
+                    }
+                  }}
+                  disabled={isAsking}
+                  placeholder="Freitext-Frage zum LV, z. B. welche Positionen Kalkulationsrisiken bergen"
+                  className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
-                <Button size="sm" disabled className="gap-1">
-                  <Send className="h-4 w-4" /> Senden
+                <Button size="sm" disabled={!question.trim() || isAsking} onClick={askQuestion} className="gap-1">
+                  {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Senden
                 </Button>
               </div>
+
+              {askError && (
+                <p className="mt-3 flex items-center gap-1.5 text-sm text-red-600 dark:text-red-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0" /> {askError}
+                </p>
+              )}
+
+              {answer && (
+                <div className="mt-3 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200">
+                  {answer}
+                </div>
+              )}
+
               <p className="mt-2 text-xs text-slate-400">
-                Freitext-Fragen (LLM-Anbindung) folgen; die regelbasierte Analyse oben ist bereits aktiv.
+                Die Antwort stützt sich ausschließlich auf das geparste LV und die Analyse oben.
               </p>
             </CardContent>
           </Card>
