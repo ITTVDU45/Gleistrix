@@ -24,7 +24,19 @@ import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import ProjectFilterControl from './ProjectFilterControl'
 import PlantafelLegend from './PlantafelLegend'
 import EventTooltip from './EventTooltip'
-import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR } from '@/lib/plantafel/projectColors'
+import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR, detectEntryShift } from '@/lib/plantafel/projectColors'
+
+/** Date → lokaler ISO-Zeitstempel (yyyy-MM-ddTHH:mm) für die Schicht-Erkennung. */
+function toLocalIso(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  const dt = new Date(d)
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`
+}
+
+/** Schicht-Farbe eines Einsatzes anhand von Start/Ende (Früh = grün, Nacht = rot). */
+function einsatzShiftColor(start: Date, end: Date): string {
+  return detectEntryShift(toLocalIso(start), toLocalIso(end)) === 'nacht' ? SHIFT_NIGHT_COLOR : SHIFT_DAY_COLOR
+}
 import ProjectCreateWithGaeb from '@/components/ProjectCreateWithGaeb'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -342,8 +354,17 @@ export default function PlantafelBoard() {
               <span className="flex w-full items-center justify-center gap-1 text-[11px] font-semibold">
                 <Upload className="h-3.5 w-3.5" /> Ablegen
               </span>
+            ) : event.sourceType === 'einsatz' ? (
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="truncate text-xs font-semibold">
+                  {event.mitarbeiterName || 'Nicht zugewiesen'}
+                </span>
+                <span className="truncate text-[10px] opacity-90">
+                  {event.title}{event.rolle ? ` · ${event.rolle}` : ''}
+                </span>
+              </span>
             ) : (
-            <span className="truncate text-xs">{event.title}</span>
+              <span className="truncate text-xs">{event.title}</span>
             )}
             {!fileOver && event.msJoinUrl && (
               <a
@@ -429,9 +450,13 @@ export default function PlantafelBoard() {
   )
 
   const eventStyleGetter = useCallback((event: PlantafelEvent) => {
-    const bgColor = event.color || EVENT_COLORS[event.type] || '#3b82f6'
     const isDraggable = event.sourceType === 'einsatz'
     const isPlanned = event.type === 'projekt_plan'
+    // Einsätze nach Schicht einfärben (Früh = grün, Nacht = rot) → überlappende
+    // Schichten sind unterscheidbar; sonst normale Event-Farbe.
+    const bgColor = event.color
+      || (isDraggable ? einsatzShiftColor(new Date(event.start), new Date(event.end)) : EVENT_COLORS[event.type])
+      || '#3b82f6'
     return {
       style: {
         backgroundColor: isPlanned ? 'transparent' : bgColor,
@@ -443,6 +468,8 @@ export default function PlantafelBoard() {
           ? '2px solid #ef4444'
           : isPlanned
           ? `1px dashed ${bgColor}`
+          : isDraggable
+          ? '1px solid rgba(255,255,255,0.65)'
           : 'none',
         color: isPlanned ? bgColor : '#fff',
         fontSize: '0.75rem',
