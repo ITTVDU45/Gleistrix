@@ -95,8 +95,10 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
   // Wie viele Teilnehmer bekommen tatsächlich eine Einladung (gültige E-Mail)?
   const invitableCount = useMemo(() => {
     const emps = employees.filter((e) => selectedIds.has(e.id) && isEmail((e.email || '').trim())).length
-    return emps + externals.length
-  }, [employees, selectedIds, externals])
+    const pending = externalInput.trim()
+    const pendingCount = isEmail(pending) && !externals.includes(pending) ? 1 : 0
+    return emps + externals.length + pendingCount
+  }, [employees, selectedIds, externals, externalInput])
 
   // Sobald Teilnehmer vorhanden sind, den Ohne-Teilnehmer-Hinweis zurücksetzen.
   useEffect(() => {
@@ -135,7 +137,11 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
       .map((e) => ({ employeeId: e.id, name: e.name, email: (e.email || '').trim() }))
       .filter((a) => isEmail(a.email))
 
-    const externalAttendees: Attendee[] = externals.map((email) => ({ employeeId: null, name: '', email }))
+    // Noch nicht per „+"/Enter übernommene, aber gültige E-Mail mit aufnehmen.
+    const pending = externalInput.trim()
+    const allExternals = isEmail(pending) && !externals.includes(pending) ? [...externals, pending] : externals
+
+    const externalAttendees: Attendee[] = allExternals.map((email) => ({ employeeId: null, name: '', email }))
     const attendees = [...employeeAttendees, ...externalAttendees]
 
     // Ohne Teilnehmer würde keine Einladung versendet – einmal nachfragen.
