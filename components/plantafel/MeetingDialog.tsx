@@ -182,7 +182,7 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden break-words">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Video className="h-5 w-5 text-[#4b53bc]" /> {isEdit ? 'Meeting bearbeiten' : 'Meeting planen'}
@@ -227,18 +227,22 @@ export default function MeetingDialog({ open, onClose, onCreated, employees, def
             {result.sync?.joinUrl && (
               <div className="space-y-2">
                 <Label>Microsoft-Teams-Besprechung</Label>
-                <div className="flex gap-2">
-                  <Button asChild className="flex-1 bg-[#4b53bc] text-white hover:bg-[#3f46a8]">
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild className="min-w-0 flex-1 bg-[#4b53bc] text-white hover:bg-[#3f46a8]">
                     <a href={result.sync.joinUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="mr-1 h-4 w-4" /> An Besprechung teilnehmen
+                      <ExternalLink className="mr-1 h-4 w-4 shrink-0" />
+                      <span className="truncate">An Besprechung teilnehmen</span>
                     </a>
                   </Button>
-                  <Button variant="outline" onClick={() => copy(result.sync!.joinUrl!, 'join')}>
+                  <Button variant="outline" className="shrink-0" onClick={() => copy(result.sync!.joinUrl!, 'join')}>
                     <Copy className="mr-1 h-4 w-4" /> {copied === 'join' ? 'Kopiert' : 'Link'}
                   </Button>
                 </div>
                 {result.sync.eventId && (
-                  <p className="text-[11px] text-slate-400">Meeting-Referenz: {result.sync.eventId}</p>
+                  <details className="text-[11px] text-slate-400">
+                    <summary className="cursor-pointer select-none">Meeting-Referenz</summary>
+                    <p className="mt-1 break-all font-mono text-slate-400">{result.sync.eventId}</p>
+                  </details>
                 )}
                 <div>
                   <Button
