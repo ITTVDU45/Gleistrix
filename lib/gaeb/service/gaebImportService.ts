@@ -3,7 +3,7 @@ import { getObjectBufferAsync } from '@/lib/storage/minioClient'
 import GaebFile from '@/lib/models/GaebFile'
 import GaebImportJob from '@/lib/models/GaebImportJob'
 import GaebBillOfQuantities from '@/lib/models/GaebBillOfQuantities'
-import { upsertAusschreibung } from '@/lib/gaeb/service/projectLinkService'
+import { upsertAusschreibung, linkGaebAsProjectDocument } from '@/lib/gaeb/service/projectLinkService'
 import { validateGaeb } from '@/lib/gaeb/validator'
 import { parseGaeb } from '@/lib/gaeb/parser/parseGaeb'
 import { loadGaebSettings } from '@/lib/gaeb/settingsService'
@@ -107,6 +107,7 @@ export async function runGaebImport(jobId: string): Promise<GaebImportRunResult>
         userId: (job.createdByUserId as string) ?? null,
         fallbackName: String(file.originalName),
       })
+      await linkGaebAsProjectDocument(projectId, jobId)
       assignedStatus = 'zugeordnet'
     }
 

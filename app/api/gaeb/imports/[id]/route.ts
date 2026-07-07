@@ -6,6 +6,7 @@ import { removeObject } from '@/lib/storage/minioClient'
 import GaebImportJob from '@/lib/models/GaebImportJob'
 import GaebFile from '@/lib/models/GaebFile'
 import GaebBillOfQuantities from '@/lib/models/GaebBillOfQuantities'
+import { unlinkGaebProjectDocument } from '@/lib/gaeb/service/projectLinkService'
 
 function isValidId(id: string): boolean {
   return mongoose.Types.ObjectId.isValid(id)
@@ -61,6 +62,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
   }
   if (file) await GaebFile.findByIdAndDelete(String(file._id))
+
+  // Verlinktes Projektdokument entfernen (best-effort)
+  const projectId = (job.assignment as { projectId?: string } | null)?.projectId
+  if (projectId) {
+    try {
+      await unlinkGaebProjectDocument(projectId, id)
+    } catch (e) {
+      console.warn('GAEB unlink project document failed:', e)
+    }
+  }
+
   await GaebImportJob.findByIdAndDelete(id)
 
   return NextResponse.json({ success: true })
