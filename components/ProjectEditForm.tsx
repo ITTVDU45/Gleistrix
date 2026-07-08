@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert } from './ui/alert';
 import { useProjects } from '../hooks/useProjects';
+import ProjectLeistungenEditor from './ProjectLeistungenEditor';
 import type { Project } from '../types';
 
 interface ProjectEditFormProps {
@@ -43,6 +44,7 @@ export default function ProjectEditForm({ project, onSuccess, onCancel }: Projec
       summe: project.leistungsanfrage?.summe || '',
       aufgaben: project.leistungsanfrage?.aufgaben || '',
     },
+    leistungen: project.leistungen || [],
   });
 
   const updateLA = (key: string, value: string) =>
@@ -243,6 +245,13 @@ export default function ProjectEditForm({ project, onSuccess, onCancel }: Projec
                 <Input id="la_aufgaben" value={form.leistungsanfrage?.aufgaben || ''} onChange={e => updateLA('aufgaben', e.target.value)} />
               </div>
             </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-200">
+            <ProjectLeistungenEditor
+              value={form.leistungen || []}
+              onChange={(v) => setForm(prev => ({ ...prev, leistungen: v }))}
+            />
           </div>
 
           {error && (

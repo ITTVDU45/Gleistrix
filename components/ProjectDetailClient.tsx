@@ -1231,6 +1231,39 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                 </div>
               )}
 
+              {/* Leistungen */}
+              {Array.isArray(project.leistungen) && project.leistungen.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-slate-200">
+                  <h4 className="font-semibold text-slate-700 mb-2">Leistungen:</h4>
+                  <div className="space-y-3">
+                    {project.leistungen.map((phase) => (
+                      <div key={phase.id} className="rounded-lg border border-slate-200 p-3">
+                        {phase.subtitel && <p className="text-xs uppercase tracking-wide text-slate-400">{phase.subtitel}</p>}
+                        {phase.titel && <p className="text-sm font-semibold text-slate-800">{phase.titel}</p>}
+                        <div className="mt-2 space-y-2">
+                          {phase.positionen?.map((pos) => (
+                            <div key={pos.id} className="text-sm">
+                              <div className="flex flex-wrap items-baseline gap-x-2">
+                                {pos.nummer && <span className="text-xs text-slate-400">{pos.nummer}</span>}
+                                <span className="font-medium text-slate-700">{pos.bezeichnung}</span>
+                              </div>
+                              {pos.beschreibung && <p className="text-xs text-slate-500">{pos.beschreibung}</p>}
+                              <p className="text-xs text-slate-500">
+                                {[
+                                  pos.menge && `${pos.menge}${pos.einheit ? ' ' + pos.einheit : ''}`,
+                                  pos.einzelpreis && `EP ${pos.einzelpreis}`,
+                                  pos.gesamtsumme && `Gesamt ${pos.gesamtsumme}`,
+                                ].filter(Boolean).join(' · ')}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Technik-Informationen */}
               <div className="mt-6 pt-4 border-t border-slate-200">
                 <h4 className="font-semibold text-slate-700 mb-2">Technik-Übersicht:</h4>

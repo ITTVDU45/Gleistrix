@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert } from './ui/alert';
 import { useProjects } from '../hooks/useProjects';
+import ProjectLeistungenEditor from './ProjectLeistungenEditor';
 import type { Project } from '../types';
 
 interface ProjectCreateFormProps {
@@ -32,6 +33,7 @@ export default function ProjectCreateForm({ onSuccess, onCancel, initialValues }
     anzahlAtws: 0,
     datumBeginn: '',
     datumEnde: '',
+    leistungen: [],
     ...initialValues,
   });
   const [error, setError] = React.useState<string | null>(null);
@@ -190,6 +192,13 @@ export default function ProjectCreateForm({ onSuccess, onCancel, initialValues }
                 <SelectItem value="kein Status">Kein Status</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="pt-2 border-t border-slate-200">
+            <ProjectLeistungenEditor
+              value={form.leistungen || []}
+              onChange={(v) => setForm(prev => ({ ...prev, leistungen: v }))}
+            />
           </div>
 
           {error && (

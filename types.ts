@@ -133,6 +133,24 @@ export interface VehicleAssignment {
   mitarbeiterName?: string
 }
 
+export interface LeistungsPosition {
+  id: string
+  nummer?: string
+  bezeichnung?: string
+  beschreibung?: string
+  menge?: string
+  einheit?: string
+  einzelpreis?: string
+  gesamtsumme?: string
+}
+
+export interface LeistungsPhase {
+  id: string
+  subtitel?: string
+  titel?: string
+  positionen: LeistungsPosition[]
+}
+
 export interface Project {
   id: string
   name: string
@@ -153,6 +171,7 @@ export interface Project {
     summe?: string
     aufgaben?: string
   }
+  leistungen?: LeistungsPhase[]
   status: ProjectStatus
   atwsImEinsatz: boolean
   anzahlAtws: number

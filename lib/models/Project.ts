@@ -82,6 +82,32 @@ const projectSchema = new mongoose.Schema({
     },
     default: undefined,
   },
+  // Manuell/importiert pflegbare Leistungen (Phasen mit Positionen)
+  leistungen: {
+    type: [
+      {
+        id: { type: String },
+        subtitel: { type: String, default: '' },
+        titel: { type: String, default: '' },
+        positionen: {
+          type: [
+            {
+              id: { type: String },
+              nummer: { type: String, default: '' },
+              bezeichnung: { type: String, default: '' },
+              beschreibung: { type: String, default: '' },
+              menge: { type: String, default: '' },
+              einheit: { type: String, default: '' },
+              einzelpreis: { type: String, default: '' },
+              gesamtsumme: { type: String, default: '' },
+            },
+          ],
+          default: [],
+        },
+      },
+    ],
+    default: undefined,
+  },
   status: {
     type: String,
     enum: ['aktiv', 'abgeschlossen', 'fertiggestellt', 'geleistet', 'teilweise_abgerechnet', 'kein Status'],
