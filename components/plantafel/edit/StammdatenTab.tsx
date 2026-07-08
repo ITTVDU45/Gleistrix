@@ -31,6 +31,8 @@ interface Form {
   auftragsnummer: string
   sapNummer: string
   telefonnummer: string
+  ansprechpartner: string
+  ansprechpartnerEmail: string
   atwsImEinsatz: boolean
   anzahlAtws: number
 }
@@ -43,6 +45,8 @@ export default function StammdatenTab({ project, onSaved }: StammdatenTabProps) 
     auftragsnummer: project.auftragsnummer || '',
     sapNummer: project.sapNummer || '',
     telefonnummer: project.telefonnummer || '',
+    ansprechpartner: (project as { ansprechpartner?: string }).ansprechpartner || '',
+    ansprechpartnerEmail: (project as { ansprechpartnerEmail?: string }).ansprechpartnerEmail || '',
     atwsImEinsatz: Boolean(project.atwsImEinsatz),
     anzahlAtws: Number(project.anzahlAtws) || 0,
   })
@@ -77,6 +81,8 @@ export default function StammdatenTab({ project, onSaved }: StammdatenTabProps) 
         auftragsnummer: form.auftragsnummer,
         sapNummer: form.sapNummer,
         telefonnummer: form.telefonnummer,
+        ansprechpartner: form.ansprechpartner,
+        ansprechpartnerEmail: form.ansprechpartnerEmail,
         atwsImEinsatz: form.atwsImEinsatz,
         anzahlAtws: form.atwsImEinsatz ? form.anzahlAtws : 0,
       } as Parameters<typeof ProjectsApi.update>[1])
@@ -119,9 +125,17 @@ export default function StammdatenTab({ project, onSaved }: StammdatenTabProps) 
           <Label>SAP-Nummer</Label>
           <Input value={form.sapNummer} onChange={(e) => update('sapNummer', e.target.value)} />
         </div>
-        <div className="space-y-1.5 md:col-span-2">
-          <Label>Telefon / Ansprechpartner</Label>
+        <div className="space-y-1.5">
+          <Label>Ansprechpartner</Label>
+          <Input value={form.ansprechpartner} onChange={(e) => update('ansprechpartner', e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Telefon</Label>
           <Input value={form.telefonnummer} onChange={(e) => update('telefonnummer', e.target.value)} />
+        </div>
+        <div className="space-y-1.5 md:col-span-2">
+          <Label>E-Mail Ansprechpartner</Label>
+          <Input type="email" value={form.ansprechpartnerEmail} onChange={(e) => update('ansprechpartnerEmail', e.target.value)} />
         </div>
       </div>
 

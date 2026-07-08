@@ -25,6 +25,8 @@ export default function ProjectCreateForm({ onSuccess, onCancel, initialValues }
     auftragsnummer: '',
     sapNummer: '',
     telefonnummer: '',
+    ansprechpartner: '',
+    ansprechpartnerEmail: '',
     status: 'aktiv',
     atwsImEinsatz: false,
     anzahlAtws: 0,
@@ -121,13 +123,33 @@ export default function ProjectCreateForm({ onSuccess, onCancel, initialValues }
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="ansprechpartner">Ansprechpartner</Label>
+              <Input
+                id="ansprechpartner"
+                value={form.ansprechpartner || ''}
+                onChange={e => setForm(prev => ({ ...prev, ansprechpartner: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="telefonnummer">Telefon *</Label>
+              <Input
+                id="telefonnummer"
+                value={form.telefonnummer}
+                onChange={e => setForm(prev => ({ ...prev, telefonnummer: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+
           <div>
-            <Label htmlFor="telefonnummer">Ansprechpartner *</Label>
-            <Input 
-              id="telefonnummer"
-              value={form.telefonnummer} 
-              onChange={e => setForm(prev => ({ ...prev, telefonnummer: e.target.value }))} 
-              required 
+            <Label htmlFor="ansprechpartnerEmail">E-Mail Ansprechpartner</Label>
+            <Input
+              id="ansprechpartnerEmail"
+              type="email"
+              value={form.ansprechpartnerEmail || ''}
+              onChange={e => setForm(prev => ({ ...prev, ansprechpartnerEmail: e.target.value }))}
             />
           </div>
 

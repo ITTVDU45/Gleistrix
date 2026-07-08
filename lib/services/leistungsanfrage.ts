@@ -29,7 +29,9 @@ export interface LeistungsanfrageResult {
     baustelle?: string
     auftragsnummer?: string
     sapNummer?: string
+    ansprechpartner?: string
     telefonnummer?: string
+    ansprechpartnerEmail?: string
     datumBeginn?: string
     datumEnde?: string
   }
@@ -218,11 +220,9 @@ export async function extractFromText(text: string): Promise<LeistungsanfrageRes
 
   const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 
-  // Kontakt (Name · Telefon · E-Mail) in das eine Ansprechpartner-Feld bündeln.
   const kName = s(parsed.ansprechpartner)
   const kTel = s(parsed.telefonnummer)
   const kMail = s(parsed.email)
-  const kontakt = [kName, kTel, kMail].filter(Boolean).join(' · ')
 
   return {
     configured: true,
@@ -232,14 +232,17 @@ export async function extractFromText(text: string): Promise<LeistungsanfrageRes
       baustelle: s(parsed.baustelle),
       auftragsnummer: s(parsed.auftragsnummer),
       sapNummer: s(parsed.sapNummer),
-      telefonnummer: kontakt || kTel || kName,
+      ansprechpartner: kName,
+      // telefonnummer ist Pflichtfeld → notfalls Name eintragen, damit gültig
+      telefonnummer: kTel || kName,
+      ansprechpartnerEmail: kMail,
       datumBeginn: s(parsed.datumBeginn),
       datumEnde: s(parsed.datumEnde),
     },
     extra: {
       summe: s(parsed.summe),
       aufgaben: s(parsed.aufgaben),
-      ansprechpartner: kontakt,
+      ansprechpartner: [kName, kTel, kMail].filter(Boolean).join(' · '),
     },
   }
 }

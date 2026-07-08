@@ -59,6 +59,15 @@ const projectSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Ansprechpartner-Stammdaten (getrennt: Name / E-Mail; Telefon = telefonnummer)
+  ansprechpartner: {
+    type: String,
+    default: ''
+  },
+  ansprechpartnerEmail: {
+    type: String,
+    default: ''
+  },
   status: {
     type: String,
     enum: ['aktiv', 'abgeschlossen', 'fertiggestellt', 'geleistet', 'teilweise_abgerechnet', 'kein Status'],

@@ -1166,7 +1166,13 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-base">
                 <div><span className="font-semibold">Auftraggeber:</span> {project.auftraggeber}</div>
                 <div><span className="font-semibold">Auftragsnummer:</span> {project.auftragsnummer}</div>
-                <div><span className="font-semibold">Ansprechpartner:</span> {project.telefonnummer}</div>
+                <div><span className="font-semibold">Ansprechpartner:</span> {project.ansprechpartner || '—'}</div>
+                <div><span className="font-semibold">Telefon:</span> {project.telefonnummer}</div>
+                {project.ansprechpartnerEmail && (
+                  <div><span className="font-semibold">E-Mail:</span>{' '}
+                    <a href={`mailto:${project.ansprechpartnerEmail}`} className="text-blue-600 hover:underline">{project.ansprechpartnerEmail}</a>
+                  </div>
+                )}
                 <div><span className="font-semibold">Baustelle:</span> {project.baustelle}</div>
                 <div><span className="font-semibold">SAP Nummer:</span> {project.sapNummer}</div>
                 <div><span className="font-semibold">Datum Beginn:</span> {project.datumBeginn}</div>

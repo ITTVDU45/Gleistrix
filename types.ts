@@ -141,6 +141,8 @@ export interface Project {
   auftragsnummer: string
   sapNummer: string
   telefonnummer: string
+  ansprechpartner?: string
+  ansprechpartnerEmail?: string
   status: ProjectStatus
   atwsImEinsatz: boolean
   anzahlAtws: number
