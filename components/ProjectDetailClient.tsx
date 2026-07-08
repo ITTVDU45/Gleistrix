@@ -14,7 +14,7 @@ import { useProjects } from '../hooks/useProjects';
 import { useEmployees } from '../hooks/useEmployees';
 import { useVehicles } from '../hooks/useVehicles';
 import { useResourceLock } from '../hooks/useResourceLock';
-import { ArrowLeft, Edit, Trash2, Plus, Lock, Unlock } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Plus, Lock, Unlock, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import TechnikList from './TechnikList';
@@ -305,6 +305,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   const [zeitDialogOpen, setZeitDialogOpen] = React.useState(false);
   const [fahrzeugDialogOpen, setFahrzeugDialogOpen] = React.useState(false);
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [isExporting, setIsExporting] = React.useState(false);
   const [exportSelectedDays, setExportSelectedDays] = React.useState<string[]>([]);
 
@@ -1162,8 +1163,20 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
           {/* Projektübersicht */}
           <Card className="bg-white dark:bg-slate-800 border border-[#C0D4DE] dark:border-slate-700">
             <CardContent className="p-6">
-              <h2 className="text-2xl font-semibold mb-4">{project.name}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-base">
+              <button
+                type="button"
+                onClick={() => setDetailsOpen((o) => !o)}
+                className="flex w-full items-center justify-between gap-2 text-left"
+                aria-expanded={detailsOpen}
+              >
+                <h2 className="text-2xl font-semibold">{project.name}</h2>
+                {detailsOpen
+                  ? <ChevronUp className="h-5 w-5 shrink-0 text-slate-400" />
+                  : <ChevronDown className="h-5 w-5 shrink-0 text-slate-400" />}
+              </button>
+
+              {detailsOpen && (<>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-base">
                 <div><span className="font-semibold">Auftraggeber:</span> {project.auftraggeber}</div>
                 <div><span className="font-semibold">Auftragsnummer:</span> {project.auftragsnummer}</div>
                 <div><span className="font-semibold">Ansprechpartner:</span> {project.ansprechpartner || '—'}</div>
@@ -1284,6 +1297,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                   </div>
                 </div>
               </div>
+              </>)}
             </CardContent>
           </Card>
 
