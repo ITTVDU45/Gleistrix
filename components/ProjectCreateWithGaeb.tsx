@@ -136,7 +136,7 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
               <GaebImportPanel onImported={handleImported} />
             </div>
           )}
-          {prefill.name && (
+          {pendingImportJobId && prefill.name && (
             <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
               Projektname „{prefill.name}" aus GAEB übernommen – bitte prüfen und restliche Felder ergänzen.
             </p>
