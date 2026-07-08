@@ -236,7 +236,9 @@ const SYSTEM_PROMPT = [
   '  "menge": <z.B. "14,00">, "einheit": <"Stück"/"Meter"/"Tage" o.ä.>, "einzelpreis": <z.B. "1.650,00 € / Stück">,',
   '  "gesamtsumme": <z.B. "23.100,00 €"> } ] }. Übernimm alle Positionen, die im Text/JSON vorhanden sind.',
   'Für name/auftraggeber/datum immer normalisieren; für anfragedatum/rueckmeldefrist/leistungszeitraum den Anzeigetext übernehmen.',
-  'Beträge (einzelpreis/gesamtsumme/summe) als deutschen Euro-Text mit Tausenderpunkt, Komma und €. Nichts erfinden – nur was in den Daten steht.',
+  'GELDBETRÄGE (einzelpreis, gesamtsumme, summe): Übernimm den vorhandenen Betrag EXAKT wie im Quelltext/JSON. Berechne gesamtsumme NIEMALS selbst aus Menge × Einzelpreis – nimm die im Datensatz vorhandene Summe.',
+  'Beachte: im JSON liegen Geldbeträge oft als Ganzzahl in Cent vor (z.B. 25 = 0,25 €, 900 = 9,00 €, 44100 = 441,00 €). Erkenne dies und teile solche Cent-Ganzzahlen durch 100.',
+  'Gib alle Beträge als deutschen Euro-Text mit Tausenderpunkt, Dezimalkomma (immer zwei Nachkommastellen) und "€" aus (z.B. "0,25 €", "441,00 €", "1.134,00 €"). Nichts erfinden – nur was in den Daten steht.',
 ].join('\n')
 
 /** Extrahiert die Felder aus Freitext (Seiteninhalt) via OpenAI. */
