@@ -39,7 +39,7 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
   const [reqError, setReqError] = useState('')
   const [reqExtra, setReqExtra] = useState<{ summe?: string; aufgaben?: string; ansprechpartner?: string } | null>(null)
 
-  const applyExtracted = (json: { data?: ProjectPrefill; extra?: typeof reqExtra; leistungsanfrage?: ProjectPrefill['leistungsanfrage'] }) => {
+  const applyExtracted = (json: { data?: ProjectPrefill; extra?: typeof reqExtra; leistungsanfrage?: ProjectPrefill['leistungsanfrage']; leistungen?: ProjectPrefill['leistungen'] }) => {
     const data = (json.data || {}) as ProjectPrefill
     const merged: ProjectPrefill = {}
     for (const [k, v] of Object.entries(data)) {
@@ -51,6 +51,10 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
         Object.entries(json.leistungsanfrage).filter(([, v]) => typeof v === 'string' && v.trim())
       )
       if (Object.keys(la).length > 0) merged.leistungsanfrage = la
+    }
+    // Strukturierte Leistungen
+    if (Array.isArray(json.leistungen) && json.leistungen.length > 0) {
+      merged.leistungen = json.leistungen
     }
     setPrefill((prev) => ({ ...prev, ...merged }))
     setFormKey((k) => k + 1)

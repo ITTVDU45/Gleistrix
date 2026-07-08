@@ -7,6 +7,7 @@
  */
 
 import { extractText, getDocumentProxy } from 'unpdf'
+import type { LeistungsPhase } from '../../types'
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 const DEFAULT_OPENAI_MODEL = 'gpt-4o'
@@ -46,9 +47,42 @@ export interface LeistungsanfrageResult {
     summe?: string
     aufgaben?: string
   }
+  /** Strukturierte Leistungen (Phasen mit Positionen). */
+  leistungen?: LeistungsPhase[]
   /** Zusatzinfos zur Anzeige direkt nach dem Import. */
   extra?: { summe?: string; aufgaben?: string; ansprechpartner?: string }
   reason?: string
+}
+
+function uid(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+interface RawPos { nummer?: string; bezeichnung?: string; beschreibung?: string; menge?: string; einheit?: string; einzelpreis?: string; gesamtsumme?: string }
+interface RawPhase { subtitel?: string; titel?: string; positionen?: RawPos[] }
+
+function mapLeistungen(raw: unknown): LeistungsPhase[] {
+  if (!Array.isArray(raw)) return []
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '')
+  return (raw as RawPhase[])
+    .map((ph) => ({
+      id: uid(),
+      subtitel: str(ph?.subtitel),
+      titel: str(ph?.titel),
+      positionen: Array.isArray(ph?.positionen)
+        ? ph.positionen.map((p) => ({
+            id: uid(),
+            nummer: str(p?.nummer),
+            bezeichnung: str(p?.bezeichnung),
+            beschreibung: str(p?.beschreibung),
+            menge: str(p?.menge),
+            einheit: str(p?.einheit),
+            einzelpreis: str(p?.einzelpreis),
+            gesamtsumme: str(p?.gesamtsumme),
+          }))
+        : [],
+    }))
+    .filter((ph) => ph.titel || ph.subtitel || ph.positionen.length > 0)
 }
 
 const DB_PORTAL_HOST = 'lieferantenportal.deutschebahn.com'
@@ -196,8 +230,13 @@ const SYSTEM_PROMPT = [
   '- dvaVersicherung: der Text zu "DVA-Versicherung".',
   '- rvFamilie: die "RV-Familie" (z.B. "Sicherungsleistungen Konzern (SIPO)").',
   '- raumlos: das "Raumlos" (z.B. "NORD (KIE)").',
+  '- leistungen: Array der Leistungen aus dem Abschnitt "Leistungen"/"Leistungsphasen". Jedes Element ist eine Phase',
+  '  { "subtitel": <Oberkategorie z.B. "technische Sicherung">, "titel": <z.B. "Feste Absperrung (FA)">,',
+  '  "positionen": [ { "nummer": <z.B. "02.01.0010">, "bezeichnung": <Kurztitel>, "beschreibung": <Langtext>,',
+  '  "menge": <z.B. "14,00">, "einheit": <"Stück"/"Meter"/"Tage" o.ä.>, "einzelpreis": <z.B. "1.650,00 € / Stück">,',
+  '  "gesamtsumme": <z.B. "23.100,00 €"> } ] }. Übernimm alle Positionen, die im Text/JSON vorhanden sind.',
   'Für name/auftraggeber/datum immer normalisieren; für anfragedatum/rueckmeldefrist/leistungszeitraum den Anzeigetext übernehmen.',
-  'Nichts erfinden – nur was in den Daten steht.',
+  'Beträge (einzelpreis/gesamtsumme/summe) als deutschen Euro-Text mit Tausenderpunkt, Komma und €. Nichts erfinden – nur was in den Daten steht.',
 ].join('\n')
 
 /** Extrahiert die Felder aus Freitext (Seiteninhalt) via OpenAI. */
@@ -229,7 +268,7 @@ export async function extractFromText(text: string): Promise<LeistungsanfrageRes
 
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> }
   const raw = json.choices?.[0]?.message?.content || '{}'
-  let parsed: Record<string, string> = {}
+  let parsed: Record<string, unknown> = {}
   try {
     parsed = JSON.parse(raw)
   } catch {
@@ -257,6 +296,7 @@ export async function extractFromText(text: string): Promise<LeistungsanfrageRes
       datumBeginn: s(parsed.datumBeginn),
       datumEnde: s(parsed.datumEnde),
     },
+    leistungen: mapLeistungen(parsed.leistungen),
     leistungsanfrage: {
       anfragedatum: s(parsed.anfragedatum),
       rueckmeldefrist: s(parsed.rueckmeldefrist),

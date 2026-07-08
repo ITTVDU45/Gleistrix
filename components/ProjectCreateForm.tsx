@@ -34,8 +34,12 @@ export default function ProjectCreateForm({ onSuccess, onCancel, initialValues }
     datumBeginn: '',
     datumEnde: '',
     leistungen: [],
+    leistungsanfrage: {},
     ...initialValues,
   });
+
+  const updateLA = (key: string, value: string) =>
+    setForm(prev => ({ ...prev, leistungsanfrage: { ...(prev.leistungsanfrage || {}), [key]: value } }));
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -192,6 +196,40 @@ export default function ProjectCreateForm({ onSuccess, onCancel, initialValues }
                 <SelectItem value="kein Status">Kein Status</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="pt-2 border-t border-slate-200">
+            <p className="text-sm font-semibold text-slate-700 mb-2">Leistungsanfrage (optional)</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="la_rvFamilie">RV-Familie</Label>
+                <Input id="la_rvFamilie" value={form.leistungsanfrage?.rvFamilie || ''} onChange={e => updateLA('rvFamilie', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="la_raumlos">Raumlos</Label>
+                <Input id="la_raumlos" value={form.leistungsanfrage?.raumlos || ''} onChange={e => updateLA('raumlos', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="la_anfragedatum">Anfragedatum</Label>
+                <Input id="la_anfragedatum" value={form.leistungsanfrage?.anfragedatum || ''} onChange={e => updateLA('anfragedatum', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="la_rueckmeldefrist">Rückmeldefrist</Label>
+                <Input id="la_rueckmeldefrist" value={form.leistungsanfrage?.rueckmeldefrist || ''} onChange={e => updateLA('rueckmeldefrist', e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="la_leistungszeitraum">Leistungszeitraum</Label>
+                <Input id="la_leistungszeitraum" value={form.leistungsanfrage?.leistungszeitraum || ''} onChange={e => updateLA('leistungszeitraum', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="la_summe">Gesamtsumme netto</Label>
+                <Input id="la_summe" value={form.leistungsanfrage?.summe || ''} onChange={e => updateLA('summe', e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="la_dva">DVA-Versicherung</Label>
+                <Input id="la_dva" value={form.leistungsanfrage?.dvaVersicherung || ''} onChange={e => updateLA('dvaVersicherung', e.target.value)} />
+              </div>
+            </div>
           </div>
 
           <div className="pt-2 border-t border-slate-200">
