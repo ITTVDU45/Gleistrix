@@ -284,7 +284,59 @@ export async function GET(req: NextRequest) {
       })
     : []
 
-  const events = [...einsatzEvents, ...meetingEvents, ...absenceEvents, ...holidayEvents, ...projectEvents]
+  // Erfasste Zeiten (mitarbeiterZeiten) als Blöcke in Team-Ansicht,
+  // dedupliziert gegen Einsätze, die bereits denselben Zeiteintrag abbilden.
+  const einsatzLinkIds = new Set(
+    (assignments.map((a) => a.einsatzLinkId).filter(Boolean) as string[])
+  )
+  const employeeIdByName = new Map<string, string>()
+  for (const e of employees) {
+    if (e.name) employeeIdByName.set(String(e.name), String(e._id))
+  }
+  const fromDay = from.slice(0, 10)
+  const toDay = to.slice(0, 10)
+
+  const zeitEvents: Record<string, unknown>[] = []
+  if (view === 'team') {
+    for (const p of projects as Record<string, unknown>[]) {
+      const projId = String(p._id)
+      const projName = (p.name as string) || 'Projekt'
+      const zeitenMap = (p.mitarbeiterZeiten as Record<string, unknown>) || {}
+      for (const [dateKey, entries] of Object.entries(zeitenMap)) {
+        if (dateKey < fromDay || dateKey > toDay || !Array.isArray(entries)) continue
+        entries.forEach((raw, idx) => {
+          const e = raw as Record<string, unknown>
+          const linkId = e.einsatzLinkId as string | undefined
+          if (linkId && einsatzLinkIds.has(linkId)) return // bereits als Einsatz sichtbar
+          const start = e.start as string
+          const ende = e.ende as string
+          if (!start || !ende) return
+          const isExternal = Boolean(e.isExternal)
+          const name = (e.name as string) || ''
+          const empId = !isExternal ? employeeIdByName.get(name) : undefined
+          zeitEvents.push({
+            id: `zeit-${projId}-${dateKey}-${idx}`,
+            title: projName,
+            start,
+            end: ende,
+            resourceId: empId || '__unassigned__',
+            type: 'zeit',
+            sourceType: 'zeit',
+            sourceId: projId,
+            mitarbeiterId: empId,
+            mitarbeiterName: name,
+            projektId: projId,
+            projektName: projName,
+            rolle: (e.funktion as string) || (e.externalFunctionSummary as string) || '',
+            notes: (e.bemerkung as string) || '',
+            hasConflict: false,
+          })
+        })
+      }
+    }
+  }
+
+  const events = [...einsatzEvents, ...zeitEvents, ...meetingEvents, ...absenceEvents, ...holidayEvents, ...projectEvents]
   const resources = view === 'team'
     ? employees.map((e) => ({
         resourceId: String(e._id),

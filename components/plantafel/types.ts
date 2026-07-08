@@ -9,6 +9,7 @@ export type PlantafelCalendarView = 'day' | 'week' | 'month' | 'year'
 
 export type PlantafelEventType =
   | 'einsatz'
+  | 'zeit'
   | 'meeting'
   | 'urlaub'
   | 'krankheit'
@@ -50,7 +51,7 @@ export interface PlantafelEvent {
   allDay?: boolean
 
   type: PlantafelEventType
-  sourceType: 'einsatz' | 'meeting' | 'urlaub' | 'feiertag' | 'projekt'
+  sourceType: 'einsatz' | 'zeit' | 'meeting' | 'urlaub' | 'feiertag' | 'projekt'
   sourceId: string
 
   status?: string

@@ -169,6 +169,18 @@ export default function PlantafelBoard() {
       setMeeting({ open: true, id: event.sourceId })
       return
     }
+    // Erfasste Zeit → Projekt-Zeiten-Editor am jeweiligen Tag öffnen
+    if (event.sourceType === 'zeit') {
+      setEditor({
+        open: true,
+        projectId: event.projektId || event.sourceId || null,
+        projectName: event.projektName,
+        initialTab: 'zeiten',
+        einsatz: null,
+        dateKey: format(new Date(event.start), 'yyyy-MM-dd'),
+      })
+      return
+    }
     if (event.sourceType === 'projekt') {
       if (event.projektId) {
         setEditor({
@@ -375,7 +387,7 @@ export default function PlantafelBoard() {
               <span className="flex w-full items-center justify-center gap-1 text-[11px] font-semibold">
                 <Upload className="h-3.5 w-3.5" /> Ablegen
               </span>
-            ) : event.sourceType === 'einsatz' ? (
+            ) : (event.sourceType === 'einsatz' || event.sourceType === 'zeit') ? (
               <>
                 <span className="flex min-w-0 flex-col leading-tight">
                   <span className="truncate text-xs font-semibold">
@@ -486,11 +498,12 @@ export default function PlantafelBoard() {
 
   const eventStyleGetter = useCallback((event: PlantafelEvent) => {
     const isDraggable = event.sourceType === 'einsatz'
+    const isTime = event.sourceType === 'zeit'
     const isPlanned = event.type === 'projekt_plan'
-    // Einsätze pro Mitarbeiter einfärben (konsistente Farbe je Person) →
-    // überlappende Einsätze verschiedener Mitarbeiter sind unterscheidbar.
+    // Einsätze UND erfasste Zeiten pro Mitarbeiter einfärben (konsistente Farbe je
+    // Person). Zeit-Blöcke erhalten eine gestrichelte Kante zur Unterscheidung.
     const bgColor = event.color
-      || (isDraggable ? employeeColor(event.mitarbeiterId) : EVENT_COLORS[event.type])
+      || ((isDraggable || isTime) ? employeeColor(event.mitarbeiterId) : EVENT_COLORS[event.type])
       || '#3b82f6'
     return {
       style: {
@@ -503,6 +516,8 @@ export default function PlantafelBoard() {
           ? '2px solid #ef4444'
           : isPlanned
           ? `1px dashed ${bgColor}`
+          : isTime
+          ? '2px dashed rgba(255,255,255,0.75)'
           : isDraggable
           ? '1px solid rgba(255,255,255,0.65)'
           : 'none',
