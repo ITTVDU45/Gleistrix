@@ -1197,6 +1197,40 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                   ) : null}
                 </div>
               </div>
+
+              {/* Leistungsanfrage-Details (aus Import) */}
+              {project.leistungsanfrage && Object.values(project.leistungsanfrage).some((v) => v) && (
+                <div className="mt-6 pt-4 border-t border-slate-200">
+                  <h4 className="font-semibold text-slate-700 mb-2">Leistungsanfrage:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                    {project.leistungsanfrage.rvFamilie && (
+                      <div><span className="font-semibold">RV-Familie:</span> {project.leistungsanfrage.rvFamilie}</div>
+                    )}
+                    {project.leistungsanfrage.raumlos && (
+                      <div><span className="font-semibold">Raumlos:</span> {project.leistungsanfrage.raumlos}</div>
+                    )}
+                    {project.leistungsanfrage.anfragedatum && (
+                      <div><span className="font-semibold">Anfragedatum:</span> {project.leistungsanfrage.anfragedatum}</div>
+                    )}
+                    {project.leistungsanfrage.rueckmeldefrist && (
+                      <div><span className="font-semibold">Rückmeldefrist:</span> {project.leistungsanfrage.rueckmeldefrist}</div>
+                    )}
+                    {project.leistungsanfrage.leistungszeitraum && (
+                      <div><span className="font-semibold">Leistungszeitraum:</span> {project.leistungsanfrage.leistungszeitraum}</div>
+                    )}
+                    {project.leistungsanfrage.summe && (
+                      <div><span className="font-semibold">Gesamtsumme netto:</span> {project.leistungsanfrage.summe}</div>
+                    )}
+                    {project.leistungsanfrage.dvaVersicherung && (
+                      <div className="md:col-span-2"><span className="font-semibold">DVA-Versicherung:</span> {project.leistungsanfrage.dvaVersicherung}</div>
+                    )}
+                    {project.leistungsanfrage.aufgaben && (
+                      <div className="md:col-span-2"><span className="font-semibold">Aufgaben:</span> {project.leistungsanfrage.aufgaben}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Technik-Informationen */}
               <div className="mt-6 pt-4 border-t border-slate-200">
                 <h4 className="font-semibold text-slate-700 mb-2">Technik-Übersicht:</h4>

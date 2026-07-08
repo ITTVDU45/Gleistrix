@@ -68,6 +68,20 @@ const projectSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // DB-Leistungsanfrage-Details (aus dem Import; frei anzeigbar)
+  leistungsanfrage: {
+    type: {
+      anfragedatum: { type: String, default: '' },
+      rueckmeldefrist: { type: String, default: '' },
+      leistungszeitraum: { type: String, default: '' },
+      dvaVersicherung: { type: String, default: '' },
+      rvFamilie: { type: String, default: '' },
+      raumlos: { type: String, default: '' },
+      summe: { type: String, default: '' },
+      aufgaben: { type: String, default: '' },
+    },
+    default: undefined,
+  },
   status: {
     type: String,
     enum: ['aktiv', 'abgeschlossen', 'fertiggestellt', 'geleistet', 'teilweise_abgerechnet', 'kein Status'],

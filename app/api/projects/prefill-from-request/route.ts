@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     if (!result.configured) {
       return NextResponse.json({ success: false, error: result.reason || 'KI nicht konfiguriert.' }, { status: 503 })
     }
-    return NextResponse.json({ success: true, data: result.data, extra: result.extra })
+    return NextResponse.json({ success: true, data: result.data, extra: result.extra, leistungsanfrage: result.leistungsanfrage })
   } catch (e) {
     return NextResponse.json(
       { success: false, error: e instanceof Error ? e.message : 'Auswertung fehlgeschlagen.' },

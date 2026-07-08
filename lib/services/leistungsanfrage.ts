@@ -35,7 +35,18 @@ export interface LeistungsanfrageResult {
     datumBeginn?: string
     datumEnde?: string
   }
-  /** Zusatzinfos, die nicht ins Formular passen (zur Anzeige). */
+  /** DB-spezifische Zusatzdaten (als eigener Block am Projekt gespeichert). */
+  leistungsanfrage?: {
+    anfragedatum?: string
+    rueckmeldefrist?: string
+    leistungszeitraum?: string
+    dvaVersicherung?: string
+    rvFamilie?: string
+    raumlos?: string
+    summe?: string
+    aufgaben?: string
+  }
+  /** Zusatzinfos zur Anzeige direkt nach dem Import. */
   extra?: { summe?: string; aufgaben?: string; ansprechpartner?: string }
   reason?: string
 }
@@ -179,7 +190,14 @@ const SYSTEM_PROMPT = [
   '- summe: "Gesamtsumme vorläufig netto" als deutsch formatierter Euro-Betrag mit Tausenderpunkt, Dezimalkomma und "€" (z.B. "2.025,00 €").',
   '  Falls der Wert als reine Ganzzahl in Cent vorliegt (z.B. 202500), durch 100 teilen und so formatieren (→ "2.025,00 €").',
   '- aufgaben: Kurzliste der Leistungsphasen/Positionen (kommagetrennt).',
-  'Datumsangaben immer als YYYY-MM-DD. Nichts erfinden – nur was in den Daten steht.',
+  '- anfragedatum: das "Anfragedatum" (wie angezeigt, z.B. "07.07.2026").',
+  '- rueckmeldefrist: die "Rückmeldefrist" (wie angezeigt, z.B. "08.07.2026 23:59").',
+  '- leistungszeitraum: der "Leistungszeitraum" als Text (z.B. "15.07.2026 10:00 – 15.07.2026 18:00").',
+  '- dvaVersicherung: der Text zu "DVA-Versicherung".',
+  '- rvFamilie: die "RV-Familie" (z.B. "Sicherungsleistungen Konzern (SIPO)").',
+  '- raumlos: das "Raumlos" (z.B. "NORD (KIE)").',
+  'Für name/auftraggeber/datum immer normalisieren; für anfragedatum/rueckmeldefrist/leistungszeitraum den Anzeigetext übernehmen.',
+  'Nichts erfinden – nur was in den Daten steht.',
 ].join('\n')
 
 /** Extrahiert die Felder aus Freitext (Seiteninhalt) via OpenAI. */
@@ -238,6 +256,16 @@ export async function extractFromText(text: string): Promise<LeistungsanfrageRes
       ansprechpartnerEmail: kMail,
       datumBeginn: s(parsed.datumBeginn),
       datumEnde: s(parsed.datumEnde),
+    },
+    leistungsanfrage: {
+      anfragedatum: s(parsed.anfragedatum),
+      rueckmeldefrist: s(parsed.rueckmeldefrist),
+      leistungszeitraum: s(parsed.leistungszeitraum),
+      dvaVersicherung: s(parsed.dvaVersicherung),
+      rvFamilie: s(parsed.rvFamilie),
+      raumlos: s(parsed.raumlos),
+      summe: s(parsed.summe),
+      aufgaben: s(parsed.aufgaben),
     },
     extra: {
       summe: s(parsed.summe),

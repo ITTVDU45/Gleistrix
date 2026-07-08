@@ -143,6 +143,16 @@ export interface Project {
   telefonnummer: string
   ansprechpartner?: string
   ansprechpartnerEmail?: string
+  leistungsanfrage?: {
+    anfragedatum?: string
+    rueckmeldefrist?: string
+    leistungszeitraum?: string
+    dvaVersicherung?: string
+    rvFamilie?: string
+    raumlos?: string
+    summe?: string
+    aufgaben?: string
+  }
   status: ProjectStatus
   atwsImEinsatz: boolean
   anzahlAtws: number

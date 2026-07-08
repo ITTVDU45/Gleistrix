@@ -39,11 +39,18 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
   const [reqError, setReqError] = useState('')
   const [reqExtra, setReqExtra] = useState<{ summe?: string; aufgaben?: string; ansprechpartner?: string } | null>(null)
 
-  const applyExtracted = (json: { data?: ProjectPrefill; extra?: typeof reqExtra }) => {
+  const applyExtracted = (json: { data?: ProjectPrefill; extra?: typeof reqExtra; leistungsanfrage?: ProjectPrefill['leistungsanfrage'] }) => {
     const data = (json.data || {}) as ProjectPrefill
     const merged: ProjectPrefill = {}
     for (const [k, v] of Object.entries(data)) {
       if (typeof v === 'string' && v.trim()) (merged as Record<string, unknown>)[k] = v.trim()
+    }
+    // DB-Leistungsanfrage-Details (nur nicht-leere Werte behalten)
+    if (json.leistungsanfrage) {
+      const la = Object.fromEntries(
+        Object.entries(json.leistungsanfrage).filter(([, v]) => typeof v === 'string' && v.trim())
+      )
+      if (Object.keys(la).length > 0) merged.leistungsanfrage = la
     }
     setPrefill((prev) => ({ ...prev, ...merged }))
     setFormKey((k) => k + 1)
