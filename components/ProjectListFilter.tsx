@@ -24,7 +24,16 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
   const [dateTo, setDateTo] = useState<string>('');
   const [hoursFrom, setHoursFrom] = useState<string>('');
   const [hoursTo, setHoursTo] = useState<string>('');
+  const [selectedRvFamilie, setSelectedRvFamilie] = useState<string[]>([]);
+  const [selectedRaumlos, setSelectedRaumlos] = useState<string[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(true);
+
+  // Leistungsanfrage-Optionen (RV-Familie, Raumlos)
+  const laOptions = useMemo(() => {
+    const rv = Array.from(new Set(projects.map(p => p.leistungsanfrage?.rvFamilie).filter(Boolean) as string[]));
+    const rl = Array.from(new Set(projects.map(p => p.leistungsanfrage?.raumlos).filter(Boolean) as string[]));
+    return { rvFamilie: rv, raumlos: rl };
+  }, [projects]);
 
   const allAvailableOptions = useMemo(() => {
     const allNames = Array.from(new Set(projects.map(p => p.name)));
@@ -380,8 +389,22 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
       });
     }
 
+    if (selectedRvFamilie.length > 0) {
+      filtered = filtered.filter(project => {
+        const v = project.leistungsanfrage?.rvFamilie;
+        return v ? selectedRvFamilie.includes(v) : false;
+      });
+    }
+
+    if (selectedRaumlos.length > 0) {
+      filtered = filtered.filter(project => {
+        const v = project.leistungsanfrage?.raumlos;
+        return v ? selectedRaumlos.includes(v) : false;
+      });
+    }
+
     return filtered;
-  }, [projects, searchTerm, selectedNames, selectedAuftraggeber, selectedBaustellen, selectedStatuses, dateFrom, dateTo, hoursFrom, hoursTo]);
+  }, [projects, searchTerm, selectedNames, selectedAuftraggeber, selectedBaustellen, selectedStatuses, dateFrom, dateTo, hoursFrom, hoursTo, selectedRvFamilie, selectedRaumlos]);
 
   React.useEffect(() => {
     onFilterChange(filteredProjects);
@@ -397,6 +420,8 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
     setDateTo('');
     setHoursFrom('');
     setHoursTo('');
+    setSelectedRvFamilie([]);
+    setSelectedRaumlos([]);
   };
 
   return (
@@ -491,6 +516,32 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
                 renderTagsBelow
               />
             </div>
+
+            {laOptions.rvFamilie.length > 0 && (
+              <div className="space-y-2">
+                <MultiSelectDropdown
+                  label="RV-Familie"
+                  options={laOptions.rvFamilie}
+                  selected={selectedRvFamilie}
+                  onChange={setSelectedRvFamilie}
+                  placeholder="RV-Familie waehlen"
+                  renderTagsBelow
+                />
+              </div>
+            )}
+
+            {laOptions.raumlos.length > 0 && (
+              <div className="space-y-2">
+                <MultiSelectDropdown
+                  label="Raumlos"
+                  options={laOptions.raumlos}
+                  selected={selectedRaumlos}
+                  onChange={setSelectedRaumlos}
+                  placeholder="Raumlos waehlen"
+                  renderTagsBelow
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Datum von</Label>
