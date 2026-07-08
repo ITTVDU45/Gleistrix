@@ -14,6 +14,13 @@ interface ProjectListFilterProps {
   onFilterChange: (filteredProjects: Project[]) => void;
 }
 
+/** "08.07.2026 23:59" → "2026-07-08" (für Datumsvergleich); sonst null. */
+function fristToIso(s?: string): string | null {
+  if (!s) return null;
+  const m = s.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+
 export default function ProjectListFilter({ projects, onFilterChange }: ProjectListFilterProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
@@ -26,13 +33,16 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
   const [hoursTo, setHoursTo] = useState<string>('');
   const [selectedRvFamilie, setSelectedRvFamilie] = useState<string[]>([]);
   const [selectedRaumlos, setSelectedRaumlos] = useState<string[]>([]);
+  const [fristFrom, setFristFrom] = useState<string>('');
+  const [fristTo, setFristTo] = useState<string>('');
   const [isCollapsed, setIsCollapsed] = useState(true);
 
-  // Leistungsanfrage-Optionen (RV-Familie, Raumlos)
+  // Leistungsanfrage-Optionen (RV-Familie, Raumlos, Rückmeldefrist-Vorhandensein)
   const laOptions = useMemo(() => {
     const rv = Array.from(new Set(projects.map(p => p.leistungsanfrage?.rvFamilie).filter(Boolean) as string[]));
     const rl = Array.from(new Set(projects.map(p => p.leistungsanfrage?.raumlos).filter(Boolean) as string[]));
-    return { rvFamilie: rv, raumlos: rl };
+    const hasFrist = projects.some(p => p.leistungsanfrage?.rueckmeldefrist);
+    return { rvFamilie: rv, raumlos: rl, hasFrist };
   }, [projects]);
 
   const allAvailableOptions = useMemo(() => {
@@ -403,8 +413,18 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
       });
     }
 
+    if (fristFrom || fristTo) {
+      filtered = filtered.filter(project => {
+        const iso = fristToIso(project.leistungsanfrage?.rueckmeldefrist);
+        if (!iso) return false;
+        if (fristFrom && iso < fristFrom) return false;
+        if (fristTo && iso > fristTo) return false;
+        return true;
+      });
+    }
+
     return filtered;
-  }, [projects, searchTerm, selectedNames, selectedAuftraggeber, selectedBaustellen, selectedStatuses, dateFrom, dateTo, hoursFrom, hoursTo, selectedRvFamilie, selectedRaumlos]);
+  }, [projects, searchTerm, selectedNames, selectedAuftraggeber, selectedBaustellen, selectedStatuses, dateFrom, dateTo, hoursFrom, hoursTo, selectedRvFamilie, selectedRaumlos, fristFrom, fristTo]);
 
   React.useEffect(() => {
     onFilterChange(filteredProjects);
@@ -422,6 +442,8 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
     setHoursTo('');
     setSelectedRvFamilie([]);
     setSelectedRaumlos([]);
+    setFristFrom('');
+    setFristTo('');
   };
 
   return (
@@ -541,6 +563,29 @@ export default function ProjectListFilter({ projects, onFilterChange }: ProjectL
                   renderTagsBelow
                 />
               </div>
+            )}
+
+            {laOptions.hasFrist && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Rückmeldefrist von</Label>
+                  <Input
+                    type="date"
+                    value={fristFrom}
+                    onChange={(e) => setFristFrom(e.target.value)}
+                    className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Rückmeldefrist bis</Label>
+                  <Input
+                    type="date"
+                    value={fristTo}
+                    onChange={(e) => setFristTo(e.target.value)}
+                    className="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                  />
+                </div>
+              </>
             )}
 
             <div className="space-y-2">
