@@ -227,7 +227,7 @@ const SYSTEM_PROMPT = [
   '- anfragedatum: das "Anfragedatum" (wie angezeigt, z.B. "07.07.2026").',
   '- rueckmeldefrist: die "Rückmeldefrist" (wie angezeigt, z.B. "08.07.2026 23:59").',
   '- leistungszeitraum: der "Leistungszeitraum" als Text, IMMER mit Uhrzeiten im Format "DD.MM.YYYY HH:MM - DD.MM.YYYY HH:MM" (z.B. "15.07.2026 10:00 - 15.07.2026 18:00"). Fehlt eine Uhrzeit im Original, verwende für den Beginn "00:00" und für das Ende "23:59".',
-  '- dvaVersicherung: der Text zu "DVA-Versicherung".',
+  '- dvaVersicherung: "Ja" wenn eine DVA-Versicherung durch den AG vorhanden ist, sonst "Nein" (nur "Ja" oder "Nein").',
   '- rvFamilie: die "RV-Familie" (z.B. "Sicherungsleistungen Konzern (SIPO)").',
   '- raumlos: das "Raumlos" (z.B. "NORD (KIE)").',
   '- leistungen: Array der Leistungen aus dem Abschnitt "Leistungen"/"Leistungsphasen". Jedes Element ist eine Phase',

@@ -236,9 +236,15 @@ export default function ProjectEditForm({ project, onSuccess, onCancel }: Projec
                 <Label htmlFor="la_summe">Gesamtsumme netto</Label>
                 <Input id="la_summe" value={form.leistungsanfrage?.summe || ''} onChange={e => updateLA('summe', e.target.value)} />
               </div>
-              <div className="md:col-span-2">
+              <div>
                 <Label htmlFor="la_dva">DVA-Versicherung</Label>
-                <Input id="la_dva" value={form.leistungsanfrage?.dvaVersicherung || ''} onChange={e => updateLA('dvaVersicherung', e.target.value)} />
+                <Select value={form.leistungsanfrage?.dvaVersicherung || ''} onValueChange={v => updateLA('dvaVersicherung', v)}>
+                  <SelectTrigger id="la_dva"><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ja">Ja</SelectItem>
+                    <SelectItem value="Nein">Nein</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="md:col-span-2">
                 <Label htmlFor="la_aufgaben">Aufgaben</Label>
