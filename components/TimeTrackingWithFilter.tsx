@@ -77,7 +77,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
           sapNumber: project.sapNummer,
           client: project.auftraggeber,
           status: project.status as any,
-          ort: (project as any).baustelle || '-',
+          ort: project.baustelle || '-',
           name: row.isExternal ? (row.companyName || 'Extern') : (row.employeeName || '-'),
           funktion: row.funktion,
           start: row.start || '-',

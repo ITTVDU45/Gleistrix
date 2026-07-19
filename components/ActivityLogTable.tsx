@@ -148,7 +148,7 @@ export default function ActivityLogTable() {
         setLogs(data.logs);
         setPagination(data.pagination);
       } else {
-        throw new Error((data as any).error || 'Unbekannter Fehler');
+        throw new Error(data.error || 'Unbekannter Fehler');
       }
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -504,15 +504,15 @@ export default function ActivityLogTable() {
                         <div className="whitespace-pre-wrap break-words">
                           {log.details.description}
                         </div>
-                        {(log.actionType === 'billing_partial' || log.actionType === 'billing_full' || log.actionType === 'project_billed') && Array.isArray((log as any).details?.context?.days) && (
+                        {(log.actionType === 'billing_partial' || log.actionType === 'billing_full' || log.actionType === 'project_billed') && Array.isArray(log.details?.context?.days) && (
                           <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
                             <div className="font-medium">Tage:</div>
                             <div className="mt-1">
-                              {((log as any).details.context.days as string[]).join(', ')}
+                              {(log.details.context.days as string[]).join(', ')}
                             </div>
-                            {Array.isArray((log as any).details?.context?.copyDays) && (log as any).details.context.copyDays.length > 0 && (
+                            {Array.isArray(log.details?.context?.copyDays) && log.details.context.copyDays.length > 0 && (
                               <div className="mt-1">
-                                <span className="font-medium">Kopie-Tage:</span> {((log as any).details.context.copyDays as string[]).join(', ')}
+                                <span className="font-medium">Kopie-Tage:</span> {(log.details.context.copyDays as string[]).join(', ')}
                               </div>
                             )}
                           </div>
