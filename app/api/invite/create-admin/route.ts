@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     await inviteToken.save();
 
     // E-Mail-Einladung senden
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
     const inviteLink = `${baseUrl}/auth/set-password?token=${token}`;
     const emailResult = await sendInviteEmailResult(email, `${firstName} ${lastName}`, 'admin', inviteLink, expiresAt);
 

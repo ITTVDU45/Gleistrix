@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
-import type { AuthOptions, SessionStrategy } from "next-auth";
+import type { AuthOptions, SessionStrategy, Session, User } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import dbConnect from "../../../../lib/dbConnect";
 import { compare } from "bcryptjs";
@@ -84,7 +85,7 @@ const authOptions: AuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }: { token: any; user?: any }) {
+    async jwt({ token, user }: { token: JWT; user?: User }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -94,13 +95,13 @@ const authOptions: AuthOptions = {
       }
       return token;
     },
-    async session({ session, token }: { session: any; token: any }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       if (token) {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.modules = token.modules ?? [];
-        if (token.email) session.user.email = token.email as string;
-        if (token.name) session.user.name = token.name as string;
+        if (token.email) session.user.email = token.email;
+        if (token.name) session.user.name = token.name;
       }
       return session;
     }

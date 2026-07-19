@@ -208,7 +208,6 @@ export default function UserManagement() {
         console.error('Fehler beim Löschen der Einladungen')
         return false
       }
-      console.log(`Alle Einladungen für ${email} gelöscht`);
       return true;
     } catch (err) {
       console.error('Fehler beim Löschen der Einladungen:', err);
@@ -227,7 +226,6 @@ export default function UserManagement() {
         console.error('Fehler beim Löschen der Einladung')
         setError('Fehler beim Löschen der Einladung')
       } else {
-        console.log(`Einladung für ${email} gelöscht`)
         fetchInvitedUsers()
       }
     } catch (err) {

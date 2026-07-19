@@ -56,10 +56,8 @@ export default function DashboardPage() {
 
       const data = await AuthApi.me()
       if (data?.user) {
-        console.log('Benutzerdaten geladen:', data.user);
         setUser(data.user as any);
       } else {
-        console.error('Fehler beim Laden der Benutzerdaten:', data?.error);
         router.push('/login');
       }
     } catch (err) {
