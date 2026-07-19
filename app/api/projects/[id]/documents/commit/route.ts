@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         try {
           const buffer = await getObjectBufferAsync(bucketName, key);
           const res = await syncProjectDocumentToOneDrive({
-            project,
+            project: { name: project.name, auftraggeber: project.auftraggeber, auftragsnummer: project.auftragsnummer },
             fileName: d.name || key.split('/').pop() || 'dokument',
             content: buffer as Buffer,
           });

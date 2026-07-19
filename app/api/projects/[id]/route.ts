@@ -260,7 +260,7 @@ export async function PUT(request: NextRequest) {
                   role: currentUser.role
                 },
                 details: {
-                  entityId: (updatedProject as any)._id,
+                  entityId: updatedProject._id,
                   description: `Zeiteintrag hinzugefügt: ${entry.name} am ${day} (${entry.start ?? ''}-${entry.ende ?? ''}, ${entry.stunden ?? ''}h)`,
                   after: { date: day, entry }
                 }
@@ -281,7 +281,7 @@ export async function PUT(request: NextRequest) {
 
         // Stelle sicher, dass das Zeiten-Objekt existiert
         if (!project.mitarbeiterZeiten || typeof project.mitarbeiterZeiten !== 'object') {
-          (project as any).mitarbeiterZeiten = {};
+          project.mitarbeiterZeiten = {};
         }
 
         if (action === 'edit') {
@@ -294,12 +294,12 @@ export async function PUT(request: NextRequest) {
           // Backend-Validierung und Anreicherung des Zeiteintrags
           const enrichedEntry = await validateAndEnrichTimeEntry(updatedEntry, date);
           
-          const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
+          const arr = (project.mitarbeiterZeiten[date] || []) as any[];
           const idx = arr.findIndex(e => e && e.id === enrichedEntry.id);
           if (idx !== -1) {
             const before = { ...arr[idx] };
             arr[idx] = { ...arr[idx], ...enrichedEntry };
-            (project as any).mitarbeiterZeiten[date] = arr;
+            project.mitarbeiterZeiten[date] = arr;
             
             // Mitarbeiter-Einsatz synchronisieren
             if (!enrichedEntry?.isExternal) {
@@ -330,7 +330,7 @@ export async function PUT(request: NextRequest) {
                     role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Zeiteintrag geändert am ${date}: ${before.name} (${before.start ?? ''}-${before.ende ?? ''}) → (${arr[idx].start ?? ''}-${arr[idx].ende ?? ''})`,
                     before,
                     after: arr[idx]
@@ -347,11 +347,11 @@ export async function PUT(request: NextRequest) {
           if (!date || !entryId) {
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (delete)' }, { status: 400 });
           }
-          const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
+          const arr = (project.mitarbeiterZeiten[date] || []) as any[];
           const removed = arr.find(e => e && e.id === entryId);
-          (project as any).mitarbeiterZeiten[date] = arr.filter(e => e && e.id !== entryId);
-          if ((project as any).mitarbeiterZeiten[date].length === 0) {
-            delete (project as any).mitarbeiterZeiten[date];
+          project.mitarbeiterZeiten[date] = arr.filter(e => e && e.id !== entryId);
+          if (project.mitarbeiterZeiten[date].length === 0) {
+            delete project.mitarbeiterZeiten[date];
           }
           
           // Mitarbeiter-Einsatz entfernen
@@ -380,7 +380,7 @@ export async function PUT(request: NextRequest) {
                     role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Zeiteintrag gelöscht am ${date}: ${removed.name} (${removed.start ?? ''}-${removed.ende ?? ''})`,
                     before: removed
                   }
@@ -390,8 +390,8 @@ export async function PUT(request: NextRequest) {
           } catch (_) {}
         }
 
-        (project as any).markModified('mitarbeiterZeiten');
-        await (project as any).save();
+        project.markModified('mitarbeiterZeiten');
+        await project.save();
 
         return NextResponse.json(project);
       } catch (e) {
@@ -410,7 +410,7 @@ export async function PUT(request: NextRequest) {
         }
 
         if (!project.fahrzeuge || typeof project.fahrzeuge !== 'object') {
-          (project as any).fahrzeuge = {};
+          project.fahrzeuge = {};
         }
 
         if (action === 'assign') {
@@ -420,8 +420,8 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (assign)' }, { status: 400 });
           }
           for (const d of dates) {
-            if (!(project as any).fahrzeuge[d]) (project as any).fahrzeuge[d] = [];
-            const arr = (project as any).fahrzeuge[d] as any[];
+            if (!project.fahrzeuge[d]) project.fahrzeuge[d] = [];
+            const arr = project.fahrzeuge[d] as any[];
             if (!arr.some(v => v && v.id === vehicle.id)) {
               arr.push({
                 id: vehicle.id,
@@ -431,7 +431,7 @@ export async function PUT(request: NextRequest) {
                 mitarbeiterName: vehicle.mitarbeiterName || ''
               });
             }
-            (project as any).fahrzeuge[d] = arr;
+            project.fahrzeuge[d] = arr;
             try {
               const currentUser = await getCurrentUser(request);
               if (currentUser) {
@@ -445,7 +445,7 @@ export async function PUT(request: NextRequest) {
                     role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Fahrzeug zugewiesen am ${d}: ${vehicle.type} ${vehicle.licensePlate}`,
                     after: { date: d, vehicle }
                   }
@@ -462,12 +462,12 @@ export async function PUT(request: NextRequest) {
           if (!date || !vehicleId || !updatedFields) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (update)' }, { status: 400 });
           }
-          const arr = ((project as any).fahrzeuge[date] || []) as any[];
+          const arr = (project.fahrzeuge[date] || []) as any[];
           const idx = arr.findIndex(v => v && v.id === vehicleId);
           if (idx !== -1) {
             const before = { ...arr[idx] };
             arr[idx] = { ...arr[idx], ...updatedFields };
-            (project as any).fahrzeuge[date] = arr;
+            project.fahrzeuge[date] = arr;
             try {
               const currentUser = await getCurrentUser(request);
               if (currentUser) {
@@ -481,7 +481,7 @@ export async function PUT(request: NextRequest) {
                     role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Fahrzeug aktualisiert am ${date}: ${before.type} ${before.licensePlate}`,
                     before,
                     after: arr[idx]
@@ -498,11 +498,11 @@ export async function PUT(request: NextRequest) {
           if (!date || !vehicleId) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (unassign)' }, { status: 400 });
           }
-          const arr = ((project as any).fahrzeuge[date] || []) as any[];
+          const arr = (project.fahrzeuge[date] || []) as any[];
           const removed = arr.find(v => v && v.id === vehicleId);
-          (project as any).fahrzeuge[date] = arr.filter(v => v && v.id !== vehicleId);
-          if ((project as any).fahrzeuge[date].length === 0) {
-            delete (project as any).fahrzeuge[date];
+          project.fahrzeuge[date] = arr.filter(v => v && v.id !== vehicleId);
+          if (project.fahrzeuge[date].length === 0) {
+            delete project.fahrzeuge[date];
           }
           try {
             if (removed) {
@@ -518,7 +518,7 @@ export async function PUT(request: NextRequest) {
                     role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Fahrzeug entfernt am ${date}: ${removed.type} ${removed.licensePlate}`,
                     before: removed
                   }
@@ -528,8 +528,8 @@ export async function PUT(request: NextRequest) {
           } catch (_) {}
         }
 
-        (project as any).markModified('fahrzeuge');
-        await (project as any).save();
+        project.markModified('fahrzeuge');
+        await project.save();
         return NextResponse.json(project);
       } catch (e) {
         logger.error('Fehler bei Fahrzeuge-Aktion über PUT:', e);
@@ -548,7 +548,7 @@ export async function PUT(request: NextRequest) {
 
         // Stelle sicher, dass das Technik-Objekt existiert
         if (!project.technik || typeof project.technik !== 'object') {
-          (project as any).technik = {};
+          project.technik = {};
         }
 
         if (action === 'add') {
@@ -568,14 +568,14 @@ export async function PUT(request: NextRequest) {
           };
 
           for (const d of targetDays) {
-            if (!(project as any).technik[d]) {
-              (project as any).technik[d] = [];
+            if (!project.technik[d]) {
+              project.technik[d] = [];
             }
             const newTechnik = {
               id: Date.now().toString() + Math.random().toString(36).slice(2),
               ...newEntryBase,
             };
-            (project as any).technik[d].push(newTechnik);
+            project.technik[d].push(newTechnik);
             try {
               const currentUser = await getCurrentUser(request);
               if (currentUser) {
@@ -589,7 +589,7 @@ export async function PUT(request: NextRequest) {
                     role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Technikeintrag hinzugefügt am ${d}: ${newEntryBase.name} (Anzahl ${newEntryBase.anzahl}, ${newEntryBase.meterlaenge} m)`,
                     after: { date: d, technik: newTechnik }
                   }
@@ -608,10 +608,10 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (edit)' }, { status: 400 });
           }
           const applyUpdate = async (d: string) => {
-            if (!(project as any).technik[d]) {
-              (project as any).technik[d] = [];
+            if (!project.technik[d]) {
+              project.technik[d] = [];
             }
-            const arr = (project as any).technik[d] as any[];
+            const arr = project.technik[d] as any[];
             const idx = arr.findIndex(t => t && t.id === technikId);
             if (idx !== -1) {
               const before = { ...arr[idx] };
@@ -629,7 +629,7 @@ export async function PUT(request: NextRequest) {
                       role: currentUser.role
                     },
                     details: {
-                      entityId: (project as any)._id,
+                      entityId: project._id,
                       description: `Technikeintrag geändert am ${d}: ${before.name}`,
                       before,
                       after: arr[idx]
@@ -653,7 +653,7 @@ export async function PUT(request: NextRequest) {
                       role: currentUser.role
                     },
                     details: {
-                      entityId: (project as any)._id,
+                      entityId: project._id,
                       description: `Technikeintrag hinzugefügt am ${d}: ${updatedTechnik.name}`,
                       after: { date: d, technik: { id: technikId, ...updatedTechnik } }
                     }
@@ -661,7 +661,7 @@ export async function PUT(request: NextRequest) {
                 }
               } catch (_) {}
             }
-            (project as any).technik[d] = arr;
+            project.technik[d] = arr;
           };
           if (Array.isArray(selectedDays) && selectedDays.length > 0) {
             for (const d of selectedDays) {
@@ -680,11 +680,11 @@ export async function PUT(request: NextRequest) {
           if (!date || !technikId) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (remove)' }, { status: 400 });
           }
-          const currentArr = ((project as any).technik[date] || []) as any[];
+          const currentArr = (project.technik[date] || []) as any[];
           const removed = currentArr.find(t => t && t.id === technikId);
-          (project as any).technik[date] = currentArr.filter(t => t && t.id !== technikId);
-          if ((project as any).technik[date].length === 0) {
-            delete (project as any).technik[date];
+          project.technik[date] = currentArr.filter(t => t && t.id !== technikId);
+          if (project.technik[date].length === 0) {
+            delete project.technik[date];
           }
           try {
             if (removed) {
@@ -700,7 +700,7 @@ export async function PUT(request: NextRequest) {
                     role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Technikeintrag entfernt am ${date}: ${removed.name}`,
                     before: removed
                   }
@@ -712,17 +712,17 @@ export async function PUT(request: NextRequest) {
 
         // ATW-Status und Meterlänge aktualisieren (global)
         const allTechnik: any[] = [];
-        Object.values((project as any).technik).forEach((technikArray: any) => {
+        Object.values(project.technik).forEach((technikArray: any) => {
           if (Array.isArray(technikArray)) {
             allTechnik.push(...technikArray.filter(item => item && typeof item === 'object'));
           }
         });
-        (project as any).atwsImEinsatz = allTechnik.length > 0;
-        (project as any).anzahlAtws = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.anzahl) || 0), 0);
-        (project as any).gesamtMeterlaenge = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.meterlaenge) || 0), 0);
+        project.atwsImEinsatz = allTechnik.length > 0;
+        project.anzahlAtws = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.anzahl) || 0), 0);
+        project.gesamtMeterlaenge = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.meterlaenge) || 0), 0);
 
-        (project as any).markModified('technik');
-        await (project as any).save();
+        project.markModified('technik');
+        await project.save();
 
         // Optional: Activity Log könnte hier ergänzt werden
         return NextResponse.json(project);

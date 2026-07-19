@@ -115,7 +115,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (fileBuffer) {
         try {
           const res = await syncProjectDocumentToOneDrive({
-            project,
+            project: { name: project.name, auftraggeber: project.auftraggeber, auftragsnummer: project.auftragsnummer },
             fileName: originalName,
             content: fileBuffer,
             contentType: (f as any).type,
