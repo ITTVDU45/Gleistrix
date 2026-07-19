@@ -325,7 +325,7 @@ export const LagerApi = {
     list: () =>
       getJSON<{ success: boolean; inventory: unknown[] }>('/api/lager/inventory'),
     get: (id: string) =>
-      getJSON<{ success: boolean; data: unknown }>(`/api/lager/inventory/${id}`),
+      getJSON<{ success: boolean; data: Record<string, unknown> }>(`/api/lager/inventory/${id}`),
     create: (data: {
       name?: string
       beschreibung?: string
@@ -338,7 +338,7 @@ export const LagerApi = {
       lagerorte?: string[]
       unitIds?: string[]
     }) =>
-      postJSON('/api/lager/inventory', data as Record<string, unknown>, 'lager:inventory:create'),
+      postJSON<{ success: boolean; data: Record<string, unknown> }>('/api/lager/inventory', data as Record<string, unknown>, 'lager:inventory:create'),
     update: (id: string, data: {
       name?: string
       beschreibung?: string
