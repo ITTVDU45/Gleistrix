@@ -527,7 +527,7 @@ export default function Page() {
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fillColor: [59, 130, 246], textColor: 255 },
       });
-      const afterTableY = (doc as any).lastAutoTable?.finalY || startY;
+      const afterTableY = doc.lastAutoTable?.finalY || startY;
       y = afterTableY + 10;
     } else {
       doc.setFontSize(12);

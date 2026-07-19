@@ -116,7 +116,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const gesamtLaenge = project.gesamtMeterlaenge || 0;
 
         // Linke Tabelle (Labels/Werte)
-        autoTable(docPdf as any, {
+        autoTable(docPdf, {
           startY,
           margin: { left: leftX },
           tableWidth: docPdf.internal.pageSize.getWidth() / 2 - leftX - 6,
@@ -134,7 +134,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         // Rechte Tabelle
         const zeitraum = `${project.datumBeginn || '-'} - ${project.datumEnde || '-'}`;
-        autoTable(docPdf as any, {
+        autoTable(docPdf, {
           startY,
           margin: { left: rightX },
           tableWidth: docPdf.internal.pageSize.getWidth() - rightX - 12,
@@ -149,18 +149,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           columnStyles: { 0: { fontStyle: 'bold' } },
         });
 
-        const afterSummaryY = (docPdf as any).lastAutoTable.finalY + 8;
+        const afterSummaryY = (docPdf.lastAutoTable?.finalY ?? 0) + 8;
         // Exportierte Tage + Zeitpunkt als Block unter den Tabellen
         const ts = new Date().toLocaleString('de-DE');
         docPdf.setFontSize(12);
-        try { (docPdf as any).setFont('helvetica', 'bold'); } catch {}
+        try { docPdf.setFont('helvetica', 'bold'); } catch {}
         docPdf.text('Exportierte Tage:', leftX, afterSummaryY);
-        try { (docPdf as any).setFont('helvetica', 'normal'); } catch {}
+        try { docPdf.setFont('helvetica', 'normal'); } catch {}
         const daysWrapped = docPdf.splitTextToSize(exportedDays.join(', '), docPdf.internal.pageSize.getWidth() - leftX - 12);
         docPdf.text(daysWrapped, leftX, afterSummaryY + 6);
-        try { (docPdf as any).setFont('helvetica', 'bold'); } catch {}
+        try { docPdf.setFont('helvetica', 'bold'); } catch {}
         docPdf.text('Exportzeitpunkt:', rightX, afterSummaryY);
-        try { (docPdf as any).setFont('helvetica', 'normal'); } catch {}
+        try { docPdf.setFont('helvetica', 'normal'); } catch {}
         docPdf.text(ts, rightX + 40, afterSummaryY);
         y = afterSummaryY + 12 + daysWrapped.length * 6;
 
@@ -175,7 +175,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           });
           entries.sort((a, b) => a.datum.localeCompare(b.datum));
           if (entries.length > 0) {
-            autoTable(docPdf as any, {
+            autoTable(docPdf, {
               startY: y + 4,
               head: [[ 'Datum', 'Mitarbeiter', 'Funktion', 'Stunden', 'Fahrstunden' ]],
               body: entries.map(e => [
@@ -214,8 +214,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             });
           }
           if (technikRows.length > 0) {
-            autoTable(docPdf as any, {
-              startY: (docPdf as any).lastAutoTable ? (docPdf as any).lastAutoTable.finalY + 12 : y + 10,
+            autoTable(docPdf, {
+              startY: docPdf.lastAutoTable ? docPdf.lastAutoTable.finalY + 12 : y + 10,
               head: [[ 'Name', 'Anzahl', 'Meterlänge', 'Bemerkung', 'Tag' ]],
               body: technikRows,
               styles: { fontSize: 8, cellPadding: 2 },
@@ -250,7 +250,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         logger.debug(`[MAIL] Ergebnis: ${result.ok ? 'OK' : 'FEHLER'}${result.error ? ' - ' + result.error : ''}`);
 
         try {
-          const performerName = (auth as any)?.token?.name || (auth as any)?.token?.email || 'Unbekannt';
+          const performerName = auth?.token?.name || auth?.token?.email || 'Unbekannt';
           await NotificationLog.create({
             key: activeKey,
             to,

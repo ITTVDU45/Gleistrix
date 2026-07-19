@@ -237,7 +237,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
         const equalWidth = Math.max(40, Math.floor(availWidth / colCount))
         const colStyles = Object.fromEntries(new Array(colCount).fill(0).map((_,i)=>[i,{cellWidth: equalWidth}]))
 
-        autoTable(doc as any, {
+        autoTable(doc, {
           startY: y + 10,
           head: [techHead],
           body: rows,
@@ -249,7 +249,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
           columnStyles: colStyles,
           margin: { left: 12, right: 12 }
         })
-        y = (doc as any).lastAutoTable.finalY + 18
+        y = (doc.lastAutoTable?.finalY ?? 0) + 18
       }
     } catch (e) {}
 
@@ -327,7 +327,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
         const weightSum = weights.reduce((s,w)=>s+w,0)
         const colWidths: number[] = weights.map(w => Math.max(10, Math.round((w / weightSum) * availWidth)))
 
-        autoTable(doc as any, {
+        autoTable(doc, {
           startY: y + 10,
           head: [timeHead],
           body: fullRows,
@@ -339,7 +339,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
           columnStyles: Object.fromEntries(colWidths.map((w,i)=>[i,{cellWidth: w}])) as any,
           margin: { left: 12, right: 12 }
         })
-        y = (doc as any).lastAutoTable.finalY + 18
+        y = (doc.lastAutoTable?.finalY ?? 0) + 18
       }
     } catch (e) {}
 
@@ -363,7 +363,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
       }
       if (vrows.length > 0) {
         doc.setFontSize(14); doc.text('Fahrzeuge', margin, y)
-        autoTable(doc as any, {
+        autoTable(doc, {
           startY: y + 10,
           head: [['Typ', 'Kennzeichen', 'Kilometer']],
           body: vrows,
@@ -371,7 +371,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
           headStyles: { fillColor: [245,247,250], textColor: 30 },
           margin: { left: margin, right: margin }
         })
-        y = (doc as any).lastAutoTable.finalY + 18
+        y = (doc.lastAutoTable?.finalY ?? 0) + 18
       }
     } catch (e) {}
 
