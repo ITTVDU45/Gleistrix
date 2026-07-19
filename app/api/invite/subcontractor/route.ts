@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getRequestBaseUrl } from '@/lib/http/requestBaseUrl'
 import { hasValidCsrfIntent } from '@/lib/security/requireCsrfIntent'
 import { z } from 'zod'
 import dbConnect from '@/lib/dbConnect'
@@ -164,7 +165,7 @@ export async function POST(req: NextRequest) {
       phone: data.phone,
     })
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin
+    const baseUrl = getRequestBaseUrl(req);
     const inviteLink = `${baseUrl}/auth/set-password?token=${token}`
     const emailResult = await sendSubcontractorInviteEmailResult(
       email,

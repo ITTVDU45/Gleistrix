@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getRequestBaseUrl } from '@/lib/http/requestBaseUrl'
 import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
 import { sendPasswordResetEmail } from "../../../../lib/mailer"
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     // Passwort-Reset-Mail versenden. Der Token darf NICHT geloggt werden
     // (Server-Logs = potenzieller Account-Takeover).
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+    const baseUrl = getRequestBaseUrl(req);
     const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
     await sendPasswordResetEmail(user.email, resetLink);
 

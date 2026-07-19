@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getRequestBaseUrl } from '@/lib/http/requestBaseUrl'
 import dbConnect from "../../../../lib/dbConnect"
 import InviteToken from "../../../../lib/models/InviteToken"
 import User from "../../../../lib/models/User"
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
     await inviteToken.save();
 
     // E-Mail-Einladung senden
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+    const baseUrl = getRequestBaseUrl(req);
     const inviteLink = `${baseUrl}/auth/set-password?token=${token}`;
     const emailResult = await sendInviteEmailResult(email, `${firstName} ${lastName}`, 'admin', inviteLink, expiresAt);
 
