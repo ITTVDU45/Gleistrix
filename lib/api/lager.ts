@@ -186,7 +186,7 @@ export const LagerApi = {
       evidencePhotos?: Array<{ dataUrl: string; filename?: string; capturedAt?: string | Date }>
       createDeliveryNote?: boolean
     }) =>
-      postJSON('/api/lager/assignments', data as Record<string, unknown>, 'lager:assignments:create'),
+      postJSON<{ success: boolean; message?: string }>('/api/lager/assignments', data as Record<string, unknown>, 'lager:assignments:create'),
     bulk: (data: {
       personId: string
       ausgabedatum: string | Date
@@ -196,7 +196,7 @@ export const LagerApi = {
       createDeliveryNote?: boolean
       positionen: { artikelId: string; menge: number }[]
     }) =>
-      postJSON('/api/lager/assignments/bulk', data as Record<string, unknown>, 'lager:assignments:bulk'),
+      postJSON<{ success: boolean; message?: string }>('/api/lager/assignments/bulk', data as Record<string, unknown>, 'lager:assignments:bulk'),
     return: (id: string) =>
       putJSON(`/api/lager/assignments/${id}/return`, {}, 'lager:assignments:return')
   },

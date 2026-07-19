@@ -58,7 +58,7 @@ export default function LagerBewegungenView({ articles, onRefresh, initialLiefer
   }
 
   const getArtikelBezeichnung = (m: StockMovement) => {
-    const pop = (m as any).artikelId_populated ?? (m as any).artikelId
+    const pop = m.artikelId_populated ?? m.artikelId
     if (pop && typeof pop === 'object' && 'bezeichnung' in pop) return (pop as { bezeichnung?: string }).bezeichnung ?? (pop as { artikelnummer?: string }).artikelnummer ?? '-'
     return '-'
   }
@@ -137,10 +137,10 @@ export default function LagerBewegungenView({ articles, onRefresh, initialLiefer
               </TableHeader>
               <TableBody>
                 {movements.map((m, idx) => {
-                  const populatedUnits = ((m as any).unitIds ?? [])
+                  const populatedUnits = ((m.unitIds ?? []) as unknown as Array<{ seriennummer?: string; _id?: string }>)
                     .filter((u: any) => u && typeof u === 'object' && u.seriennummer) as { seriennummer: string; _id?: string }[]
                   return (
-                    <TableRow key={(m as any)._id ?? idx} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                    <TableRow key={m._id ?? idx} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                       <TableCell className="dark:text-slate-300">{formatDatum(m.datum)}</TableCell>
                       <TableCell className="dark:text-white">{getArtikelBezeichnung(m)}</TableCell>
                       <TableCell>
@@ -160,12 +160,12 @@ export default function LagerBewegungenView({ articles, onRefresh, initialLiefer
                       <TableCell className="text-right font-medium dark:text-white">{m.menge}</TableCell>
                       <TableCell className="dark:text-slate-300 max-w-[200px] truncate">{m.bemerkung || '-'}</TableCell>
                       <TableCell>
-                        {(m as any).lieferscheinId ? (
+                        {m.lieferscheinId ? (
                           <Button
                             variant="outline"
                             size="sm"
                             className="gap-1.5 rounded-lg"
-                            onClick={() => openLieferschein(String((m as any).lieferscheinId))}
+                            onClick={() => openLieferschein(String(m.lieferscheinId))}
                           >
                             <FileText className="h-3.5 w-3.5" />
                             Lieferschein ansehen
