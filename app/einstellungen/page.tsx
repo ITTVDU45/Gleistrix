@@ -15,6 +15,8 @@ import { Switch } from '../../components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { useThemeToggle } from '../../hooks/useTheme';
 import UserManagement from '../../components/UserManagement';
+import SubcontractorInviteAdmin from '../../components/subunternehmen/SubcontractorInviteAdmin';
+import FeatureFlagsAdmin from '../../components/subunternehmen/FeatureFlagsAdmin';
 import ActivityLogTable from '../../components/ActivityLogTable';
 import IntegrationOverview from '@/components/integrations/IntegrationOverview';
 import {
@@ -690,7 +692,7 @@ export default function EinstellungenPage() {
       )}
 
       {activeTab === 'users' && (
-        <div className="users-tab"><UserManagement /></div>
+        <div className="users-tab"><UserManagement /><SubcontractorInviteAdmin /></div>
       )}
 
       {activeTab === 'activity' && (
@@ -698,7 +700,10 @@ export default function EinstellungenPage() {
       )}
 
       {activeTab === 'integrations' && (
-        <IntegrationOverview />
+        <div className="space-y-6">
+          <IntegrationOverview />
+          <FeatureFlagsAdmin />
+        </div>
       )}
     </div>
   );

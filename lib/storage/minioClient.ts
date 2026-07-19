@@ -153,3 +153,14 @@ export function getGaebObjectKey(importJobId: string, filename: string) {
 }
 
 
+export function getReceivedInvoiceObjectKey(companyId: string, invoiceId: string, filename: string) {
+  const safeFileName = filename.replace(/[^a-zA-Z0-9-_.]/g, '_')
+  const date = new Date().toISOString().slice(0, 10)
+  return `received-invoices/${companyId}/${invoiceId}/${date}/${safeFileName}`
+}
+
+export function getSubcontractorDocumentObjectKey(companyId: string, filename: string) {
+  const safeFileName = filename.replace(/[^a-zA-Z0-9-_.]/g, '_')
+  const date = new Date().toISOString().slice(0, 10)
+  return `subcontractor-documents/${companyId}/${date}/${safeFileName}`
+}

@@ -20,8 +20,10 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   
-  // Prüfe, ob die aktuelle Route eine Sidebar hat
-  const hasSidebar = !noSidebarRoutes.includes(pathname);
+  // Prüfe, ob die aktuelle Route eine Sidebar hat.
+  // Das Subunternehmen-Portal bringt ein eigenes Layout mit.
+  const hasSidebar = !noSidebarRoutes.includes(pathname)
+    && !pathname.startsWith('/subunternehmen');
 
   // Reagiere auf Collapse-Änderungen der Sidebar
   React.useEffect(() => {

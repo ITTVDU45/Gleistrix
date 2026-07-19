@@ -4,21 +4,11 @@ import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Trash2, Edit } from 'lucide-react'
 import type { Subcompany } from '@/types/main'
-import SubcompanyDialog from './SubcompanyDialog'
+import SubcompanyDialog, { type SubcompanyDialogPayload } from './SubcompanyDialog'
 
 interface SubcompanyActionsProps {
   subcompany: Subcompany
-  onUpdate: (
-    id: string,
-    payload: {
-      name: string
-      employeeCount: number
-      address?: string
-      phone?: string
-      email?: string
-      bankAccount?: string
-    }
-  ) => Promise<void>
+  onUpdate: (id: string, payload: SubcompanyDialogPayload) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }
 
@@ -61,6 +51,7 @@ export default function SubcompanyActions({ subcompany, onUpdate, onDelete }: Su
         onOpenChange={setEditOpen}
         title="Subunternehmen bearbeiten"
         submitLabel="Speichern"
+        subcompanyId={subcompany.id}
         initial={{
           name: subcompany.name,
           employeeCount: subcompany.employeeCount,
@@ -68,6 +59,8 @@ export default function SubcompanyActions({ subcompany, onUpdate, onDelete }: Su
           phone: subcompany.phone,
           email: subcompany.email,
           bankAccount: subcompany.bankAccount,
+          functionRates: subcompany.functionRates,
+          surchargeRates: subcompany.surchargeRates,
         }}
         onSubmit={(payload) => onUpdate(subcompany.id, payload)}
       />

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-export type Role = 'superadmin' | 'admin' | 'user' | 'lager';
+export type Role = 'superadmin' | 'admin' | 'user' | 'lager' | 'subunternehmen';
 
 export async function requireAuth(req: NextRequest, allowed: Role[] = ['user', 'admin', 'superadmin']) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });

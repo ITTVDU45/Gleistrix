@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import dbConnect from '../../../../lib/dbConnect'
 import { Subcompany } from '../../../../lib/models/Subcompany'
+import SubcontractorMembership from '../../../../lib/models/SubcontractorMembership'
+import ReceivedInvoice from '../../../../lib/models/ReceivedInvoice'
 import { requireAuth } from '../../../../lib/security/requireAuth'
 
 export async function PUT(request: NextRequest) {
@@ -21,6 +23,22 @@ export async function PUT(request: NextRequest) {
       email: z.string().optional().or(z.literal('')),
       bankAccount: z.string().optional().or(z.literal('')),
       notes: z.string().optional().or(z.literal('')),
+      functionRates: z
+        .array(
+          z.object({
+            funktion: z.string().min(1).max(100),
+            hourlyRate: z.number().min(0).max(100000),
+          })
+        )
+        .max(100)
+        .optional(),
+      surchargeRates: z
+        .object({
+          nachtProzent: z.number().min(0).max(1000).optional(),
+          sonntagProzent: z.number().min(0).max(1000).optional(),
+          feiertagProzent: z.number().min(0).max(1000).optional(),
+        })
+        .optional(),
     })
     const parsed = schema.safeParse(await request.json())
     if (!parsed.success) {
@@ -48,6 +66,8 @@ export async function PUT(request: NextRequest) {
         email: parsed.data.email || '',
         bankAccount: parsed.data.bankAccount || '',
         notes: parsed.data.notes || '',
+        ...(parsed.data.functionRates ? { functionRates: parsed.data.functionRates } : {}),
+        ...(parsed.data.surchargeRates ? { surchargeRates: parsed.data.surchargeRates } : {}),
       },
       { new: true }
     )
@@ -80,6 +100,24 @@ export async function DELETE(request: NextRequest) {
     const id = idx >= 0 && parts.length > idx + 1 ? parts[idx + 1] : undefined
     if (!id) {
       return NextResponse.json({ success: false, message: 'Ungueltige ID' }, { status: 400 })
+    }
+
+    // Portal-Daten dürfen nicht verwaisen: Löschen nur ohne Memberships/Rechnungen.
+    // (Deaktivieren ist über status 'inactive'/'blocked' möglich.)
+    const [membershipCount, invoiceCount] = await Promise.all([
+      SubcontractorMembership.countDocuments({ subcontractorCompanyId: id }),
+      ReceivedInvoice.countDocuments({ subcontractorCompanyId: id }),
+    ])
+    if (membershipCount > 0 || invoiceCount > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            `Subunternehmen kann nicht gelöscht werden: ${membershipCount} Portal-Zugang/Zugänge und ` +
+            `${invoiceCount} Rechnung(en) vorhanden. Bitte stattdessen den Status auf "inaktiv" setzen.`,
+        },
+        { status: 409 }
+      )
     }
 
     const deleted = await Subcompany.findByIdAndDelete(id)

@@ -56,13 +56,22 @@ const ActivityLogSchema = new Schema<IActivityLog>({
       // Lager (LVS) Aktionen
       'lager_article_created', 'lager_article_updated', 'lager_article_archived',
       'lager_movement_created', 'lager_assignment_created', 'lager_assignment_returned',
-      'lager_inventory_completed', 'lager_delivery_note_created'
+      'lager_inventory_completed', 'lager_delivery_note_created',
+
+      // Subunternehmen-Portal Aktionen
+      'subcontractor_invite_created', 'subcontractor_invite_resent', 'subcontractor_invite_revoked',
+      'subcontractor_invite_accepted', 'subcontractor_membership_created', 'subcontractor_user_disabled',
+      'subcontractor_invoice_created', 'subcontractor_invoice_updated', 'subcontractor_invoice_submitted',
+      'subcontractor_invoice_review_started', 'subcontractor_invoice_status_changed',
+      'subcontractor_invoice_change_requested', 'subcontractor_invoice_approved',
+      'subcontractor_invoice_rejected', 'subcontractor_invoice_paid',
+      'subcontractor_document_uploaded', 'subcontractor_document_downloaded'
     ]
   },
   module: {
     type: String,
     required: true,
-    enum: ['project', 'employee', 'vehicle', 'time_tracking', 'settings', 'system', 'billing', 'lager']
+    enum: ['project', 'employee', 'vehicle', 'time_tracking', 'settings', 'system', 'billing', 'lager', 'subcontractor']
   },
   performedBy: {
     userId: {
@@ -77,7 +86,7 @@ const ActivityLogSchema = new Schema<IActivityLog>({
     role: {
       type: String,
       required: true,
-      enum: ['superadmin', 'admin', 'user', 'lager']
+      enum: ['superadmin', 'admin', 'user', 'lager', 'subunternehmen']
     }
   },
   details: {
@@ -122,7 +131,8 @@ if (existingModel) {
     const moduleEnum: string[] = existingModel.schema?.path('module')?.options?.enum || [];
     const hasBillingActions = Array.isArray(actionTypeEnum) && actionTypeEnum.includes('billing_full') && actionTypeEnum.includes('billing_partial');
     const hasBillingModule = Array.isArray(moduleEnum) && moduleEnum.includes('billing');
-    if (!hasBillingActions || !hasBillingModule) {
+    const hasSubcontractorModule = Array.isArray(moduleEnum) && moduleEnum.includes('subcontractor');
+    if (!hasBillingActions || !hasBillingModule || !hasSubcontractorModule) {
       delete (mongoose.models as any).ActivityLog;
     }
   } catch (_) {

@@ -15,6 +15,7 @@ import NotificationLog from '../../../../lib/models/NotificationLog';
 import { z } from 'zod';
 import { requireAuth } from '../../../../lib/security/requireAuth';
 import { computeTimeEntry, minutesToHours } from '../../../../lib/timeEntry';
+import { syncProjectExternalCompanyIds } from '../../../../lib/subunternehmen/syncExternalCompanyIds';
 
 // Zod-Schemas für die untrusted PUT-Aktionen. Strukturfelder werden streng
 // validiert; die eigentlichen Entry-/Technik-/Fahrzeug-Payloads bleiben
@@ -255,6 +256,9 @@ export async function PUT(request: NextRequest) {
           if (!updatedProject) {
             return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
           }
+
+          // $push umgeht den pre-save-Hook → materialisierte IDs nachziehen
+          await syncProjectExternalCompanyIds(updatedProject);
 
           // Mitarbeiter-Einsaetze synchronisieren (parallel, blockiert nicht)
           // Jeder Zeiteintrag wird auch beim Mitarbeiter gespeichert
@@ -783,6 +787,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // findByIdAndUpdate umgeht den pre-save-Hook → materialisierte IDs nachziehen
+    if (body && body.mitarbeiterZeiten !== undefined) {
+      await syncProjectExternalCompanyIds(project);
+    }
+
     // Activity Log erstellen
     if (currentUser) {
       try {
@@ -871,6 +880,11 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // findByIdAndUpdate umgeht den pre-save-Hook → materialisierte IDs nachziehen
+    if (body && body.mitarbeiterZeiten !== undefined) {
+      await syncProjectExternalCompanyIds(project);
+    }
+
     // Falls Status via PATCH auf "fertiggestellt" gesetzt wurde
     try {
       if (body && body.status === 'fertiggestellt') {
@@ -903,7 +917,7 @@ export async function PATCH(request: NextRequest) {
           if (project.datumEnde) { docPdf.text(`Ende: ${project.datumEnde}`, 14, y); y += 8; }
           const pdfBuffer = Buffer.from(docPdf.output('arraybuffer'));
 
-          const subject = `Projekt als \"fertiggestellt\" markiert: ${project.name}`;
+          const subject = `Projekt als "fertiggestellt" markiert: ${project.name}`;
           const html = `
             <p>Das Projekt <strong>${project.name}</strong> wurde soeben auf <strong>fertiggestellt</strong> gesetzt.</p>
             <p>Auftraggeber: ${project.auftraggeber || '-'}<br/>

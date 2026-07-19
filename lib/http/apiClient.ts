@@ -15,6 +15,11 @@ function extractApiMessage(bodyText: string, fallback: string): string {
   try {
     const parsed = JSON.parse(bodyText)
     if (typeof parsed?.message === 'string' && parsed.message) return parsed.message
+    // Neuere Routen liefern Fehlertexte als `error` (ggf. mit `details`-Liste)
+    if (typeof parsed?.error === 'string' && parsed.error) {
+      const details = Array.isArray(parsed.details) ? parsed.details.filter((d: unknown) => typeof d === 'string') : []
+      return details.length > 0 ? `${parsed.error}: ${details.join('; ')}` : parsed.error
+    }
   } catch {}
   return fallback
 }

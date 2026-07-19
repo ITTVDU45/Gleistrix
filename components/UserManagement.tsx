@@ -488,6 +488,8 @@ export default function UserManagement() {
         return 'Benutzer';
       case 'lager':
         return 'LAGER';
+      case 'subunternehmen':
+        return 'Subunternehmen';
       default:
         return role;
     }
@@ -503,6 +505,8 @@ export default function UserManagement() {
         return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
       case 'lager':
         return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+      case 'subunternehmen':
+        return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300';
       default:
         return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
     }

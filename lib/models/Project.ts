@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { computeExternalCompanyIds } from '../timeEntry/externalCompanies'
 
 const technikEntrySchema = new mongoose.Schema({
   id: String,
@@ -154,10 +155,31 @@ const projectSchema = new mongoose.Schema({
   abgerechneteTage: {
     type: [String],
     default: []
+  },
+  /**
+   * Materialisierte Subunternehmen-IDs aus mitarbeiterZeiten (indiziert).
+   * Wird im pre-save-Hook bzw. via syncProjectExternalCompanyIds gepflegt –
+   * niemals manuell setzen.
+   */
+  externalCompanyIds: {
+    type: [String],
+    default: [],
+    index: true
   }
 }, {
   timestamps: true,
   strict: false
+})
+
+// Materialisiertes Feld bei jedem save() aktuell halten (Mixed-Feld ist
+// nicht indizierbar; Portal-Queries laufen über externalCompanyIds).
+projectSchema.pre('save', function (next) {
+  try {
+    this.set('externalCompanyIds', computeExternalCompanyIds(this.get('mitarbeiterZeiten')))
+  } catch {
+    // Materialisierung darf das Speichern nie verhindern
+  }
+  next()
 })
 
 /**
@@ -178,6 +200,12 @@ export interface ProjectDoc extends mongoose.Document {
   markModified(path: string): void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any
+}
+
+// In Dev/Hot-Reload kann ein altes Model ohne externalCompanyIds im Cache liegen
+const existingProjectModel = mongoose.models.Project
+if (existingProjectModel && !existingProjectModel.schema.path('externalCompanyIds')) {
+  delete (mongoose.models as Record<string, unknown>).Project
 }
 
 // Prüfe, ob das Model bereits existiert, bevor es erstellt wird

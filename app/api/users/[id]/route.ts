@@ -4,6 +4,7 @@ import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
 import { getCurrentUser } from "../../../../lib/auth/getCurrentUser"
 import ActivityLog from "../../../../lib/models/ActivityLog"
+import SubcontractorMembership from "../../../../lib/models/SubcontractorMembership"
 import { z } from "zod"
 import { MODULE_ID_ENUM } from "@/lib/constants/modules"
 
@@ -190,6 +191,15 @@ export async function DELETE(
 
     // Benutzer löschen
     await User.findByIdAndDelete(id);
+
+    // Subunternehmen-Membership darf nicht verwaisen (Portal-Zugang endet mit dem Konto)
+    if (user.role === 'subunternehmen') {
+      try {
+        await SubcontractorMembership.deleteMany({ userId: user._id });
+      } catch (membershipError) {
+        logger.error('Membership-Cleanup nach Benutzer-Löschung fehlgeschlagen:', membershipError);
+      }
+    }
 
     logger.debug('=== BENUTZER GELÖSCHT ===');
     logger.debug(`Benutzer: ${user.name} (${user.email})`);

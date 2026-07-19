@@ -36,7 +36,11 @@ export default function LoginPage() {
       } else {
         const session = await getSession();
         const role = session?.user?.role;
-        const targetRoute = role === 'lager' ? '/lager/app' : '/dashboard';
+        const targetRoute = role === 'lager'
+          ? '/lager/app'
+          : role === 'subunternehmen'
+            ? '/subunternehmen'
+            : '/dashboard';
         logger.debug('Login erfolgreich');
         router.push(targetRoute);
         router.refresh();

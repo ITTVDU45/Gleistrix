@@ -1,5 +1,7 @@
 import { logger } from '@/lib/logger'
 import AbrechnungClient from './AbrechnungClient'
+import ReceivedInvoicesAdmin from '@/components/subunternehmen/ReceivedInvoicesAdmin'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import dbConnect from '@/lib/dbConnect'
 import { Project as ProjectModel } from '@/lib/models/Project'
 
@@ -36,7 +38,18 @@ export default async function Page(){
           <p className="text-slate-600 dark:text-slate-400 mt-1">Projekte zur Abrechnung verwalten</p>
         </div>
       </div>
-      <AbrechnungClient projects={projects} />
+      <Tabs defaultValue="projekte" className="space-y-6">
+        <TabsList className="rounded-xl">
+          <TabsTrigger value="projekte" className="rounded-lg">Projekte</TabsTrigger>
+          <TabsTrigger value="erhaltene" className="rounded-lg">Erhaltene Rechnungen</TabsTrigger>
+        </TabsList>
+        <TabsContent value="projekte">
+          <AbrechnungClient projects={projects} />
+        </TabsContent>
+        <TabsContent value="erhaltene">
+          <ReceivedInvoicesAdmin />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

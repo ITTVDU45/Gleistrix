@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
 
     await dbConnect()
 
-    const invites = await InviteToken.find({ used: false })
+    // Subunternehmen-Einladungen haben eine eigene Verwaltung (/api/invite/subcontractor)
+    const invites = await InviteToken.find({ used: false, invitationType: { $ne: 'SUBCONTRACTOR' } })
       .populate("createdBy", "name")
       .sort({ createdAt: -1 })
 

@@ -41,6 +41,17 @@ export interface Employee {
 }
 
 
+export interface SubcompanyFunctionRate {
+  funktion: string
+  hourlyRate: number
+}
+
+export interface SubcompanySurchargeRates {
+  nachtProzent?: number
+  sonntagProzent?: number
+  feiertagProzent?: number
+}
+
 export interface Subcompany {
   id: string
   name: string
@@ -50,6 +61,10 @@ export interface Subcompany {
   email?: string
   bankAccount?: string
   notes?: string
+  /** Portal-Erweiterung: Status und vereinbarte Preise je Funktion */
+  status?: 'active' | 'inactive' | 'blocked'
+  functionRates?: SubcompanyFunctionRate[]
+  surchargeRates?: SubcompanySurchargeRates
 }
 export type EmployeeStatus = 'aktiv' | 'nicht aktiv' | 'urlaub'
 

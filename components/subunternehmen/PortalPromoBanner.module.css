@@ -1,0 +1,390 @@
+/*
+ * Animierter Portal-Banner: Projekt → Leistungen → Rechnung → Einreichen.
+ * Nur compositor-freundliche Properties (opacity/transform), pausiert außerhalb
+ * des Viewports (.paused) und respektiert prefers-reduced-motion.
+ */
+
+.banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(1200px 400px at 85% -20%, rgba(59, 130, 246, 0.14), transparent 60%),
+    radial-gradient(800px 300px at -10% 120%, rgba(14, 165, 233, 0.12), transparent 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.85));
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 10px 40px -12px rgba(30, 64, 175, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+:global(.dark) .banner {
+  background:
+    radial-gradient(1200px 400px at 85% -20%, rgba(59, 130, 246, 0.18), transparent 60%),
+    linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.9));
+  border-color: rgba(51, 65, 85, 0.6);
+}
+
+.inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  padding: 1.75rem;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .inner {
+    grid-template-columns: 5fr 6fr;
+    padding: 2rem 2.25rem;
+  }
+}
+
+/* ===== Animations-Bühne ===== */
+
+.stage {
+  position: relative;
+  height: 220px;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  /* Mobile: vereinfachte, ruhigere Variante */
+  .stage {
+    height: 170px;
+  }
+  .assignRow2,
+  .surchargeRow {
+    display: none;
+  }
+}
+
+.card {
+  position: absolute;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+:global(.dark) .card {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(71, 85, 105, 0.6);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+:global(.dark) .cardHeader {
+  color: #cbd5e1;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #3b82f6;
+  flex-shrink: 0;
+}
+
+/* Projektkarte links */
+.projectCard {
+  left: 0;
+  top: 10%;
+  width: 46%;
+  animation: projectIn 14s ease-in-out infinite;
+}
+
+/* Rechnungskarte rechts */
+.invoiceCard {
+  right: 0;
+  top: 4%;
+  width: 46%;
+  animation: invoiceIn 14s ease-in-out infinite;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.35rem 0.8rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(241, 245, 249, 0.9);
+  font-size: 0.62rem;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+:global(.dark) .row {
+  background: rgba(51, 65, 85, 0.65);
+  color: #cbd5e1;
+}
+
+.rowBar {
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: #cbd5e1;
+  flex: 1;
+}
+
+:global(.dark) .rowBar {
+  background: #64748b;
+}
+
+.check {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 9999px;
+  background: #3b82f6;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.assignRow1 .check { animation: checkIn 14s ease-in-out infinite; }
+.assignRow2 .check { animation: checkIn 14s ease-in-out infinite; animation-delay: 0.3s; }
+
+.assignRow1 { animation: rowIn 14s ease-in-out infinite; }
+.assignRow2 { animation: rowIn2 14s ease-in-out infinite; }
+
+/* Positionen in der Rechnung */
+.lineItem1 { animation: lineIn1 14s ease-in-out infinite; }
+.lineItem2 { animation: lineIn2 14s ease-in-out infinite; }
+.surchargeRow {
+  background: rgba(219, 234, 254, 0.9);
+  color: #1d4ed8;
+  animation: surchargeIn 14s ease-in-out infinite;
+}
+
+:global(.dark) .surchargeRow {
+  background: rgba(30, 58, 138, 0.5);
+  color: #93c5fd;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.4rem 0.8rem 0.7rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #1d4ed8;
+  color: white;
+  font-size: 0.62rem;
+  font-weight: 700;
+  animation: totalIn 14s ease-in-out infinite;
+}
+
+/* Verbindungspfeil / Flugbahn */
+.flight {
+  position: absolute;
+  left: 44%;
+  top: 42%;
+  width: 12%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0), rgba(59, 130, 246, 0.7));
+  transform-origin: left center;
+  animation: flightIn 14s ease-in-out infinite;
+}
+
+.plane {
+  position: absolute;
+  left: 42%;
+  top: 34%;
+  color: #2563eb;
+  animation: planeFly 14s ease-in-out infinite;
+}
+
+/* Status-Chips unter der Rechnung */
+.statusChips {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 46%;
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.chip {
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  opacity: 0.35;
+  transform: scale(0.96);
+}
+
+.chipSubmitted {
+  background: #dbeafe;
+  color: #1d4ed8;
+  animation: chipActive1 14s ease-in-out infinite;
+}
+
+.chipReview {
+  background: #e0e7ff;
+  color: #4338ca;
+  animation: chipActive2 14s ease-in-out infinite;
+}
+
+.chipApproved {
+  background: #dcfce7;
+  color: #15803d;
+  animation: chipActive3 14s ease-in-out infinite;
+}
+
+:global(.dark) .chipSubmitted { background: rgba(30, 58, 138, 0.5); color: #93c5fd; }
+:global(.dark) .chipReview { background: rgba(55, 48, 163, 0.5); color: #a5b4fc; }
+:global(.dark) .chipApproved { background: rgba(20, 83, 45, 0.5); color: #86efac; }
+
+/* ===== Pausieren (außerhalb Viewport) ===== */
+.paused .projectCard,
+.paused .invoiceCard,
+.paused .assignRow1,
+.paused .assignRow2,
+.paused .lineItem1,
+.paused .lineItem2,
+.paused .surchargeRow,
+.paused .totalRow,
+.paused .flight,
+.paused .plane,
+.paused .chipSubmitted,
+.paused .chipReview,
+.paused .chipApproved,
+.paused .check {
+  animation-play-state: paused;
+}
+
+/* ===== Reduced Motion: statische Endkomposition ===== */
+@media (prefers-reduced-motion: reduce) {
+  .projectCard,
+  .invoiceCard,
+  .assignRow1,
+  .assignRow2,
+  .lineItem1,
+  .lineItem2,
+  .surchargeRow,
+  .totalRow,
+  .flight,
+  .plane,
+  .assignRow1 .check,
+  .assignRow2 .check,
+  .chipSubmitted,
+  .chipReview,
+  .chipApproved {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .chipSubmitted,
+  .chipReview {
+    opacity: 0.4;
+  }
+  .plane {
+    opacity: 0;
+  }
+}
+
+/* ===== Keyframes (14s-Loop) =====
+   0-7%: Projektkarte · 7-21%: Einsätze · 21-32%: Auswahl ·
+   32-46%: Rechnung + Positionen · 46-54%: Zuschlag · 54-61%: Summen ·
+   61-70%: Übermittlung · 70-96%: Status · 96-100%: Ausblenden */
+
+@keyframes projectIn {
+  0% { opacity: 0; transform: translateY(14px) scale(0.97); }
+  5%, 92% { opacity: 1; transform: translateY(0) scale(1); }
+  98%, 100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+
+@keyframes rowIn {
+  0%, 8% { opacity: 0; transform: translateX(-8px); }
+  13%, 92% { opacity: 1; transform: translateX(0); }
+  98%, 100% { opacity: 0; }
+}
+
+@keyframes rowIn2 {
+  0%, 13% { opacity: 0; transform: translateX(-8px); }
+  18%, 92% { opacity: 1; transform: translateX(0); }
+  98%, 100% { opacity: 0; }
+}
+
+@keyframes checkIn {
+  0%, 22% { opacity: 0; transform: scale(0.4); }
+  27%, 92% { opacity: 1; transform: scale(1); }
+  98%, 100% { opacity: 0; }
+}
+
+@keyframes invoiceIn {
+  0%, 30% { opacity: 0; transform: translateY(16px) scale(0.97); }
+  36%, 94% { opacity: 1; transform: translateY(0) scale(1); }
+  99%, 100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+
+@keyframes lineIn1 {
+  0%, 36% { opacity: 0; transform: translateX(10px); }
+  41%, 94% { opacity: 1; transform: translateX(0); }
+  99%, 100% { opacity: 0; }
+}
+
+@keyframes lineIn2 {
+  0%, 40% { opacity: 0; transform: translateX(10px); }
+  45%, 94% { opacity: 1; transform: translateX(0); }
+  99%, 100% { opacity: 0; }
+}
+
+@keyframes surchargeIn {
+  0%, 47% { opacity: 0; transform: translateX(10px); }
+  53%, 94% { opacity: 1; transform: translateX(0); }
+  99%, 100% { opacity: 0; }
+}
+
+@keyframes totalIn {
+  0%, 55% { opacity: 0; transform: translateY(6px); }
+  60%, 94% { opacity: 1; transform: translateY(0); }
+  99%, 100% { opacity: 0; }
+}
+
+@keyframes flightIn {
+  0%, 36% { opacity: 0; transform: scaleX(0); }
+  42%, 62% { opacity: 1; transform: scaleX(1); }
+  68%, 100% { opacity: 0; transform: scaleX(1); }
+}
+
+@keyframes planeFly {
+  0%, 61% { opacity: 0; transform: translate(0, 0) rotate(12deg); }
+  64% { opacity: 1; }
+  69% { opacity: 1; transform: translate(46px, -14px) rotate(4deg); }
+  72%, 100% { opacity: 0; transform: translate(60px, -20px) rotate(0deg); }
+}
+
+@keyframes chipActive1 {
+  0%, 68% { opacity: 0.35; transform: scale(0.96); }
+  70%, 77% { opacity: 1; transform: scale(1.04); }
+  80%, 100% { opacity: 0.35; transform: scale(0.96); }
+}
+
+@keyframes chipActive2 {
+  0%, 78% { opacity: 0.35; transform: scale(0.96); }
+  80%, 86% { opacity: 1; transform: scale(1.04); }
+  89%, 100% { opacity: 0.35; transform: scale(0.96); }
+}
+
+@keyframes chipActive3 {
+  0%, 87% { opacity: 0.35; transform: scale(0.96); }
+  89%, 96% { opacity: 1; transform: scale(1.06); }
+  99%, 100% { opacity: 0.35; transform: scale(0.96); }
+}

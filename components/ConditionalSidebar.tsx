@@ -15,9 +15,11 @@ const noSidebarRoutes = [
 
 export default function ConditionalSidebar() {
   const pathname = usePathname();
-  
-  // Prüfe, ob die aktuelle Route eine Sidebar haben soll
-  const shouldShowSidebar = !noSidebarRoutes.includes(pathname);
+
+  // Prüfe, ob die aktuelle Route eine Sidebar haben soll.
+  // Das Subunternehmen-Portal bringt eine eigene Navigation mit.
+  const shouldShowSidebar = !noSidebarRoutes.includes(pathname)
+    && !pathname.startsWith('/subunternehmen');
   
   if (!shouldShowSidebar) {
     return null;

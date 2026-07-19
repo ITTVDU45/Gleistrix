@@ -53,23 +53,30 @@ function SetPasswordInner() {
     validateToken();
   }, [token]);
 
+  // Subunternehmen-Einladung an ein bestehendes Konto: nur verknüpfen,
+  // kein neues Passwort erforderlich.
+  const isSubcontractorInvite = tokenData?.invitationType === 'SUBCONTRACTOR';
+  const isLinkingExistingUser = isSubcontractorInvite && Boolean(tokenData?.existingUser);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     setSuccess('');
 
-    // Passwort-Validierung
-    if (password !== confirmPassword) {
-      setError('Passwörter stimmen nicht überein');
-      setIsLoading(false);
-      return;
-    }
+    // Passwort-Validierung (entfällt bei Verknüpfung eines bestehenden Kontos)
+    if (!isLinkingExistingUser) {
+      if (password !== confirmPassword) {
+        setError('Passwörter stimmen nicht überein');
+        setIsLoading(false);
+        return;
+      }
 
-    if (password.length < 6) {
-      setError('Passwort muss mindestens 6 Zeichen lang sein');
-      setIsLoading(false);
-      return;
+      if (password.length < 6) {
+        setError('Passwort muss mindestens 6 Zeichen lang sein');
+        setIsLoading(false);
+        return;
+      }
     }
 
     try {
@@ -78,13 +85,17 @@ function SetPasswordInner() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify(isLinkingExistingUser ? { token } : { token, password }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setSuccess('Passwort erfolgreich gesetzt! Sie werden zur Anmeldung weitergeleitet.');
+        setSuccess(
+          isLinkingExistingUser
+            ? 'Konto erfolgreich verknüpft! Sie werden zur Anmeldung weitergeleitet.'
+            : 'Passwort erfolgreich gesetzt! Sie werden zur Anmeldung weitergeleitet.'
+        );
         setTimeout(() => {
           router.push('/login');
         }, 2000);
@@ -157,9 +168,13 @@ function SetPasswordInner() {
                 />
               </div>
               
-              <h1 className="text-2xl font-bold text-slate-900">Passwort setzen</h1>
+              <h1 className="text-2xl font-bold text-slate-900">
+                {isSubcontractorInvite ? 'Einladung annehmen' : 'Passwort setzen'}
+              </h1>
               <p className="text-slate-600 mt-2">
-                Willkommen {tokenData?.name}! Bitte setzen Sie Ihr Passwort.
+                {isSubcontractorInvite
+                  ? `Willkommen ${tokenData?.name}! Sie wurden für ${tokenData?.companyName || 'Ihr Subunternehmen'} zum Gleistrix-Portal eingeladen.`
+                  : `Willkommen ${tokenData?.name}! Bitte setzen Sie Ihr Passwort.`}
               </p>
             </div>
           </CardHeader>
@@ -181,6 +196,18 @@ function SetPasswordInner() {
                 </div>
               </div>
 
+              {isLinkingExistingUser && (
+                <Alert className="rounded-lg bg-blue-50 border-blue-200">
+                  <AlertDescription className="text-blue-800">
+                    Für diese E-Mail existiert bereits ein Konto. Mit der Annahme wird Ihr
+                    bestehendes Konto mit dem Subunternehmen verknüpft – Ihr Passwort bleibt
+                    unverändert.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {!isLinkingExistingUser && (
+              <>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-slate-700">
                   Neues Passwort
@@ -231,6 +258,8 @@ function SetPasswordInner() {
                   </button>
                 </div>
               </div>
+              </>
+              )}
 
               {error && (
                 <Alert variant="destructive" className="rounded-lg">
@@ -249,7 +278,13 @@ function SetPasswordInner() {
                 className="w-full h-11 bg-blue-600 hover:bg-blue-700 rounded-lg"
                 disabled={isLoading}
               >
-                {isLoading ? 'Wird gespeichert...' : 'Passwort setzen'}
+                {isLoading
+                  ? 'Wird gespeichert...'
+                  : isLinkingExistingUser
+                    ? 'Einladung annehmen und Konto verknüpfen'
+                    : isSubcontractorInvite
+                      ? 'Passwort setzen und Einladung annehmen'
+                      : 'Passwort setzen'}
               </Button>
             </form>
           </CardContent>

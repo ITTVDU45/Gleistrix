@@ -8,11 +8,11 @@ const UserSchema = new Schema({
   lastName: { type: String },
   phone: { type: String },
   address: { type: String },
-  role: { 
-    type: String, 
-    enum: ['superadmin', 'admin', 'user', 'lager'], 
+  role: {
+    type: String,
+    enum: ['superadmin', 'admin', 'user', 'lager', 'subunternehmen'],
     default: 'user',
-    required: true 
+    required: true
   },
   resetToken: { type: String },
   resetTokenExpiry: { type: Date },

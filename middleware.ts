@@ -89,6 +89,33 @@ export async function middleware(req: NextRequest) {
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const currentRole = (token as { role?: string } | null)?.role;
+  const isSubcontractorUser = currentRole === 'subunternehmen';
+  const isSubcontractorRoute = pathname === '/subunternehmen' || pathname.startsWith('/subunternehmen/');
+  const isBlockedForSubcontractor = (
+    pathname.startsWith('/dashboard')
+    || pathname.startsWith('/mitarbeiter')
+    || pathname.startsWith('/fahrzeuge')
+    || pathname.startsWith('/timetracking')
+    || pathname.startsWith('/projekte')
+    || pathname.startsWith('/projektdetail')
+    || pathname.startsWith('/abbrechnung')
+    || pathname.startsWith('/einstellungen')
+    || pathname.startsWith('/plantafel')
+    || pathname.startsWith('/agenten')
+    || pathname.startsWith('/statistiken')
+    || pathname.startsWith('/lager')
+  );
+
+  // Subunternehmen-Rolle wird konsequent ins eigene Portal geführt;
+  // interne Bereiche sind für sie nicht erreichbar (zusätzlich zu den
+  // serverseitigen API-Prüfungen).
+  if (isSubcontractorUser && isBlockedForSubcontractor) {
+    return NextResponse.redirect(new URL('/subunternehmen', req.url));
+  }
+  if (!isSubcontractorUser && isSubcontractorRoute && token) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
+
   const isLagerUser = currentRole === 'lager';
   const isLagerAppRoute = pathname.startsWith('/lager/app');
   const isLagerAdminRoute = pathname === '/lager' || pathname.startsWith('/lager/');
@@ -138,7 +165,11 @@ export const config = {
   matcher: [
     // App Routen explizit
     '/',
-    '/(login|dashboard|projekte|abbrechnung|mitarbeiter|fahrzeuge|projektdetail|timetracking|einstellungen|lager)/:path*',
+    '/(login|dashboard|projekte|abbrechnung|mitarbeiter|fahrzeuge|projektdetail|timetracking|einstellungen|lager|plantafel|agenten|statistiken|subunternehmen)/:path*',
+    '/subunternehmen',
+    // API-Routen: ohne diesen Eintrag liefen Rate-Limiting (mutierende
+    // Requests, strengeres Auth-Limit) und Security-Header nie für /api
+    '/api/:path*',
   ],
 };
 
