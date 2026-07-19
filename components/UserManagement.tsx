@@ -205,7 +205,7 @@ export default function UserManagement() {
   const handleDeleteExpiredInvite = async (email: string) => {
     try {
       const resp = await InvitesApi.deleteAllForEmail(email)
-      if ((resp as any).error) {
+      if (resp.error) {
         logger.error('Fehler beim Löschen der Einladungen')
         return false
       }
@@ -223,7 +223,7 @@ export default function UserManagement() {
 
     try {
       const resp = await InvitesApi.deleteAllForEmail(email)
-      if ((resp as any).error) {
+      if (resp.error) {
         logger.error('Fehler beim Löschen der Einladung')
         setError('Fehler beim Löschen der Einladung')
       } else {
@@ -265,8 +265,8 @@ export default function UserManagement() {
         });
         fetchInvitedUsers();
       } else {
-        const errorData = response as any
-        
+        const errorData = response
+
         // Wenn eine gültige Einladung existiert, versuche sie zu löschen und neu zu senden
         if (errorData.error && errorData.error.includes('gültige Einladung')) {
           const deleted = await handleDeleteExpiredInvite(formData.email);
@@ -279,7 +279,7 @@ export default function UserManagement() {
                   lastName: formData.lastName,
                   email: formData.email,
                   phone: formData.phone,
-                  role: formData.role as any,
+                  role: formData.role,
                 })
 
                 const retry = retryResponse as { message?: string; error?: string; emailSent?: boolean; emailError?: string }
@@ -297,7 +297,7 @@ export default function UserManagement() {
                   });
                   fetchInvitedUsers();
                 } else {
-                  const retryErrorData = retryResponse as any
+                  const retryErrorData = retryResponse
                   setError(retryErrorData.message || retryErrorData.error || 'Fehler beim erneuten Senden der Einladung');
                 }
               } catch (err) {
@@ -323,7 +323,7 @@ export default function UserManagement() {
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const resp = await UsersApi.toggleStatus(userId, !currentStatus)
-      if (!(resp as any).error) {
+      if (!resp.error) {
         fetchUsers();
       } else {
         setError('Fehler beim Ändern des Benutzer-Status');
@@ -363,8 +363,8 @@ export default function UserManagement() {
         modules: editForm.modules,
         isActive: editForm.isActive,
       });
-      if ((resp as any).error) {
-        setEditError((resp as any).error);
+      if (resp.error) {
+        setEditError(resp.error);
         return;
       }
       setEditUser(null);
@@ -394,7 +394,7 @@ export default function UserManagement() {
   const handleDeleteUser = async (userId: string) => {
     try {
       const resp = await UsersApi.remove(userId)
-      if (!(resp as any).error) {
+      if (!resp.error) {
         fetchUsers();
       } else {
         setError('Fehler beim Löschen des Benutzers');
