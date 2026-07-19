@@ -98,7 +98,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const rightX = docPdf.internal.pageSize.getWidth() / 2 + 4;
         const startY = y + 8;
 
-        const timesAny: any = (project as any).mitarbeiterZeiten || {};
+        const timesAny: any = project.mitarbeiterZeiten || {};
         let totalHours = 0, totalTravelHours = 0;
         const uniqueEmployees = new Set<string>();
         const uniqueFunctions = new Set<string>();
@@ -113,7 +113,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           });
         });
         exportedDays.sort();
-        const gesamtLaenge = (project as any).gesamtMeterlaenge || 0;
+        const gesamtLaenge = project.gesamtMeterlaenge || 0;
 
         // Linke Tabelle (Labels/Werte)
         autoTable(docPdf as any, {
@@ -123,8 +123,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           theme: 'plain',
           styles: { fontSize: 10, cellPadding: 1.5 },
           body: [
-            ['Projektname:', String((project as any).name || '-')],
-            ['Status:', String((project as any).status || '-')],
+            ['Projektname:', String(project.name || '-')],
+            ['Status:', String(project.status || '-')],
             ['Gesamtarbeitsstunden:', totalHours.toFixed(2)],
             ['Technik Gesamtlänge:', `${gesamtLaenge} m`],
             ['Eingesetzte Funktionen:', String(uniqueFunctions.size)],
@@ -133,7 +133,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         });
 
         // Rechte Tabelle
-        const zeitraum = `${(project as any).datumBeginn || '-'} - ${(project as any).datumEnde || '-'}`;
+        const zeitraum = `${project.datumBeginn || '-'} - ${project.datumEnde || '-'}`;
         autoTable(docPdf as any, {
           startY,
           margin: { left: rightX },
@@ -141,7 +141,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           theme: 'plain',
           styles: { fontSize: 10, cellPadding: 1.5 },
           body: [
-            ['Auftraggeber:', String((project as any).auftraggeber || '-')],
+            ['Auftraggeber:', String(project.auftraggeber || '-')],
             ['Zeitraum:', zeitraum],
             ['Gesamtfahrstunden:', totalTravelHours.toFixed(2)],
             ['Eingesetzte Mitarbeiter:', String(uniqueEmployees.size)],
@@ -167,7 +167,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         // Tabelle: Alle Projekttage aus mitarbeiterZeiten
         try {
           const entries: Array<{ datum: string; name: string; funktion?: string; stunden?: number; fahrtstunden?: number }> = [];
-          const times: any = (project as any).mitarbeiterZeiten || {};
+          const times: any = project.mitarbeiterZeiten || {};
           Object.entries(times).forEach(([datum, arr]: any) => {
             (arr as any[]).forEach((e: any) => {
               entries.push({ datum, name: e.name, funktion: e.funktion, stunden: e.stunden, fahrtstunden: e.fahrtstunden });
@@ -195,7 +195,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         // Technik-Tabelle
         try {
-          const technik: any = (project as any).technik || {};
+          const technik: any = project.technik || {};
           const technikRows: any[] = [];
           const pushRow = (t: any, tag: string) => {
             technikRows.push([

@@ -18,15 +18,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
 
-    if (!project.dokumente || typeof project.dokumente !== 'object') (project as any).dokumente = {};
-    const all = (project as any).dokumente['all'] || [];
+    if (!project.dokumente || typeof project.dokumente !== 'object') project.dokumente = {};
+    const all = project.dokumente['all'] || [];
     const idx = all.findIndex((d: any) => d.id === docId);
     if (idx === -1) return NextResponse.json({ message: 'Dokument nicht gefunden' }, { status: 404 });
 
     all[idx].description = description;
-    (project as any).dokumente['all'] = all;
-    (project as any).markModified('dokumente');
-    await (project as any).save();
+    project.dokumente['all'] = all;
+    project.markModified('dokumente');
+    await project.save();
 
     return NextResponse.json({ success: true, document: all[idx] });
   } catch (e) {
@@ -45,8 +45,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
 
-    if (!project.dokumente || typeof project.dokumente !== 'object') (project as any).dokumente = {};
-    const all = (project as any).dokumente['all'] || [];
+    if (!project.dokumente || typeof project.dokumente !== 'object') project.dokumente = {};
+    const all = project.dokumente['all'] || [];
     const idx = all.findIndex((d: any) => d.id === docId);
     if (idx === -1) return NextResponse.json({ message: 'Dokument nicht gefunden' }, { status: 404 });
 
@@ -63,9 +63,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       logger.warn('Failed to remove object from MinIO', e);
     }
 
-    (project as any).dokumente['all'] = all.filter((d: any) => d.id !== docId);
-    (project as any).markModified('dokumente');
-    await (project as any).save();
+    project.dokumente['all'] = all.filter((d: any) => d.id !== docId);
+    project.markModified('dokumente');
+    await project.save();
 
     return NextResponse.json({ success: true });
   } catch (e) {

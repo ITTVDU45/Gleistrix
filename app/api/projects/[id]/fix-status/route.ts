@@ -25,7 +25,7 @@ export async function GET(req: Request){
 
     return NextResponse.json({ 
       success: true, 
-      oldStatus: (project as any).status,
+      oldStatus: project.status,
       newStatus: 'geleistet'
     })
   } catch(e){

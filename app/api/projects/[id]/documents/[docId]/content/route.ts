@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     const project = await Project.findById(id).lean()
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 })
 
-    const allDocs = ((project as any)?.dokumente?.all || []) as any[]
+    const allDocs = (project?.dokumente?.all || []) as any[]
     const doc = allDocs.find((d) => String(d?.id) === String(docId))
     if (!doc) return NextResponse.json({ message: 'Dokument nicht gefunden' }, { status: 404 })
 

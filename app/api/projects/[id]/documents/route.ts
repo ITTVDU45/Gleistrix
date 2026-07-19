@@ -72,7 +72,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
 
-    if (!project.dokumente || typeof project.dokumente !== 'object') (project as any).dokumente = {};
+    if (!project.dokumente || typeof project.dokumente !== 'object') project.dokumente = {};
 
     const uploaded: any[] = [];
     const bucketName = process.env.MINIO_BUCKET || 'project-documents';
@@ -126,13 +126,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       const docMeta: Record<string, unknown> = { id: idStr, name, description: resolvedDescription, url: `minio://${bucketName}/${key}` };
       if (oneDriveUrl) docMeta.oneDriveUrl = oneDriveUrl;
-      if (!(project as any).dokumente['all']) (project as any).dokumente['all'] = [];
-      (project as any).dokumente['all'].push(docMeta);
+      if (!project.dokumente['all']) project.dokumente['all'] = [];
+      project.dokumente['all'].push(docMeta);
       uploaded.push(docMeta);
     }
 
-    (project as any).markModified('dokumente');
-    await (project as any).save();
+    project.markModified('dokumente');
+    await project.save();
 
     return NextResponse.json({ success: true, uploaded });
   } catch (e) {

@@ -20,7 +20,7 @@ export async function POST(req: Request, context: any){
     const allDaysSet = new Set<string>()
     
     // Zuerst Tage mit Einträgen sammeln
-    Object.entries((project as any).mitarbeiterZeiten || {}).forEach(([day, arr]: any) => {
+    Object.entries(project.mitarbeiterZeiten || {}).forEach(([day, arr]: any) => {
       if (Array.isArray(arr) && arr.length > 0) {
         allDaysSet.add(day)
         
@@ -38,10 +38,10 @@ export async function POST(req: Request, context: any){
     })
     
     const allDays = Array.from(allDaysSet)
-    const abgerechneteTage: string[] = Array.isArray((project as any).abgerechneteTage) ? (project as any).abgerechneteTage : []
+    const abgerechneteTage: string[] = Array.isArray(project.abgerechneteTage) ? project.abgerechneteTage : []
     
     logger.debug('Projektstatus-Berechnung:', {
-      projektId: (project as any)._id,
+      projektId: project._id,
       allDays,
       abgerechneteTage,
       allDaysLength: allDays.length,
@@ -49,7 +49,7 @@ export async function POST(req: Request, context: any){
       isComplete: allDays.length > 0 && abgerechneteTage.length >= allDays.length
     })
     
-    let newStatus = (project as any).status
+    let newStatus = project.status
     if (abgerechneteTage.length > 0 && allDays.length > 0 && abgerechneteTage.length < allDays.length) {
       newStatus = 'teilweise_abgerechnet'
     }
@@ -62,7 +62,7 @@ export async function POST(req: Request, context: any){
 
     return NextResponse.json({ 
       success: true, 
-      oldStatus: (project as any).status,
+      oldStatus: project.status,
       newStatus,
       allDays,
       abgerechneteTage

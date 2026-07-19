@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
 
-    const all = (project as any).dokumente?.all || [];
+    const all = project.dokumente?.all || [];
     const doc = all.find((d: any) => d.id === docId);
     if (!doc) return NextResponse.json({ message: 'Dokument nicht gefunden' }, { status: 404 });
 
