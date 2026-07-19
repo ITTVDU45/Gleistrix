@@ -53,13 +53,13 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
       if (articlesRes?.success && articlesRes.articles) {
         setArticles(articlesRes.articles.map((a: Article) => ({
           ...a,
-          id: (a as any)._id?.toString?.() ?? (a as any).id
+          id: a._id?.toString?.() ?? (a as any).id
         })))
       }
       if (categoriesRes?.success && categoriesRes.categories) {
         setCategories(categoriesRes.categories.map((c: Category) => ({
           ...c,
-          id: (c as any)._id?.toString?.() ?? (c as any).id
+          id: c._id?.toString?.() ?? (c as any).id
         })))
       }
       if (statsRes?.success && (statsRes as { stats?: LagerStats }).stats) {

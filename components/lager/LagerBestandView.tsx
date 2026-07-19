@@ -90,7 +90,7 @@ export default function LagerBestandView({ articles, categories, onRefresh }: La
                 <TableBody>
                   {activeArticles.map((a, idx) => (
                     <TableRow
-                      key={a.id ?? (a as any)._id ?? idx}
+                      key={a.id ?? a._id ?? idx}
                       className={`hover:bg-slate-50 dark:hover:bg-slate-700 ${isUnterMindestbestand(a) ? 'bg-amber-50/50 dark:bg-amber-900/10 border-l-4 border-l-amber-500' : ''}`}
                     >
                       <TableCell className="font-medium dark:text-white">{a.artikelnummer}</TableCell>

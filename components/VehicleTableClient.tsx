@@ -56,7 +56,7 @@ export default function VehicleTableClient({ vehicles, projects, allVehicles }: 
               </TableHeader>
               <TableBody>
                 {filteredVehicles.map((vehicle: Vehicle, idx: number) => {
-                  const rowKey = vehicle.id || (vehicle as any)._id || `${vehicle.licensePlate || vehicle.type || 'veh'}-${idx}`;
+                  const rowKey = vehicle.id || vehicle._id || `${vehicle.licensePlate || vehicle.type || 'veh'}-${idx}`;
                   return (
                   <TableRow key={rowKey} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                     <TableCell className="font-medium dark:text-white">{vehicle.type}</TableCell>
