@@ -3,6 +3,7 @@ import { getToken } from "next-auth/jwt"
 import mongoose from "mongoose"
 import dbConnect from "../dbConnect"
 import { ENV_SUPERADMIN_JWT_ID, isEnvSuperadminJwtToken } from "./envSuperadmin"
+import { resolveSuperadminName } from "./superadminProfile"
 
 export interface AdminUser {
   _id: string
@@ -29,7 +30,8 @@ export async function requireAdminUser(req: NextRequest): Promise<AdminAuthResul
         _id: ENV_SUPERADMIN_JWT_ID,
         id: ENV_SUPERADMIN_JWT_ID,
         email: (token as { email?: string }).email,
-        name: (token as { name?: string }).name || "Super Admin",
+        // Gespeicherter Profilname hat Vorrang vor dem (evtl. veralteten) JWT-Namen
+        name: await resolveSuperadminName((token as { name?: string }).name),
         role: "superadmin",
       },
     }

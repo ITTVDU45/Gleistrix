@@ -9,6 +9,8 @@ import { getToken } from 'next-auth/jwt'
 import User from '@/lib/models/User'
 import SuperadminProfile from '@/lib/models/SuperadminProfile'
 import { ENV_SUPERADMIN_JWT_ID } from '@/lib/auth/envSuperadmin'
+import { requireAdminUser } from '@/lib/auth/requireAdminUser'
+import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 import { PUT as updateProfile } from '@/app/api/auth/update-profile/route'
 import { GET as getMe } from '@/app/api/auth/me/route'
 
@@ -62,6 +64,18 @@ describe('ENV-Superadmin (kein DB-Dokument)', () => {
     expect(body.user.name).toBe('Neuer Name')
     expect(body.user.phone).toBe('017600000')
     expect(body.user.email).toBe('software@muelheimer-wachdienst.de')
+  })
+
+  test('gespeicherter Name wirkt in requireAdminUser (Einladungs-Mail) und getCurrentUser', async () => {
+    login()
+    await updateProfile(putReq({ name: 'Tolgahan Vardar', phone: '0170' }))
+
+    const req = new NextRequest('http://localhost/api/x')
+    const admin = await requireAdminUser(req)
+    expect(admin.ok && admin.user.name).toBe('Tolgahan Vardar')
+
+    const current = await getCurrentUser(req)
+    expect(current?.name).toBe('Tolgahan Vardar')
   })
 })
 
