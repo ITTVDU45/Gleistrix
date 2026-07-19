@@ -54,25 +54,12 @@ export async function GET(req: NextRequest) {
     orConditions.push({ _id: { $in: assignedProjectIds } })
   }
 
-  const projects = await Project.find(
-    { $or: orConditions },
-    {
-      name: 1,
-      status: 1,
-      auftraggeber: 1,
-      baustelle: 1,
-      auftragsnummer: 1,
-      sapNummer: 1,
-      telefonnummer: 1,
-      atwsImEinsatz: 1,
-      anzahlAtws: 1,
-      datumBeginn: 1,
-      datumEnde: 1,
-      [`mitarbeiterZeiten.${dateKey}`]: 1,
-      [`fahrzeuge.${dateKey}`]: 1,
-      [`technik.${dateKey}`]: 1,
-    }
-  ).lean()
+  const projectionFields = [
+    'name', 'status', 'auftraggeber', 'baustelle', 'auftragsnummer', 'sapNummer',
+    'telefonnummer', 'atwsImEinsatz', 'anzahlAtws', 'datumBeginn', 'datumEnde',
+    `mitarbeiterZeiten.${dateKey}`, `fahrzeuge.${dateKey}`, `technik.${dateKey}`,
+  ].join(' ')
+  const projects = await Project.find({ $or: orConditions }).select(projectionFields).lean()
 
   const dayProjects = projects.map((p: Record<string, unknown>) => {
     const zeiten = toArray<Record<string, unknown>>(

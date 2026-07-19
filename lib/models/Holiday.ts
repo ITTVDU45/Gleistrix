@@ -29,6 +29,8 @@ holidaySchema.index({ date: 1, bundesland: 1 }, { unique: true })
 
 /** Getyptes Holiday-Dokument. */
 export interface HolidayDoc extends mongoose.Document {
+  // mongoose.Document typisiert _id als `unknown`; hier explizit als ObjectId.
+  _id: mongoose.Types.ObjectId
   date: string
   name: string
   bundesland: string
