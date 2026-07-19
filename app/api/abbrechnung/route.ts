@@ -16,7 +16,7 @@ import mongoose from 'mongoose'
 export async function POST(req: NextRequest){
   try{
     await dbConnect()
-    const auth = await requireAuth(req as any, ['user','admin','superadmin'])
+    const auth = await requireAuth(req, ['user','admin','superadmin'])
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status })
 
     const body = await req.json()
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest){
     const project = await Project.findById(projectId).lean()
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 })
 
-    const allRows = normalizeProjectTimeEntriesToBillingRows((project as any)?.mitarbeiterZeiten || {}, days)
+    const allRows = normalizeProjectTimeEntriesToBillingRows(project?.mitarbeiterZeiten || {}, days)
     const selectedRows = selectedRowKeys.length > 0
       ? allRows.filter((row) => selectedRowKeys.includes(row.rowKey))
       : allRows
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest){
       return NextResponse.json({ message: 'Keine abrechenbaren Positionen ausgewählt' }, { status: 400 })
     }
 
-    const tokenUserId = String((auth as any).token?.id || '')
+    const tokenUserId = String(auth.token?.id || '')
     const billedByUserId = mongoose.isValidObjectId(tokenUserId)
       ? new mongoose.Types.ObjectId(tokenUserId)
       : undefined
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest){
     const alreadyBilledSet = new Set(alreadyBilledDocs.map((d: any) => String(d.rowKey)))
 
     const billingDocsPayload = selectedRows.map((row) => ({
-      projectId: (project as any)._id,
+      projectId: project._id,
       day: row.day,
       rowKey: row.rowKey,
       sourceEntryId: row.sourceEntryId,
@@ -71,8 +71,8 @@ export async function POST(req: NextRequest){
       billedAt: new Date(),
       billedBy: {
         userId: billedByUserId,
-        name: (auth as any).token?.name || (auth as any).token?.email || 'system',
-        role: (auth as any).token?.role || 'user',
+        name: auth.token?.name || auth.token?.email || 'system',
+        role: auth.token?.role || 'user',
       }
     }))
 
@@ -107,9 +107,9 @@ export async function POST(req: NextRequest){
             bemerkung: row.bemerkung,
           })
         })
-        const pdfProject = { ...(project as any), mitarbeiterZeiten: pseudoTimesByDay }
+        const pdfProject = { ...project, mitarbeiterZeiten: pseudoTimesByDay }
         const buf = await createPDFForProjectDays(pdfProject as any, Array.from(new Set(selectedRows.map((r) => r.day))))
-        const projectName = ((project as any)?.name ?? 'projekt') as string
+        const projectName = (project?.name ?? 'projekt') as string
         pdfBuffers.push({ filename: `${projectName}-abrechnung.pdf`, buffer: buf })
       }
     } catch (pdfErr) {
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest){
     // Attach project documents from MinIO if present
     const emailAttachments: any[] = []
     for (const p of pdfBuffers) emailAttachments.push({ filename: p.filename, content: p.buffer, contentType: 'application/pdf' })
-    const projDocsAll = ((project as any)?.dokumente?.all ?? []) as any[]
+    const projDocsAll = (project?.dokumente?.all ?? []) as any[]
     if (Array.isArray(projDocsAll) && projDocsAll.length > 0) {
       const bucket = process.env.MINIO_BUCKET || 'project-documents'
       const { getObjectBufferAsync } = await import('@/lib/storage/minioClient')
@@ -204,17 +204,17 @@ export async function POST(req: NextRequest){
       // ignore
     }
 
-    const subjectText = `Abrechnung für Projekt „${(project as any).name}“ – Mülheimer Wachdienst GmbH Zeiterfassung${copySet.size>0 ? ' (enthält Kopien bereits abgerechneter Tage)' : ''}`
+    const subjectText = `Abrechnung für Projekt „${project.name}“ – Mülheimer Wachdienst GmbH Zeiterfassung${copySet.size>0 ? ' (enthält Kopien bereits abgerechneter Tage)' : ''}`
 
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; color: #111;">
         ${logoHtml}
-        <h2 style="font-size:18px;margin-bottom:6px">Abrechnung für Projekt „${(project as any).name}“ – Mülheimer Wachdienst GmbH Zeiterfassung</h2>
+        <h2 style="font-size:18px;margin-bottom:6px">Abrechnung für Projekt „${project.name}“ – Mülheimer Wachdienst GmbH Zeiterfassung</h2>
         <p>Sehr geehrte Damen und Herren,</p>
-        <p>für das Projekt „<strong>${(project as any).name}</strong>“ wurde auf Basis der durch das System Gleistrix - Mülheimerwachdienst GmbH erfassten Einsatzzeiten eine Abrechnung generiert. Nachfolgend finden Sie eine detaillierte Übersicht der geleisteten Stunden und eingesetzten Mitarbeitenden:</p>
+        <p>für das Projekt „<strong>${project.name}</strong>“ wurde auf Basis der durch das System Gleistrix - Mülheimerwachdienst GmbH erfassten Einsatzzeiten eine Abrechnung generiert. Nachfolgend finden Sie eine detaillierte Übersicht der geleisteten Stunden und eingesetzten Mitarbeitenden:</p>
         <h4 style="margin-bottom:6px">🔎 Projektübersicht:</h4>
         <ul style="margin-top:0;margin-bottom:8px;font-size:13px">
-          <li><strong>Projektname:</strong> ${(project as any).name}</li>
+          <li><strong>Projektname:</strong> ${project.name}</li>
           <li><strong>Erfasste Tage:</strong> ${daysFromRows.length}</li>
           <li><strong>Beteiligte Mitarbeitende:</strong> ${uniqueEmployees.size}</li>
           <li><strong>Gesamteinsatzzeit:</strong> ${totalHours.toFixed(2)} Stunden</li>
@@ -254,13 +254,13 @@ export async function POST(req: NextRequest){
       await NotificationLog.create({
         key: notifKey,
         to,
-        subject: `Abrechnung ${(project as any).name}`,
+        subject: `Abrechnung ${project.name}`,
         success: emailResult.ok,
         errorMessage: emailResult.error,
-        projectId: (project as any)._id,
-        projectName: (project as any).name,
+        projectId: project._id,
+        projectName: project.name,
         attachmentsCount: emailAttachments.length,
-        meta: { days: daysFromRows, copyDays: Array.from(copySet), selectedRowKeys, performedBy: (auth as any).token?.email || 'system' }
+        meta: { days: daysFromRows, copyDays: Array.from(copySet), selectedRowKeys, performedBy: auth.token?.email || 'system' }
       })
     } catch (logErr) {
       logger.error('Failed to create notification log:', logErr)
@@ -268,8 +268,8 @@ export async function POST(req: NextRequest){
 
     // Update project's billed days and status based on billed billing positions
     try {
-      const allRows = normalizeProjectTimeEntriesToBillingRows((project as any).mitarbeiterZeiten || {}, undefined)
-      const allPositions: any[] = await BillingPosition.find({ projectId: (project as any)._id }).lean()
+      const allRows = normalizeProjectTimeEntriesToBillingRows(project.mitarbeiterZeiten || {}, undefined)
+      const allPositions: any[] = await BillingPosition.find({ projectId: project._id }).lean()
       const billedKeys = new Set(allPositions.map((p: any) => String(p.rowKey)))
 
       const allDays = Array.from(new Set(allRows.map((r) => r.day))).sort()
@@ -279,7 +279,7 @@ export async function POST(req: NextRequest){
         return dayRows.every((r) => billedKeys.has(String(r.rowKey)))
       })
 
-      let newStatus = (project as any).status
+      let newStatus = project.status
       if (billedKeys.size > 0 && fullyBilledDays.length < allDays.length) {
         newStatus = 'teilweise_abgerechnet'
       }
@@ -288,13 +288,13 @@ export async function POST(req: NextRequest){
       }
 
       await Project.findByIdAndUpdate(
-        (project as any)._id,
+        project._id,
         { $set: { abgerechneteTage: fullyBilledDays, status: newStatus } }
       )
 
         // Aktivitäten-Logs schreiben
         try {
-          const token = (auth as any).token;
+          const token = auth.token;
           const tokenLogUserId = String(token?.id || '')
           const userId = mongoose.isValidObjectId(tokenLogUserId) ? new mongoose.Types.ObjectId(tokenLogUserId) : undefined;
           // 1) Abrechnung-Log mit Tagen (inkl. Kopie-Tage)
@@ -308,9 +308,9 @@ export async function POST(req: NextRequest){
               role: token?.role || 'user'
             },
             details: {
-              entityId: (project as any)._id,
-              description: `Abrechnung durchgeführt für Projekt "${(project as any).name}" (${daysFromRows.length} Tag(e), ${selectedRows.length} Position(en))`,
-              before: { abgerechneteTage: (project as any).abgerechneteTage || [] },
+              entityId: project._id,
+              description: `Abrechnung durchgeführt für Projekt "${project.name}" (${daysFromRows.length} Tag(e), ${selectedRows.length} Position(en))`,
+              before: { abgerechneteTage: project.abgerechneteTage || [] },
               after: { abgerechneteTage: fullyBilledDays },
               context: {
                 days: daysFromRows,
@@ -321,7 +321,7 @@ export async function POST(req: NextRequest){
           })
 
           // 2) Statuswechsel → „geleistet“ ebenfalls loggen
-          if (newStatus === 'geleistet' && (project as any).status !== 'geleistet') {
+          if (newStatus === 'geleistet' && project.status !== 'geleistet') {
             await ActivityLog.create({
               timestamp: new Date(),
               actionType: 'project_status_changed',
@@ -332,9 +332,9 @@ export async function POST(req: NextRequest){
                 role: token?.role || 'user'
               },
               details: {
-                entityId: (project as any)._id,
-                description: `Projektstatus geändert: ${(project as any).name} (${(project as any).status} → geleistet)`,
-                before: { status: (project as any).status },
+                entityId: project._id,
+                description: `Projektstatus geändert: ${project.name} (${project.status} → geleistet)`,
+                before: { status: project.status },
                 after: { status: 'geleistet' }
               }
             })
