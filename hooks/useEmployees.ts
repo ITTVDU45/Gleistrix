@@ -1,4 +1,5 @@
 'use client';
+import { getErrorMessage } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { fetchWithIntent } from '@/lib/http/fetchWithIntent'
@@ -27,8 +28,8 @@ export function useEmployees() {
           throw new Error((data as any).message || 'Fehler beim Laden der Mitarbeiter')
         }
         setError(null)
-      } catch (err: any) {
-        setError(err.message)
+      } catch (err: unknown) {
+        setError(getErrorMessage(err))
       }
       setLoading(false)
     }
@@ -195,7 +196,7 @@ export function useEmployees() {
       } else {
         throw new Error(((data as any).message) || 'Fehler beim Speichern der Urlaubszeiten');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Fehler beim Hinzufügen von Urlaub:', error);
       throw error;
     }
@@ -231,7 +232,7 @@ export function useEmployees() {
       } else {
         throw new Error(((data as any).message) || 'Fehler beim Löschen der Urlaubszeiten');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Fehler beim Löschen von Urlaub:', error);
       throw error;
     }
@@ -257,7 +258,7 @@ export function useEmployees() {
         }
       }
       return false;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Fehler beim Aktualisieren des Status basierend auf Urlaub:', error);
       throw error;
     }
@@ -308,7 +309,7 @@ export function useEmployees() {
       logger.debug(`\n${updatedCount} Mitarbeiter-Status basierend auf Urlaubszeiten aktualisiert`);
       logger.debug('=== AUTOMATISCHE STATUS-ANPASSUNG BEENDET ===');
       return updatedCount;
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Fehler beim automatischen Aktualisieren der Status:', error);
       throw error;
     }

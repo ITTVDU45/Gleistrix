@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
         lastActivity: lock.lastActivity,
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Fehler beim Pruefen der Sperre:', error)
     return NextResponse.json({ error: 'Fehler beim Pruefen der Sperre' }, { status: 500 })
   }

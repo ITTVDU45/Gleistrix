@@ -56,172 +56,30 @@ import { ArticleThumbnail } from '@/components/lager/ArticleThumbnail'
 import ArticleDetailsDialog from '@/components/lager/ArticleDetailsDialog'
 import ArticleSelect from '@/components/lager/ArticleSelect'
 import { ConfirmDeleteModal } from '@/components/ConfirmDeleteModal'
-
-function getArticleId(article: Article): string {
-  const raw = (article as { _id?: unknown })._id ?? article.id
-  return raw != null ? String(raw) : ''
-}
-
-function getCategoryId(category: Category): string {
-  const raw = (category as { _id?: unknown })._id ?? category.id
-  return raw != null ? String(raw) : ''
-}
-
-
-function normalizeProjectStatus(status?: string): string {
-  return String(status ?? '').trim().toLocaleLowerCase('de-DE')
-}
-
-type ProjectOption = { value: string; label: string }
-
-function buildProjectOptions(projects: Project[]): ProjectOption[] {
-  const byId = new Map<string, ProjectOption>()
-
-  projects.forEach((project) => {
-    const id = String((project as { _id?: unknown })._id ?? project.id ?? '').trim()
-    if (!id) return
-    if (normalizeProjectStatus(project.status) !== 'aktiv') return
-
-    const name = String(project.name ?? '').trim()
-    if (!name) return
-
-    const auftragsnummer = String(project.auftragsnummer ?? '').trim()
-    byId.set(id, {
-      value: id,
-      label: auftragsnummer ? `${name} (${auftragsnummer})` : name
-    })
-  })
-
-  return Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }))
-}
-
-type MobileView =
-  | 'home'
-  | 'eingang'
-  | 'ausgang'
-  | 'lieferschein'
-  | 'bestand'
-  | 'bewegungen'
-  | 'wartung'
-  | 'inventur'
-  | 'produkte'
-  | 'lieferanten'
-
-type MovementEntryMode = 'select' | 'qr' | 'manual'
-
-type MaintenanceRow = {
-  _id?: string
-  artikelId?: { bezeichnung?: string; artikelnummer?: string } | string
-  wartungsart?: string
-  faelligkeitsdatum?: string
-  status?: string
-}
-
-type InventoryPosition = {
-  artikelId?: { _id?: string; bezeichnung?: string; artikelnummer?: string; barcode?: string; serialTracking?: string } | string
-  sollMenge?: number
-  istMenge?: number
-  differenz?: number
-}
-
-type InventoryScanEvent = {
-  artikelId?: string
-  code?: string
-  scannedAt?: string
-  sessionId?: string
-}
-
-type InventoryRow = {
-  _id?: string
-  name?: string
-  beschreibung?: string
-  typ?: string
-  stichtag?: string
-  zeitraumVon?: string | null
-  zeitraumBis?: string | null
-  status?: string
-  kategorien?: string[]
-  artikelIds?: string[]
-  abgeschlossenAm?: string | null
-  activeScanSessionId?: string | null
-  lastScanAt?: string | null
-  scanEvents?: InventoryScanEvent[]
-  positionen?: InventoryPosition[]
-}
-
-type InventoryFocusType = 'alle' | 'kategorien' | 'artikel'
-
-type InventoryFormState = {
-  name: string
-  beschreibung: string
-  stichtag: string
-  zeitraumVon: string
-  zeitraumBis: string
-  fokusTyp: InventoryFocusType
-  kategorien: string[]
-  artikelIds: string[]
-  unitIds: string[]
-}
-
-type InventoryEditForm = InventoryFormState
-
-type OpenOutgoingDeliveryNote = {
-  _id: string
-  nummer: string
-  datum?: string
-  empfaenger?: { name?: string }
-}
-
-type DeliveryNotePosition = {
-  artikelId?: { _id?: string; id?: string; bezeichnung?: string; artikelnummer?: string } | string
-  bezeichnung?: string
-  menge?: number
-}
-
-type DeliveryNoteRow = {
-  _id: string
-  nummer: string
-  typ: 'eingang' | 'ausgang'
-  datum?: string
-  status?: 'entwurf' | 'abgeschlossen'
-  empfaenger?: { name?: string; adresse?: string }
-  positionen?: DeliveryNotePosition[]
-}
-
-type DeliveryNoteQrPayload = {
-  deliveryNoteId: string
-  typ: 'eingang' | 'ausgang'
-  nummer?: string
-}
-
-type DeliveryNoteEditForm = {
-  datum: string
-  status: 'entwurf' | 'abgeschlossen'
-  empfaengerName: string
-  empfaengerAdresse: string
-}
-
-type IncomingItem = {
-  id: string
-  artikelId: string
-  menge: number
-}
-
-type EvidencePhoto = {
-  dataUrl: string
-  filename: string
-  capturedAt: string
-}
-
-type InventoryCreateForm = InventoryFormState
-
-function createIncomingItem(): IncomingItem {
-  return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    artikelId: '',
-    menge: 1
-  }
-}
+import {
+  getArticleId,
+  getCategoryId,
+  buildProjectOptions,
+  createIncomingItem
+} from './helpers'
+import type {
+  ProjectOption,
+  MobileView,
+  MovementEntryMode,
+  MaintenanceRow,
+  InventoryPosition,
+  InventoryRow,
+  InventoryFocusType,
+  InventoryEditForm,
+  OpenOutgoingDeliveryNote,
+  DeliveryNotePosition,
+  DeliveryNoteRow,
+  DeliveryNoteQrPayload,
+  DeliveryNoteEditForm,
+  IncomingItem,
+  EvidencePhoto,
+  InventoryCreateForm
+} from './types'
 
 export default function LagerMobileApp() {
   const router = useRouter()

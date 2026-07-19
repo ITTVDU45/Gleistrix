@@ -1,3 +1,4 @@
+import { getErrorMessage } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import nodemailer from 'nodemailer';
 
@@ -53,8 +54,8 @@ export async function sendEmailResult(emailData: EmailData): Promise<{ ok: boole
     // Verbindung testen für genauere Fehler
     try {
       await transporter.verify();
-    } catch (verifyErr: any) {
-      const vm = typeof verifyErr?.message === 'string' ? verifyErr.message : String(verifyErr);
+    } catch (verifyErr: unknown) {
+      const vm = getErrorMessage(verifyErr);
       return { ok: false, error: `SMTP Verify fehlgeschlagen (${host}:${port}${secure ? ' secure' : ''}): ${vm}` };
     }
 
@@ -84,9 +85,9 @@ export async function sendEmailResult(emailData: EmailData): Promise<{ ok: boole
       logger.debug('=====================================');
     }
     return { ok: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('E-Mail-Versand fehlgeschlagen:', error);
-    const message = typeof error?.message === 'string' ? error.message : 'Unbekannter SMTP-Fehler';
+    const message = getErrorMessage(error, 'Unbekannter SMTP-Fehler');
     if (process.env.NODE_ENV !== 'production') {
       logger.debug('=== E-MAIL DEMO-LOGGING (Fallback) ===');
       logger.debug(`An: ${emailData.to}`);

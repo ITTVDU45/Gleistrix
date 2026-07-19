@@ -1,4 +1,5 @@
 'use client'
+import { getErrorMessage } from '@/lib/errors'
 import React from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
@@ -84,8 +85,8 @@ export default function SubcompanyDialog({
         bankAccount: bankAccount.trim(),
       })
       onOpenChange(false)
-    } catch (err: any) {
-      setError(err?.message || 'Fehler beim Speichern')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Fehler beim Speichern'))
     } finally {
       setIsSubmitting(false)
     }

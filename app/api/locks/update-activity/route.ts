@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       updated,
       message: updated ? 'Aktivitaet aktualisiert' : 'Keine Sperre zum Aktualisieren gefunden',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Fehler beim Aktualisieren der Aktivitaet:', error)
     return NextResponse.json({ error: 'Fehler beim Aktualisieren der Aktivitaet' }, { status: 500 })
   }

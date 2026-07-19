@@ -1,3 +1,4 @@
+import { getErrorMessage } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs'
@@ -136,8 +137,8 @@ export async function POST(req: NextRequest) {
           lockedBy: lock.lockedBy
         }
       });
-    } catch (error: any) {
-      if (error.message === 'Ressource ist bereits von einem anderen Benutzer gesperrt') {
+    } catch (error: unknown) {
+      if (getErrorMessage(error) === 'Ressource ist bereits von einem anderen Benutzer gesperrt') {
         logger.debug('=== SPERRE VERWEIGERT (RACE CONDITION) ===');
         logger.debug(`Ressource: ${resourceType}/${resourceId}`);
         logger.debug(`Benutzer: ${currentUserName} (${currentUserRole})`);
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
         throw error;
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Fehler beim Erwerben der Sperre:', error);
     return NextResponse.json({
       error: 'Fehler beim Erwerben der Sperre'

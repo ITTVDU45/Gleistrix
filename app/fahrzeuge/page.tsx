@@ -1,4 +1,5 @@
 'use client';
+import { getErrorMessage } from '@/lib/errors'
 import React, { useState, useEffect } from 'react';
 import { VehiclesApi } from '@/lib/api/vehicles'
 import { ProjectsApi } from '@/lib/api/projects'
@@ -51,8 +52,8 @@ export default function FahrzeugePage() {
           setVehicles(normalizedVehicles);
           setProjects(((projectsData as any).projects) || []);
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(getErrorMessage(err));
       } finally {
         setLoading(false);
       }

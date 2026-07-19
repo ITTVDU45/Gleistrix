@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from '@/lib/errors'
 import React, { useEffect, useState } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -105,8 +106,8 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
         setShowSuccess(false)
         onOpenChange(false)
       }, 1200)
-    } catch (err: any) {
-      setError(err?.message || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.'))
     } finally {
       setIsSubmitting(false)
     }

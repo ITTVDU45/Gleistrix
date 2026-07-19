@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       message: 'Sperre erfolgreich freigegeben',
       releasedCount: result.deletedCount,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[API] Fehler beim Freigeben der Sperre:', error)
     return NextResponse.json({ error: 'Fehler beim Freigeben der Sperre' }, { status: 500 })
   }

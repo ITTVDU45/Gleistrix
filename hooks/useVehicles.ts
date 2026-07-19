@@ -1,4 +1,5 @@
 'use client';
+import { getErrorMessage } from '@/lib/errors'
 
 import { useState, useEffect } from 'react'
 import { fetchWithIntent } from '@/lib/http/fetchWithIntent'
@@ -22,8 +23,8 @@ export function useVehicles() {
           throw new Error((data as any).message || 'Fehler beim Laden der Fahrzeuge')
         }
         setError(null)
-      } catch (err: any) {
-        setError(err.message)
+      } catch (err: unknown) {
+        setError(getErrorMessage(err))
       }
       setLoading(false)
     }

@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import React, { useState, useEffect } from 'react';
 import { ActivityLogApi } from '@/lib/api/activityLog'
@@ -149,8 +150,8 @@ export default function ActivityLogTable() {
       } else {
         throw new Error((data as any).error || 'Unbekannter Fehler');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

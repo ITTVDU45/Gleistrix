@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
@@ -144,8 +145,8 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
         reason: '',
         approved: true
       });
-    } catch (err: any) {
-      setError(err.message || 'Fehler beim Speichern des Urlaubs');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Fehler beim Speichern des Urlaubs'));
     } finally {
       setLoading(false);
     }
@@ -164,8 +165,8 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
       
       setSuccess(true);
       setTimeout(() => setSuccess(false), 1500);
-    } catch (err: any) {
-      setError(err.message || 'Fehler beim Löschen des Urlaubs');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Fehler beim Löschen des Urlaubs'));
     } finally {
       setIsDeleting(false);
     }

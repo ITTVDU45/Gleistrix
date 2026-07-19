@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import React, { useEffect, useState } from 'react';
 import { Button } from './ui/button';
@@ -171,8 +172,8 @@ export default function AddEmployeeDialog({
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       window.dispatchEvent(new CustomEvent('subcompanyAdded', { detail: created }));
-    } catch (err: any) {
-      setError(err?.message || 'Fehler beim Hinzufuegen des Subunternehmens');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Fehler beim Hinzufuegen des Subunternehmens'));
     } finally {
       setIsSubmitting(false);
     }

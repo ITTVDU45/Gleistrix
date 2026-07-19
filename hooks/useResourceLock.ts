@@ -134,7 +134,7 @@ export function useResourceLock({
           lockedBy: lockInfo.lockedBy
         };
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Fehler beim Prüfen der Sperre:', err);
       setError('Fehler beim Prüfen der Sperre');
       return { 
@@ -245,7 +245,7 @@ export function useResourceLock({
         setError((data as any).error || 'Fehler beim Freigeben der Sperre');
         return false;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Fehler beim Freigeben der Sperre:', err);
       setError('Fehler beim Freigeben der Sperre');
       return false;
@@ -260,7 +260,7 @@ export function useResourceLock({
     
     try {
       await LocksApi.updateActivity(resourceType, resourceId);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Fehler beim Aktualisieren der Aktivität:', err);
     }
   }, [resourceType, resourceId]);

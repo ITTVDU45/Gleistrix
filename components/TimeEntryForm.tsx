@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage, asHttpLikeError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Input } from './ui/input'
@@ -974,9 +975,10 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
         // Alle erfolgreich - Dialog schlieÃŸen
         onClose();
       }
-    } catch (err: any) {
-      if (err?.response?.status === 409 || err?.message?.includes('bereits im Projekt')) {
-        setApiError(err?.response?.data?.error || 'Mitarbeiter ist an einem der Tage bereits eingetragen.');
+    } catch (err: unknown) {
+      const httpErr = asHttpLikeError(err);
+      if (httpErr.response?.status === 409 || getErrorMessage(err).includes('bereits im Projekt')) {
+        setApiError(httpErr.response?.data?.error || 'Mitarbeiter ist an einem der Tage bereits eingetragen.');
       } else {
         setApiError('Fehler beim Speichern der ZeiteintrÃ¤ge.');
       }

@@ -1,3 +1,4 @@
+import { asHttpLikeError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
@@ -92,8 +93,8 @@ export async function POST(
     await recalculateArticleStock(id)
 
     return NextResponse.json({ success: true, data: unit }, { status: 201 })
-  } catch (error: any) {
-    if (error?.code === 11000) {
+  } catch (error: unknown) {
+    if (asHttpLikeError(error).code === 11000) {
       return NextResponse.json(
         { success: false, message: 'Eine Unit mit dieser Seriennummer existiert bereits für diesen Artikel' },
         { status: 409 }

@@ -1,3 +1,4 @@
+import { asHttpLikeError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
@@ -93,8 +94,8 @@ export async function POST(
       success: true,
       data: { created: created.length, bestand: newStock }
     }, { status: 201 })
-  } catch (error: any) {
-    if (error?.code === 11000) {
+  } catch (error: unknown) {
+    if (asHttpLikeError(error).code === 11000) {
       return NextResponse.json(
         { success: false, message: 'Barcode-Kollision, bitte erneut versuchen' },
         { status: 409 }

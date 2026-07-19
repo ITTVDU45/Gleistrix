@@ -1,4 +1,5 @@
 'use client'
+import { getErrorMessage } from '@/lib/errors'
 import { useEffect, useState } from 'react'
 import { SubcompaniesApi } from '@/lib/api/subcompanies'
 import type { Subcompany } from '@/types/main'
@@ -24,8 +25,8 @@ export function useSubcompanies() {
           throw new Error((data as any).message || 'Fehler beim Laden der Subunternehmen')
         }
         setError(null)
-      } catch (err: any) {
-        setError(err.message)
+      } catch (err: unknown) {
+        setError(getErrorMessage(err))
       } finally {
         setLoading(false)
       }
