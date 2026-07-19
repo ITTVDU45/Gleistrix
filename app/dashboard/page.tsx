@@ -77,10 +77,10 @@ export default function DashboardPage() {
       setProjects((projectsData as any).projects || [])
 
       const employeesData = await EmployeesApi.list()
-      setEmployees((employeesData as any).employees || [])
+      setEmployees(employeesData.employees || [])
 
       const vehiclesData = await VehiclesApi.list()
-      setVehicles((vehiclesData as any).vehicles || [])
+      setVehicles(vehiclesData.vehicles || [])
 
       logger.debug('Dashboard - Datenladung abgeschlossen');
     } catch (err) {

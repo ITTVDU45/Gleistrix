@@ -55,12 +55,12 @@ export default function RuecknahmeDialog({
     setError('')
     try {
       const res = await LagerApi.assignments.return(assignmentId)
-      if ((res as any)?.success !== false) {
+      if (res?.success !== false) {
         setAssignmentId('')
         onOpenChange(false)
         onSuccess()
       } else {
-        setError((res as any)?.message ?? 'Fehler bei der Rücknahme')
+        setError(res?.message ?? 'Fehler bei der Rücknahme')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Fehler bei der Rücknahme')

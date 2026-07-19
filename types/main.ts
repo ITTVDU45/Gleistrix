@@ -136,6 +136,7 @@ export interface TechnikEntry {
 
 export interface Vehicle {
   id: string
+  _id?: string
   type: string
   licensePlate: string
   projectCount?: number

@@ -157,13 +157,13 @@ export default function EinstellungenPage() {
         setTimeout(() => setShowSuccess(false), 3000);
         
         // Benutzerdaten aktualisieren
-        if ((data as any).user) {
-          setUser(prev => prev ? { ...prev, ...(data as any).user } : null);
+        if (data.user) {
+          setUser(prev => prev ? { ...prev, ...data.user } : null);
         }
         
         logger.debug('Profil erfolgreich aktualisiert:', data);
       } else {
-        setError((data as any).error || 'Fehler beim Speichern der Änderungen');
+        setError(data.error || 'Fehler beim Speichern der Änderungen');
       }
     } catch (err) {
       logger.error('Fehler beim Speichern:', err);

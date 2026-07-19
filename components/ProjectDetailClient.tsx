@@ -151,7 +151,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   const [project, setProject] = React.useState<Project | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const { data: session } = useSession();
-  const userId = (session as any)?.user?.id as string | undefined;
+  const userId = session?.user?.id as string | undefined;
 
   // Normalisierung, damit immer ein string `id` am Projekt vorhanden ist
   const normalizeProject = (p: any): Project | any => {

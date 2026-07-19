@@ -36,7 +36,7 @@ export default function VehicleActions({ vehicle }: VehicleActionsProps) {
     autoRelease: true,
     lazyLoad: true,
     checkInterval: 15,
-    userId: (session as any)?.user?.id as string | undefined,
+    userId: session?.user?.id as string | undefined,
   });
 
   const handleDeleteClick = () => {
@@ -61,7 +61,7 @@ export default function VehicleActions({ vehicle }: VehicleActionsProps) {
     setIsDeleting(true);
     try {
       const resp = await VehiclesApi.remove(vehicle.id)
-      if ((resp as any).success !== false) {
+      if (resp.success !== false) {
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
         // Seite neu laden um die Änderung zu reflektieren

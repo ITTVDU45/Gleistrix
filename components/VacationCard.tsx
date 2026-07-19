@@ -59,8 +59,8 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
       if (normalized) {
         const updatedEmployee = {
           ...normalized,
-          id: (normalized as any)._id || (normalized as any).id,
-          vacationDays: (normalized as any).vacationDays || []
+          id: normalized._id || normalized.id,
+          vacationDays: normalized.vacationDays || []
         } as Employee
         setCurrentEmployee(updatedEmployee)
       }

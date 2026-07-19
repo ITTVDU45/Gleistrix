@@ -27,7 +27,7 @@ export default function ProjectActions({ project, onEdit }: ProjectActionsProps)
 
   // Echte Benutzer-ID aus der Session beziehen
   const { data: session } = useSession();
-  const userId = (session as any)?.user?.id || '';
+  const userId = session?.user?.id || '';
   const {
     lockInfo,
     acquireLock,
@@ -50,7 +50,7 @@ export default function ProjectActions({ project, onEdit }: ProjectActionsProps)
     setIsDeleting(true);
     try {
       const response = await ProjectsApi.remove(project.id)
-      if ((response as any).message || (response as any).success !== false) {
+      if (response.message || response.success !== false) {
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
         // Seite neu laden um die Änderung zu reflektieren

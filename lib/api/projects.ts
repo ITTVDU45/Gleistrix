@@ -44,7 +44,7 @@ export const ProjectsApi = {
   },
   remove: (id: string) => {
     if (!id || id === 'undefined') throw new Error('ProjectsApi.remove: invalid id')
-    return delJSON<{ message: string }>(`/api/projects/${id}`, 'projects:delete')
+    return delJSON<{ message?: string; success?: boolean }>(`/api/projects/${id}`, 'projects:delete')
   },
   bulkDelete: async (projectIds: string[]): Promise<{ deletedCount: number; cleanedEmployees: number; message: string }> => {
     if (!Array.isArray(projectIds) || projectIds.length === 0) {
