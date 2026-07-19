@@ -16,6 +16,38 @@ import { z } from 'zod';
 import { requireAuth } from '../../../../lib/security/requireAuth';
 import { computeTimeEntry, minutesToHours } from '../../../../lib/timeEntry';
 
+// Zod-Schemas für die untrusted PUT-Aktionen. Strukturfelder werden streng
+// validiert; die eigentlichen Entry-/Technik-/Fahrzeug-Payloads bleiben
+// bewusst permissiv (z.any), da sie downstream angereichert/verarbeitet werden.
+const timesActionSchema = z.object({
+  action: z.enum(['add', 'edit', 'delete']),
+  date: z.string().optional(),
+  dates: z.array(z.string()).optional(),
+  entries: z.array(z.object({ day: z.string(), entry: z.any() })).optional(),
+  entry: z.any().optional(),
+  entryId: z.string().optional(),
+  updatedEntry: z.any().optional(),
+}).passthrough();
+
+const technikActionSchema = z.object({
+  action: z.enum(['add', 'edit', 'remove']),
+  date: z.string().optional(),
+  dates: z.array(z.string()).optional(),
+  selectedDays: z.array(z.string()).optional(),
+  technik: z.any().optional(),
+  technikId: z.string().optional(),
+  updatedTechnik: z.any().optional(),
+}).passthrough();
+
+const vehiclesActionSchema = z.object({
+  action: z.enum(['assign', 'update', 'unassign']),
+  date: z.string().optional(),
+  dates: z.array(z.string()).optional(),
+  updatedFields: z.record(z.any()).optional(),
+  vehicle: z.any().optional(),
+  vehicleId: z.string().optional(),
+}).passthrough();
+
 /**
  * Validiert und bereichert einen Zeiteintrag mit berechneten Werten
  * @param entry - Der zu validierende Zeiteintrag
@@ -164,16 +196,18 @@ export async function PUT(request: NextRequest) {
     }
 
     // Spezialbehandlung: Zeiten-Aktionen (add/edit/delete) über PUT-Body
-    if (body && body.times && typeof body.times === 'object' && typeof (body.times as any).action === 'string') {
-      const action = (body.times as any).action as 'add' | 'edit' | 'delete';
+    const timesResult = body?.times ? timesActionSchema.safeParse(body.times) : null;
+    if (timesResult?.success) {
+      const times = timesResult.data;
+      const action = times.action;
       try {
         // Für 'add' verwenden wir atomare Updates um Race Conditions zu vermeiden
         if (action === 'add') {
           // Neues Format: entries Array mit {day, entry} pro Tag (korrekte Werte pro Tag)
           // Altes Format: dates Array + entry (gleicher Entry für alle Tage) - für Kompatibilität
-          const entriesArray = (body.times as any).entries as Array<{day: string, entry: any}> | undefined;
-          const dates = Array.isArray((body.times as any).dates) ? (body.times as any).dates as string[] : [];
-          const singleEntry = (body.times as any).entry as any;
+          const entriesArray = times.entries;
+          const dates = times.dates ?? [];
+          const singleEntry = times.entry;
 
           // Validierung: Entweder neues Format (entries) oder altes Format (dates + entry)
           const hasNewFormat = Array.isArray(entriesArray) && entriesArray.length > 0;
@@ -285,8 +319,8 @@ export async function PUT(request: NextRequest) {
         }
 
         if (action === 'edit') {
-          const date = (body.times as any).date as string;
-          const updatedEntry = (body.times as any).updatedEntry as any;
+          const date = times.date ?? '';
+          const updatedEntry = times.updatedEntry;
           if (!date || !updatedEntry || !updatedEntry.id) {
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (edit)' }, { status: 400 });
           }
@@ -342,8 +376,8 @@ export async function PUT(request: NextRequest) {
         }
 
         if (action === 'delete') {
-          const date = (body.times as any).date as string;
-          const entryId = (body.times as any).entryId as string;
+          const date = times.date ?? '';
+          const entryId = times.entryId ?? '';
           if (!date || !entryId) {
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (delete)' }, { status: 400 });
           }
@@ -401,8 +435,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // Spezialbehandlung: Fahrzeuge-Aktionen (assign/update/unassign) über PUT-Body
-    if (body && body.vehicles && typeof body.vehicles === 'object' && typeof (body.vehicles as any).action === 'string') {
-      const action = (body.vehicles as any).action as 'assign' | 'update' | 'unassign';
+    const vehiclesResult = body?.vehicles ? vehiclesActionSchema.safeParse(body.vehicles) : null;
+    if (vehiclesResult?.success) {
+      const vehicles = vehiclesResult.data;
+      const action = vehicles.action;
       try {
         const project = await Project.findById(id);
         if (!project) {
@@ -414,8 +450,8 @@ export async function PUT(request: NextRequest) {
         }
 
         if (action === 'assign') {
-          const dates = Array.isArray((body.vehicles as any).dates) ? (body.vehicles as any).dates as string[] : [];
-          const vehicle = (body.vehicles as any).vehicle as any;
+          const dates = vehicles.dates ?? [];
+          const vehicle = vehicles.vehicle;
           if (!vehicle || !vehicle.id || dates.length === 0) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (assign)' }, { status: 400 });
           }
@@ -456,9 +492,9 @@ export async function PUT(request: NextRequest) {
         }
 
         if (action === 'update') {
-          const date = (body.vehicles as any).date as string;
-          const vehicleId = (body.vehicles as any).vehicleId as string;
-          const updatedFields = (body.vehicles as any).updatedFields as Record<string, any>;
+          const date = vehicles.date ?? '';
+          const vehicleId = vehicles.vehicleId ?? '';
+          const updatedFields = vehicles.updatedFields ?? {};
           if (!date || !vehicleId || !updatedFields) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (update)' }, { status: 400 });
           }
@@ -493,8 +529,8 @@ export async function PUT(request: NextRequest) {
         }
 
         if (action === 'unassign') {
-          const date = (body.vehicles as any).date as string;
-          const vehicleId = (body.vehicles as any).vehicleId as string;
+          const date = vehicles.date ?? '';
+          const vehicleId = vehicles.vehicleId ?? '';
           if (!date || !vehicleId) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (unassign)' }, { status: 400 });
           }
@@ -538,8 +574,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // Spezialbehandlung: Technik-Aktionen (add/edit/remove) über PUT-Body
-    if (body && body.technik && typeof body.technik === 'object' && typeof (body.technik as any).action === 'string') {
-      const action = (body.technik as any).action as 'add' | 'edit' | 'remove';
+    const technikResult = body?.technik ? technikActionSchema.safeParse(body.technik) : null;
+    if (technikResult?.success) {
+      const technikAction = technikResult.data;
+      const action = technikAction.action;
       try {
         const project = await Project.findById(id);
         if (!project) {
@@ -552,9 +590,9 @@ export async function PUT(request: NextRequest) {
         }
 
         if (action === 'add') {
-          const date = (body.technik as any).date as string | undefined;
-          const dates = (body.technik as any).dates as string[] | undefined;
-          const technik = (body.technik as any).technik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
+          const date = technikAction.date;
+          const dates = technikAction.dates;
+          const technik = technikAction.technik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
           if ((!date && (!Array.isArray(dates) || dates.length === 0)) || !technik || !technik.name) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (add)' }, { status: 400 });
           }
@@ -600,10 +638,10 @@ export async function PUT(request: NextRequest) {
         }
 
         if (action === 'edit') {
-          const date = (body.technik as any).date as string | undefined;
-          const technikId = (body.technik as any).technikId as string;
-          const updatedTechnik = (body.technik as any).updatedTechnik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
-          const selectedDays = (body.technik as any).selectedDays as string[] | undefined;
+          const date = technikAction.date;
+          const technikId = technikAction.technikId ?? '';
+          const updatedTechnik = technikAction.updatedTechnik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
+          const selectedDays = technikAction.selectedDays;
           if (!technikId || !updatedTechnik) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (edit)' }, { status: 400 });
           }
@@ -675,8 +713,8 @@ export async function PUT(request: NextRequest) {
         }
 
         if (action === 'remove') {
-          const date = (body.technik as any).date as string;
-          const technikId = (body.technik as any).technikId as string;
+          const date = technikAction.date ?? '';
+          const technikId = technikAction.technikId ?? '';
           if (!date || !technikId) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (remove)' }, { status: 400 });
           }
