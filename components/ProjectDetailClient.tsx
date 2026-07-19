@@ -664,7 +664,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
       logger.debug('Sending request body:', requestBody);
 
-      const result = await ProjectsApi.update(id, { technik: { action: 'edit', ...requestBody } } as any)
+      const result = await ProjectsApi.update(id, { technik: { action: 'edit', ...requestBody } })
       logger.debug('API Response:', result);
       
       const updatedProject = extractFreshProject(result);
@@ -717,7 +717,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       if (!project) throw new Error('Projekt nicht geladen');
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
-      const response = await ProjectsApi.update(pid, { technik: { action: 'remove', date, technikId } } as any)
+      const response = await ProjectsApi.update(pid, { technik: { action: 'remove', date, technikId } })
       if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
@@ -889,7 +889,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       if (!project) throw new Error('Projekt nicht geladen');
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
-      const response = await ProjectsApi.update(pid, { vehicles: { action: 'assign', dates: Array.isArray(dateOrDays) ? dateOrDays : [dateOrDays], vehicle } } as any)
+      const response = await ProjectsApi.update(pid, { vehicles: { action: 'assign', dates: Array.isArray(dateOrDays) ? dateOrDays : [dateOrDays], vehicle } })
       if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
@@ -980,7 +980,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   const handleDeleteTimeEntry = async (date: string, entryId: string) => {
     try {
       if (!id) throw new Error('Projekt-ID unbekannt')
-      await ProjectsApi.update(id as string, { times: { action: 'delete', date, entryId } } as any)
+      await ProjectsApi.update(id as string, { times: { action: 'delete', date, entryId } })
       await fetchProjects();
       // Robust: Projekt frisch laden und lokalen State setzen
       try {

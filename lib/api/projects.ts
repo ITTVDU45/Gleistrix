@@ -1,6 +1,17 @@
 import { getJSON, postJSON, putJSON, delJSON } from '@/lib/http/apiClient'
 import type { Project } from '@/types/main'
 
+/**
+ * Payload für PUT /api/projects/[id]: entweder Feld-Updates (Partial<Project>)
+ * oder eine der Aktionen für Zeiten/Technik/Fahrzeuge (serverseitig via Zod
+ * validiert).
+ */
+export type ProjectUpdatePayload =
+  | Partial<Project>
+  | { times: Record<string, unknown> }
+  | { technik: Record<string, unknown> }
+  | { vehicles: Record<string, unknown> }
+
 export const ProjectsApi = {
   list: (
     page = 0,
@@ -23,9 +34,9 @@ export const ProjectsApi = {
     return getJSON<{ success?: boolean; project?: Project }>(`/api/projects/${id}`)
   },
   create: (data: Partial<Project>) => postJSON<{ success: boolean; project: Project }>('/api/projects', data, 'projects:create'),
-  update: (id: string, data: Partial<Project>) => {
+  update: (id: string, data: ProjectUpdatePayload) => {
     if (!id || id === 'undefined') throw new Error('ProjectsApi.update: invalid id')
-    return putJSON<Project>(`/api/projects/${id}`, data, 'projects:update')
+    return putJSON<Project>(`/api/projects/${id}`, data as Record<string, unknown>, 'projects:update')
   },
   updateStatus: (id: string, status: string) => {
     if (!id || id === 'undefined') throw new Error('ProjectsApi.updateStatus: invalid id')
