@@ -62,24 +62,24 @@ export async function POST(
       if (!trimmedName) {
         return NextResponse.json({ success: false, message: 'Inventurname ist erforderlich' }, { status: 400 })
       }
-      (inv as any).name = trimmedName
+      inv.name = trimmedName
     }
     if (body.stichtag !== undefined) {
       const parsedStichtag = parseOptionalDate(body.stichtag)
       if (!parsedStichtag) {
         return NextResponse.json({ success: false, message: 'Ungueltiger Stichtag' }, { status: 400 })
       }
-      (inv as any).stichtag = parsedStichtag
+      inv.stichtag = parsedStichtag
     }
     if (body.zeitraumVon !== undefined) {
-      (inv as any).zeitraumVon = parseOptionalDate(body.zeitraumVon)
+      inv.zeitraumVon = parseOptionalDate(body.zeitraumVon)
     }
     if (body.zeitraumBis !== undefined) {
-      (inv as any).zeitraumBis = parseOptionalDate(body.zeitraumBis)
+      inv.zeitraumBis = parseOptionalDate(body.zeitraumBis)
     }
 
-    const finalVon = ((inv as any).zeitraumVon as Date | null | undefined) ?? null
-    const finalBis = ((inv as any).zeitraumBis as Date | null | undefined) ?? null
+    const finalVon = (inv.zeitraumVon as Date | null | undefined) ?? null
+    const finalBis = (inv.zeitraumBis as Date | null | undefined) ?? null
     if (finalVon && finalBis && finalBis < finalVon) {
       return NextResponse.json(
         { success: false, message: 'Zeitraum-Ende darf nicht vor Zeitraum-Beginn liegen' },
@@ -87,13 +87,13 @@ export async function POST(
       )
     }
 
-    (inv as any).scanSessions = (inv as any).scanSessions ?? []
+    inv.scanSessions = inv.scanSessions ?? []
 
     if (body.action === 'start') {
-      if (!(inv as any).activeScanSessionId) {
+      if (!inv.activeScanSessionId) {
         const sessionId = new mongoose.Types.ObjectId().toString()
-        ;(inv as any).activeScanSessionId = sessionId
-        ;(inv as any).scanSessions.push({
+        ;inv.activeScanSessionId = sessionId
+        ;inv.scanSessions.push({
           sessionId,
           startedAt: now,
           endedAt: null,
@@ -107,14 +107,14 @@ export async function POST(
     }
 
     if (body.action === 'end') {
-      const activeSessionId = (inv as any).activeScanSessionId as string | null
+      const activeSessionId = inv.activeScanSessionId as string | null
       if (activeSessionId) {
-        const session = ((inv as any).scanSessions ?? []).find((s: { sessionId?: string }) => s.sessionId === activeSessionId)
+        const session = (inv.scanSessions ?? []).find((s: { sessionId?: string }) => s.sessionId === activeSessionId)
         if (session) {
           session.endedAt = now
           session.endedBy = currentUser?._id
         }
-        (inv as any).activeScanSessionId = null
+        inv.activeScanSessionId = null
       }
     }
 

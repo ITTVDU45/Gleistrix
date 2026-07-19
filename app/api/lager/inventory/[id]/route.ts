@@ -151,10 +151,10 @@ export async function PUT(
       const nextTyp = body.typ ?? inv.typ
       let nextKategorien = body.kategorien !== undefined
         ? normalizeStringArray(body.kategorien)
-        : normalizeStringArray(((inv as any).kategorien ?? []) as string[])
+        : normalizeStringArray((inv.kategorien ?? []) as string[])
       let nextArtikelIds = body.artikelIds !== undefined
         ? normalizeObjectIdArray(body.artikelIds)
-        : normalizeObjectIdArray((((inv as any).artikelIds ?? []) as Array<string | mongoose.Types.ObjectId>).map((value) => String(value)))
+        : normalizeObjectIdArray(((inv.artikelIds ?? []) as Array<string | mongoose.Types.ObjectId>).map((value) => String(value)))
 
       if (nextTyp === 'voll') {
         nextKategorien = []

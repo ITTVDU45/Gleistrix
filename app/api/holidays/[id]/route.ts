@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger'
  * DELETE: Feiertag löschen
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Holiday } from '@/lib/models/Holiday'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
@@ -16,7 +16,7 @@ interface RouteParams {
 }
 
 // GET: Einzelnen Feiertag abrufen
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
     await dbConnect()
@@ -32,12 +32,12 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       holiday: {
-        id: (holiday as any)._id.toString(),
-        date: (holiday as any).date,
-        name: (holiday as any).name,
-        bundesland: (holiday as any).bundesland,
-        createdAt: (holiday as any).createdAt,
-        updatedAt: (holiday as any).updatedAt
+        id: holiday._id.toString(),
+        date: holiday.date,
+        name: holiday.name,
+        bundesland: holiday.bundesland,
+        createdAt: holiday.createdAt,
+        updatedAt: holiday.updatedAt
       }
     })
   } catch (error) {
@@ -50,9 +50,9 @@ export async function GET(request: Request, { params }: RouteParams) {
 }
 
 // PUT: Feiertag aktualisieren
-export async function PUT(request: Request, { params }: RouteParams) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const currentUser = await getCurrentUser(request as any)
+    const currentUser = await getCurrentUser(request)
     if (!currentUser) {
       return NextResponse.json(
         { success: false, error: 'Nicht autorisiert' },
@@ -61,7 +61,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     // Nur Admins dürfen Feiertage bearbeiten
-    if ((currentUser as any).role !== 'admin' && (currentUser as any).role !== 'superadmin') {
+    if (currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
       return NextResponse.json(
         { success: false, error: 'Keine Berechtigung' },
         { status: 403 }
@@ -122,6 +122,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
       { new: true, runValidators: true }
     )
 
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: 'Feiertag nicht gefunden' },
+        { status: 404 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       holiday: {
@@ -143,9 +150,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 // DELETE: Feiertag löschen
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const currentUser = await getCurrentUser(request as any)
+    const currentUser = await getCurrentUser(request)
     if (!currentUser) {
       return NextResponse.json(
         { success: false, error: 'Nicht autorisiert' },
@@ -154,7 +161,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     // Nur Admins dürfen Feiertage löschen
-    if ((currentUser as any).role !== 'admin' && (currentUser as any).role !== 'superadmin') {
+    if (currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
       return NextResponse.json(
         { success: false, error: 'Keine Berechtigung' },
         { status: 403 }

@@ -27,10 +27,21 @@ const holidaySchema = new mongoose.Schema({
 // Compound Index für schnelle Abfragen nach Datum und Bundesland
 holidaySchema.index({ date: 1, bundesland: 1 }, { unique: true })
 
-// Prüfe, ob das Model bereits existiert, bevor es erstellt wird
-export const Holiday = mongoose.models.Holiday || mongoose.model('Holiday', holidaySchema)
+/** Getyptes Holiday-Dokument. */
+export interface HolidayDoc extends mongoose.Document {
+  date: string
+  name: string
+  bundesland: string
+  createdAt: Date
+  updatedAt: Date
+}
 
-// TypeScript Interface
+// Prüfe, ob das Model bereits existiert, bevor es erstellt wird
+export const Holiday: mongoose.Model<HolidayDoc> =
+  (mongoose.models.Holiday as mongoose.Model<HolidayDoc>) ||
+  mongoose.model<HolidayDoc>('Holiday', holidaySchema as mongoose.Schema<HolidayDoc>)
+
+// TypeScript Interface (Plain-Objekt, z. B. nach .lean())
 export interface IHoliday {
   _id: string
   date: string
