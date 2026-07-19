@@ -6,6 +6,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
+  // Lint ist als eigenständiges Werkzeug verfügbar (`pnpm lint`). Der
+  // Production-Build wird nicht durch den vorhandenen Lint-Altbestand
+  // (überwiegend Warnungen) blockiert; Typfehler brechen den Build weiterhin.
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     return [
       {

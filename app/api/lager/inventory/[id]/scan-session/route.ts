@@ -61,20 +61,20 @@ export async function POST(
       if (!trimmedName) {
         return NextResponse.json({ success: false, message: 'Inventurname ist erforderlich' }, { status: 400 })
       }
-      ;(inv as any).name = trimmedName
+      (inv as any).name = trimmedName
     }
     if (body.stichtag !== undefined) {
       const parsedStichtag = parseOptionalDate(body.stichtag)
       if (!parsedStichtag) {
         return NextResponse.json({ success: false, message: 'Ungueltiger Stichtag' }, { status: 400 })
       }
-      ;(inv as any).stichtag = parsedStichtag
+      (inv as any).stichtag = parsedStichtag
     }
     if (body.zeitraumVon !== undefined) {
-      ;(inv as any).zeitraumVon = parseOptionalDate(body.zeitraumVon)
+      (inv as any).zeitraumVon = parseOptionalDate(body.zeitraumVon)
     }
     if (body.zeitraumBis !== undefined) {
-      ;(inv as any).zeitraumBis = parseOptionalDate(body.zeitraumBis)
+      (inv as any).zeitraumBis = parseOptionalDate(body.zeitraumBis)
     }
 
     const finalVon = ((inv as any).zeitraumVon as Date | null | undefined) ?? null
@@ -86,7 +86,7 @@ export async function POST(
       )
     }
 
-    ;(inv as any).scanSessions = (inv as any).scanSessions ?? []
+    (inv as any).scanSessions = (inv as any).scanSessions ?? []
 
     if (body.action === 'start') {
       if (!(inv as any).activeScanSessionId) {
@@ -113,7 +113,7 @@ export async function POST(
           session.endedAt = now
           session.endedBy = currentUser?._id
         }
-        ;(inv as any).activeScanSessionId = null
+        (inv as any).activeScanSessionId = null
       }
     }
 

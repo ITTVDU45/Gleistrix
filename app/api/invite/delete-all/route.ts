@@ -3,6 +3,7 @@ import dbConnect from "../../../../lib/dbConnect"
 import InviteToken from "../../../../lib/models/InviteToken"
 import { z } from "zod"
 import { requireAdminUser } from "../../../../lib/auth/requireAdminUser"
+import { logger } from "../../../../lib/logger"
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -27,11 +28,7 @@ export async function DELETE(req: NextRequest) {
     const { email } = parseResult.data
     const result = await InviteToken.deleteMany({ email })
 
-    console.log("=== ALLE EINLADUNGEN GELÖSCHT ===")
-    console.log(`E-Mail: ${email}`)
-    console.log(`Gelöschte Einladungen: ${result.deletedCount}`)
-    console.log(`Gelöscht von: ${adminAuth.user.name} (${adminAuth.user.role})`)
-    console.log("==================================")
+    logger.info("Einladungen gelöscht", { deletedCount: result.deletedCount, by: adminAuth.user.role })
 
     return NextResponse.json(
       {
@@ -41,7 +38,7 @@ export async function DELETE(req: NextRequest) {
       { status: 200 }
     )
   } catch (error) {
-    console.error("Delete all invites error:", error)
+    logger.error("Delete all invites error", error)
     return NextResponse.json({ error: "Ein Fehler ist aufgetreten" }, { status: 500 })
   }
 }

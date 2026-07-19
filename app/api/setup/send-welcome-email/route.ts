@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
 import { sendWelcomeEmail } from "../../../../lib/mailer"
+import { assertSetupAllowed } from "../../../../lib/setup/setupGuard"
+import { logger } from "../../../../lib/logger"
 
 export async function POST(req: NextRequest) {
   try {
+    const guard = await assertSetupAllowed()
+    if (!guard.allowed) {
+      return NextResponse.json({ error: guard.error }, { status: guard.status })
+    }
+
     await dbConnect();
-    
+
     // Superadmin in der Datenbank finden
     const superadmin = await User.findOne({ role: 'superadmin' });
     
@@ -57,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
     
   } catch (error) {
-    console.error('Send welcome email error:', error);
+    logger.error('Send welcome email error', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
     }, { status: 500 });

@@ -6,6 +6,7 @@ import { nanoid } from "nanoid"
 import { sendInviteEmailResult } from "../../../../lib/mailer"
 import { requireAdminUser } from "../../../../lib/auth/requireAdminUser"
 import { resolveInviteCreatorId } from "../../../../lib/auth/resolveInviteCreatorId"
+import { logger } from "../../../../lib/logger"
 import { z } from 'zod'
 
 export async function POST(req: NextRequest) {
@@ -102,20 +103,14 @@ export async function POST(req: NextRequest) {
     await inviteToken.save();
 
     // E-Mail-Einladung senden
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
     const inviteLink = `${baseUrl}/auth/set-password?token=${token}`;
     const emailResult = await sendInviteEmailResult(email, `${firstName} ${lastName}`, 'admin', inviteLink, expiresAt);
 
     if (emailResult.ok) {
-      console.log('=== ADMIN EINLADUNG GESENDET ===');
-      console.log(`An: ${email}`);
-      console.log(`Name: ${firstName} ${lastName}`);
-      console.log('==================================');
+      logger.info('Admin-Einladung gesendet');
     } else {
-      console.warn('=== E-MAIL VERSAND FEHLGESCHLAGEN ===', emailResult.error);
-      console.log(`An: ${email}`);
-      console.log(`Token/Link für manuellen Versand: ${inviteLink}`);
-      console.log('=====================================');
+      logger.warn('E-Mail-Versand der Admin-Einladung fehlgeschlagen', { error: emailResult.error });
     }
 
     return NextResponse.json({
@@ -133,7 +128,7 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
     
   } catch (error) {
-    console.error('Create admin invite error:', error);
+    logger.error('Create admin invite error', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
     }, { status: 500 });

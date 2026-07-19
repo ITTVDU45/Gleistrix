@@ -3,6 +3,7 @@ import dbConnect from "../../../../lib/dbConnect"
 import InviteToken from "../../../../lib/models/InviteToken"
 import User from "../../../../lib/models/User"
 import { hash } from "bcryptjs"
+import { logger } from "../../../../lib/logger"
 
 export async function POST(req: NextRequest) {
   try {
@@ -67,15 +68,7 @@ export async function POST(req: NextRequest) {
     inviteToken.used = true;
     await inviteToken.save();
 
-    console.log('=== BENUTZER ERSTELLT ===');
-    console.log(`E-Mail: ${newUser.email}`);
-    console.log(`Name: ${newUser.name}`);
-    console.log(`Rolle: ${newUser.role}`);
-    console.log(`Telefon: ${newUser.phone || 'Nicht angegeben'}`);
-    console.log(`Erstellt von Token: ${token}`);
-    console.log('==========================');
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: "Benutzer erfolgreich erstellt",
       user: {
         email: newUser.email,
@@ -85,7 +78,7 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
     
   } catch (error) {
-    console.error('Set password error:', error);
+    logger.error('Set password error', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
     }, { status: 500 });

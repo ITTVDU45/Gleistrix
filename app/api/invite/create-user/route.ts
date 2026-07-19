@@ -7,6 +7,7 @@ import { sendInviteEmailResult } from "../../../../lib/mailer"
 import { z } from "zod"
 import { requireAdminUser } from "../../../../lib/auth/requireAdminUser"
 import { resolveInviteCreatorId } from "../../../../lib/auth/resolveInviteCreatorId"
+import { logger } from "../../../../lib/logger"
 
 export async function POST(req: NextRequest) {
   try {
@@ -91,21 +92,14 @@ export async function POST(req: NextRequest) {
 
     await inviteToken.save()
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin
     const inviteLink = `${baseUrl}/auth/set-password?token=${inviteTokenValue}`
     const emailResult = await sendInviteEmailResult(email, `${firstName} ${lastName}`, role, inviteLink, expiresAt)
 
     if (emailResult.ok) {
-      console.log("=== USER EINLADUNG GESENDET ===")
-      console.log(`An: ${email}`)
-      console.log(`Name: ${firstName} ${lastName}`)
-      console.log(`Rolle: ${role}`)
-      console.log("==================================")
+      logger.info("Benutzer-Einladung gesendet", { role })
     } else {
-      console.warn("=== E-MAIL VERSAND FEHLGESCHLAGEN ===", emailResult.error)
-      console.log(`An: ${email}`)
-      console.log(`Token/Link für manuellen Versand: ${inviteLink}`)
-      console.log("=====================================")
+      logger.warn("E-Mail-Versand der Einladung fehlgeschlagen", { error: emailResult.error })
     }
 
     return NextResponse.json(
@@ -125,7 +119,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    console.error("Create user invite error:", error)
+    logger.error("Create user invite error", error)
     return NextResponse.json({ error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." }, { status: 500 })
   }
 }

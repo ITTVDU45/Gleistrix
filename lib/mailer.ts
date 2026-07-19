@@ -145,7 +145,55 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<boo
   };
   
   return sendEmail(emailData);
-} 
+}
+
+export async function sendPasswordResetEmail(email: string, resetLink: string): Promise<boolean> {
+  const senderName = process.env.EMAIL_FROM_NAME || process.env.EMAIL_FROM || 'Mülheimer Wachdienst';
+  const emailData: EmailData = {
+    to: email,
+    subject: 'MH-ZEITERFASSUNG – Passwort zurücksetzen',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #114F6B; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 24px;">${senderName}</h1>
+          <p style="margin: 5px 0 0 0; font-size: 14px;">MH-ZEITERFASSUNG</p>
+        </div>
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #114F6B; margin-bottom: 20px;">Passwort zurücksetzen</h2>
+          <p style="font-size: 16px; line-height: 1.6; color: #333;">
+            Sie haben angefordert, Ihr Passwort zurückzusetzen. Klicken Sie auf den folgenden
+            Button, um ein neues Passwort zu vergeben. Der Link ist eine Stunde gültig.
+          </p>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${resetLink}" style="background-color: #114F6B; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+              Neues Passwort festlegen
+            </a>
+          </div>
+          <p style="font-size: 14px; line-height: 1.6; color: #666;">
+            Falls der Button nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:<br>
+            <span style="word-break: break-all;">${resetLink}</span>
+          </p>
+          <p style="font-size: 14px; line-height: 1.6; color: #666;">
+            Wenn Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.
+          </p>
+          <p style="font-size: 16px; line-height: 1.6; color: #333;">Viele Grüße<br>Ihr ${senderName} Team</p>
+        </div>
+      </div>
+    `,
+    text: `MH-ZEITERFASSUNG – Passwort zurücksetzen
+
+Sie haben angefordert, Ihr Passwort zurückzusetzen. Öffnen Sie den folgenden Link, um ein neues Passwort zu vergeben (eine Stunde gültig):
+
+${resetLink}
+
+Wenn Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.
+
+Viele Grüße
+Ihr ${senderName} Team`
+  };
+
+  return sendEmail(emailData);
+}
 
 export async function sendInviteEmail(email: string, name: string, role: string, inviteLink: string, expiresAt: Date): Promise<boolean> {
   const roleDisplayName = role === 'admin'

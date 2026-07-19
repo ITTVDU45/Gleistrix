@@ -11,7 +11,7 @@ export type LockUserResolution =
       tokenId: string
       effectiveUserId: string
       isEnvSuperadmin: boolean
-      userDoc?: any
+      userDoc?: Record<string, unknown> | null
     }
   | { ok: false; status: number; error: string }
 

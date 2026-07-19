@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import InviteToken from "../../../../lib/models/InviteToken"
 import { requireAdminUser } from "../../../../lib/auth/requireAdminUser"
+import { logger } from "../../../../lib/logger"
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,10 +17,7 @@ export async function GET(req: NextRequest) {
       .populate("createdBy", "name")
       .sort({ createdAt: -1 })
 
-    console.log("=== EINLADUNGEN GELADEN ===")
-    console.log(`Anzahl: ${invites.length}`)
-    console.log(`Geladen von: ${adminAuth.user.name} (${adminAuth.user.role})`)
-    console.log("==========================")
+    logger.debug("Einladungen geladen", { count: invites.length, by: adminAuth.user.role })
 
     return NextResponse.json(
       {
@@ -45,7 +43,7 @@ export async function GET(req: NextRequest) {
       { status: 200 }
     )
   } catch (error) {
-    console.error("Get invites error:", error)
+    logger.error("Get invites error", error)
     return NextResponse.json({ error: "Ein Fehler ist aufgetreten" }, { status: 500 })
   }
 }

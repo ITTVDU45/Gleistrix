@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
 import { getCurrentUser } from "../../../../lib/auth/getCurrentUser"
+import { logger } from "../../../../lib/logger"
 import { z } from 'zod'
 
 export async function PUT(req: NextRequest) {
@@ -35,14 +36,6 @@ export async function PUT(req: NextRequest) {
     }
     const { name, email, phone } = parseResult.data;
 
-    console.log('=== PROFIL UPDATE REQUEST ===');
-    console.log('Empfangene Daten:', { name, email, phone });
-    console.log('Aktuelle Benutzerdaten:', {
-      name: user.name,
-      email: user.email,
-      phone: user.phone
-    });
-
     // Validierung
     if (!name || !email) {
       return NextResponse.json({ error: "Name und E-Mail sind erforderlich" }, { status: 400 });
@@ -67,7 +60,6 @@ export async function PUT(req: NextRequest) {
     // Telefonnummer explizit setzen (auch wenn leer)
     if (phone !== undefined) {
       user.phone = phone;
-      console.log('Telefonnummer wird gesetzt auf:', phone);
     }
 
     // Änderungen speichern
@@ -76,13 +68,9 @@ export async function PUT(req: NextRequest) {
     // Aktualisierten Benutzer aus der Datenbank laden
     const updatedUser = await User.findById(user._id);
 
-    console.log('=== PROFIL AKTUALISIERT ===');
-    console.log(`Benutzer: ${updatedUser.name} (${updatedUser.email})`);
-    console.log(`Telefon: ${updatedUser.phone || 'Nicht angegeben'}`);
-    console.log(`Zeit: ${new Date().toLocaleString('de-DE')}`);
-    console.log('==========================');
+    logger.info('Profil aktualisiert', { userId: String(updatedUser._id), role: updatedUser.role });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: "Profil erfolgreich aktualisiert",
       user: {
         id: updatedUser._id,
@@ -94,7 +82,7 @@ export async function PUT(req: NextRequest) {
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Update profile error:', error);
+    logger.error('Update profile error', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
     }, { status: 500 });

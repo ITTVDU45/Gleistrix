@@ -3,8 +3,15 @@ import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
 import { hash } from "bcryptjs"
 import { sendWelcomeEmail } from "../../../../lib/mailer"
+import { assertSetupAllowed } from "../../../../lib/setup/setupGuard"
+import { logger } from "../../../../lib/logger"
 
 export async function POST(req: NextRequest) {
+  const guard = await assertSetupAllowed()
+  if (!guard.allowed) {
+    return NextResponse.json({ error: guard.error }, { status: guard.status })
+  }
+
   let firstName = "";
   let lastName = "";
   let email = "";
@@ -74,7 +81,7 @@ export async function POST(req: NextRequest) {
     try {
       emailSent = await sendWelcomeEmail(email, fullName);
     } catch (emailError) {
-      console.error('E-Mail-Versand fehlgeschlagen:', emailError);
+      logger.warn('Willkommens-E-Mail konnte nicht gesendet werden', emailError);
       // E-Mail-Fehler sollte nicht den gesamten Prozess stoppen
     }
 
@@ -83,17 +90,7 @@ export async function POST(req: NextRequest) {
     superadmin.welcomeEmailSentAt = emailSent ? new Date() : null;
     await superadmin.save();
 
-    // Demo-Logging
-    console.log('=== SUPERADMIN ERSTELLT ===');
-    console.log(`Name: ${fullName}`);
-    console.log(`E-Mail: ${email}`);
-    console.log(`Telefon: ${phone}`);
-    console.log(`Adresse: ${address}`);
-    console.log(`Rolle: Superadmin`);
-    console.log(`E-Mail gesendet: ${emailSent}`);
-    console.log('==========================');
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: "Superadmin erfolgreich erstellt",
       emailSent: emailSent,
       user: {
@@ -106,7 +103,7 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
     
   } catch (error) {
-    console.error('Create superadmin error:', error);
+    logger.error('Create superadmin error', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
     }, { status: 500 });

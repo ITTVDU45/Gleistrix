@@ -64,7 +64,7 @@ export default function TechnikList({
     const startDate = parseISO(project.datumBeginn)
     const endDate = parseISO(project.datumEnde)
     const days: string[] = []
-    let currentDate = startDate
+    const currentDate = startDate
     while (currentDate <= endDate) {
       days.push(format(currentDate, 'yyyy-MM-dd'))
       currentDate.setDate(currentDate.getDate() + 1)

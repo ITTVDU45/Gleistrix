@@ -371,7 +371,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     const endDate = new Date(endISO);
     let totalNightMinutes = 0;
     let totalWorkMinutes = 0;
-    let current = new Date(startDate);
+    const current = new Date(startDate);
     
     while (current < endDate) {
       const hour = current.getHours();
@@ -496,7 +496,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
     const endDate = new Date(endISO);
     let sonntagsstunden = 0;
     if (formData.sonntag) {
-      let current = new Date(startDate);
+      const current = new Date(startDate);
       let sundayMinutes = 0;
       while (current < endDate) {
         if (current.getDay() === 0) { // Sonntag

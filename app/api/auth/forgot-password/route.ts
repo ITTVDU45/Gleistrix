@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
+import { sendPasswordResetEmail } from "../../../../lib/mailer"
 import crypto from "crypto"
+import { logger } from "../../../../lib/logger"
 
 export async function POST(req: NextRequest) {
   let email = "";
@@ -38,18 +40,18 @@ export async function POST(req: NextRequest) {
     user.resetTokenExpiry = resetTokenExpiry;
     await user.save();
 
-    // In einer echten App würden wir hier eine E-Mail senden
-    // Für Demo-Zwecke geben wir eine Erfolgsmeldung zurück
-    console.log(`Reset-Token für ${email}: ${resetToken}`);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
-    console.log(`Reset-Link: ${baseUrl}/reset-password?token=${resetToken}`);
+    // Passwort-Reset-Mail versenden. Der Token darf NICHT geloggt werden
+    // (Server-Logs = potenzieller Account-Takeover).
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin;
+    const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+    await sendPasswordResetEmail(user.email, resetLink);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: "Falls ein Konto mit dieser E-Mail-Adresse existiert, wurde eine E-Mail mit Anweisungen zum Zurücksetzen des Passworts gesendet." 
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Forgot password error:', error);
+    logger.error('Forgot password error', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
     }, { status: 500 });

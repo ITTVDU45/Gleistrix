@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
-import type { AuthOptions, SessionStrategy } from "next-auth";
+import type { AuthOptions, SessionStrategy, Session, User } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import dbConnect from "../../../../lib/dbConnect";
 import { compare } from "bcryptjs";
@@ -9,6 +10,7 @@ import {
   envSuperadminDisplayName,
   matchEnvSuperadminCredentials,
 } from "../../../../lib/auth/envSuperadmin";
+import { logger } from "../../../../lib/logger";
 
 const authOptions: AuthOptions = {
   providers: [
@@ -30,7 +32,6 @@ const authOptions: AuthOptions = {
             if (!matchEnvSuperadminCredentials(credentials.email, credentials.password)) {
               throw new Error("E-Mail oder Passwort ist falsch");
             }
-            console.log("=== LOGIN: ENV SUPERADMIN ===");
             return {
               id: ENV_SUPERADMIN_JWT_ID,
               email: credentials.email.trim(),
@@ -41,41 +42,25 @@ const authOptions: AuthOptions = {
           }
 
           await dbConnect();
-          console.log(`Suche Benutzer mit E-Mail: ${credentials.email}`);
-          
-          // Überprüfen der Verbindung und der Collection
-          console.log("MongoDB-Verbindungsstatus:", mongoose.connection.readyState === 1 ? "Verbunden" : "Nicht verbunden");
-          
-          // Direkt mit der Collection arbeiten
+
           const db = mongoose.connection.db;
           if (!db) {
             throw new Error('Datenbankverbindung nicht verfügbar');
           }
           const usersCollection = db.collection('users');
-          console.log("Collection 'users' gefunden:", usersCollection ? "Ja" : "Nein");
-          
-          // Benutzer direkt aus der Collection abfragen
+
           const userDoc = await usersCollection.findOne({ email: credentials.email });
-          console.log("Benutzer direkt aus Collection gefunden:", userDoc ? "Ja" : "Nein");
-          
           if (!userDoc) {
-            console.log(`Benutzer mit E-Mail ${credentials.email} nicht gefunden`);
             throw new Error("E-Mail oder Passwort ist falsch");
           }
-          
-          console.log(`Benutzer gefunden: ${userDoc.name || userDoc.email}`);
-          
+
           // Prüfen ob Account aktiv ist
           if (userDoc.isActive === false) {
-            console.log(`Account ist deaktiviert: ${userDoc.email}`);
             throw new Error("Account ist deaktiviert");
           }
 
-          console.log("Überprüfe Passwort...");
           const isValid = await compare(credentials.password, userDoc.password);
-          
           if (!isValid) {
-            console.log("Passwort ist falsch");
             throw new Error("E-Mail oder Passwort ist falsch");
           }
 
@@ -85,12 +70,6 @@ const authOptions: AuthOptions = {
             { $set: { lastLogin: new Date() } }
           );
 
-          console.log('=== LOGIN ERFOLGREICH ===');
-          console.log(`Benutzer: ${userDoc.name || 'N/A'} (${userDoc.email})`);
-          console.log(`Rolle: ${userDoc.role || 'N/A'}`);
-          console.log(`Zeit: ${new Date().toLocaleString('de-DE')}`);
-          console.log('========================');
-
           return {
             id: userDoc._id.toString(),
             email: userDoc.email,
@@ -99,14 +78,14 @@ const authOptions: AuthOptions = {
             modules: userDoc.modules ?? [],
           };
         } catch (error) {
-          console.error("Authentifizierungsfehler:", error);
+          logger.error("Authentifizierungsfehler", error);
           throw new Error(error instanceof Error ? error.message : "Ein Fehler ist aufgetreten");
         }
       }
     })
   ],
   callbacks: {
-    async jwt({ token, user }: { token: any; user?: any }) {
+    async jwt({ token, user }: { token: JWT; user?: User }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -116,13 +95,13 @@ const authOptions: AuthOptions = {
       }
       return token;
     },
-    async session({ session, token }: { session: any; token: any }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       if (token) {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.modules = token.modules ?? [];
-        if (token.email) session.user.email = token.email as string;
-        if (token.name) session.user.name = token.name as string;
+        if (token.email) session.user.email = token.email;
+        if (token.name) session.user.name = token.name;
       }
       return session;
     }
@@ -136,7 +115,9 @@ const authOptions: AuthOptions = {
     maxAge: 60 * 60 * 24 * 7, // 7 Tage
   },
   debug: process.env.NODE_ENV === 'development',
-  secret: process.env.NEXTAUTH_SECRET || "ein-sicheres-geheimnis-für-entwicklung",
+  // Kein unsicherer Fallback: fehlt das Secret, soll NextAuth hart failen,
+  // statt JWTs mit einem im Code stehenden (öffentlichen) String zu signieren.
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);
