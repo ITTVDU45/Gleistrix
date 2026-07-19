@@ -37,7 +37,7 @@ export function useProjects(options?: { includeTimes?: boolean; includeVehicles?
         
         setProjects(mappedProjects)
       } else {
-        const errorMsg = (data as any).message || 'Unbekannter Fehler'
+        const errorMsg = data.message || 'Unbekannter Fehler'
         setError(errorMsg)
       }
     } catch (error) {

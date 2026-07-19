@@ -16,11 +16,11 @@ export function useVehicles() {
       setLoading(true)
       try {
         const data = await VehiclesApi.list()
-        const list = (data.vehicles || (data as any).data || []).map((v: any) => ({ ...v, id: v._id?.toString() || v.id }))
+        const list = (data.vehicles || data.data || []).map((v) => ({ ...v, id: v._id?.toString() || v.id }))
         if (list) {
           setVehicles(list)
         } else {
-          throw new Error((data as any).message || 'Fehler beim Laden der Fahrzeuge')
+          throw new Error(data.message || 'Fehler beim Laden der Fahrzeuge')
         }
         setError(null)
       } catch (err: unknown) {
@@ -33,7 +33,7 @@ export function useVehicles() {
 
   const addVehicle = async (vehicleData: Partial<Vehicle>) => {
     const data = await VehiclesApi.create(vehicleData)
-    const created = (data as any).data || (data as any).vehicle
+    const created = data.data || data.vehicle
     if (created) {
       setVehicles(prev => [...prev, { ...created, id: created._id?.toString?.() || created.id }])
     }

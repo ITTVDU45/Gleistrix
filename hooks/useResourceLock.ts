@@ -127,7 +127,7 @@ export function useResourceLock({
         // Aktuellen Status zurückgeben
         return newLockState;
       } else {
-        setError((data as any).error || 'Fehler beim Prüfen der Sperre');
+        setError(data.error || 'Fehler beim Prüfen der Sperre');
         return { 
           isLocked: lockInfo.isLocked, 
           isOwnLock: lockInfo.isOwnLock,
@@ -181,14 +181,14 @@ export function useResourceLock({
         onLockAcquired?.();
         return true;
       } else {
-        setError((data as any).error || 'Fehler beim Erwerben der Sperre');
-        if ((data as any).lockedBy) {
+        setError(data.error || 'Fehler beim Erwerben der Sperre');
+        if (data.lockedBy) {
           const newLockState: LockInfo = {
             isLocked: true,
             isOwnLock: false,
             lockedBy: {
-              name: (data as any).lockedBy.name,
-              role: (data as any).lockedBy.role,
+              name: data.lockedBy.name,
+              role: data.lockedBy.role,
               lockedAt: new Date().toISOString(),
               lastActivity: new Date().toISOString(),
             },
@@ -242,7 +242,7 @@ export function useResourceLock({
         onLockReleased?.();
         return true;
       } else {
-        setError((data as any).error || 'Fehler beim Freigeben der Sperre');
+        setError(data.error || 'Fehler beim Freigeben der Sperre');
         return false;
       }
     } catch (err: unknown) {
@@ -348,7 +348,7 @@ export function useResourceLock({
     const handlePageHide = (event: PageTransitionEvent) => {
       // Verhindere Freigabe bei bfcache (persisted) oder wenn die Seite nur eingefroren wird
       // und nur freigeben, wenn Tab wirklich verborgen wird
-      const isPersisted = (event as any)?.persisted === true;
+      const isPersisted = event.persisted === true;
       const isHidden = typeof document !== 'undefined' ? document.visibilityState === 'hidden' : true;
       if (autoRelease && isOwnLockRef.current && !isReleasingRef.current && !isPersisted && isHidden) {
         logger.debug('[Lock] Sende Sperre-Freigabe per sendBeacon (pagehide)', { resourceType, resourceId });
@@ -376,9 +376,9 @@ export function useResourceLock({
         });
       }
     };
-    window.addEventListener('pagehide', handlePageHide as any);
+    window.addEventListener('pagehide', handlePageHide);
     return () => {
-      window.removeEventListener('pagehide', handlePageHide as any);
+      window.removeEventListener('pagehide', handlePageHide);
     };
   }, [autoRelease, resourceType, resourceId]);
 

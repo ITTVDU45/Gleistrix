@@ -16,7 +16,7 @@ export const ProjectsApi = {
     if (opts?.includeTimes) search.set('includeTimes', 'true');
     if (opts?.includeVehicles) search.set('includeVehicles', 'true');
     if (opts?.includeTechnik) search.set('includeTechnik', 'true');
-    return getJSON<{ success: boolean; projects: Project[]; meta?: { total: number; page: number; limit: number } }>(`/api/projects?${search.toString()}`);
+    return getJSON<{ success: boolean; projects: Project[]; message?: string; meta?: { total: number; page: number; limit: number } }>(`/api/projects?${search.toString()}`);
   },
   get: (id: string) => {
     if (!id || id === 'undefined') throw new Error('ProjectsApi.get: invalid id')

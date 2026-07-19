@@ -22,7 +22,7 @@ export function useSubcompanies() {
             }))
           )
         } else {
-          throw new Error((data as any).message || 'Fehler beim Laden der Subunternehmen')
+          throw new Error(data.message || 'Fehler beim Laden der Subunternehmen')
         }
         setError(null)
       } catch (err: unknown) {
