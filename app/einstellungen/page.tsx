@@ -17,6 +17,7 @@ import { useThemeToggle } from '../../hooks/useTheme';
 import UserManagement from '../../components/UserManagement';
 import SubcontractorInviteAdmin from '../../components/subunternehmen/SubcontractorInviteAdmin';
 import FeatureFlagsAdmin from '../../components/subunternehmen/FeatureFlagsAdmin';
+import CompanyProfileSettings from '../../components/CompanyProfileSettings';
 import ActivityLogTable from '../../components/ActivityLogTable';
 import IntegrationOverview from '@/components/integrations/IntegrationOverview';
 import {
@@ -320,6 +321,7 @@ export default function EinstellungenPage() {
         <div className="grid gap-6 md:grid-cols-3">
           {/* Profil-Einstellungen */}
           <div className="md:col-span-2 space-y-6">
+            <CompanyProfileSettings canManage={user.role === 'superadmin' || user.role === 'admin'} />
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
               <CardHeader>
                 <div className="flex items-center gap-3">
@@ -386,21 +388,6 @@ export default function EinstellungenPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="company" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Unternehmen
-                      </Label>
-                      <div className="relative">
-                        <Building className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                        <Input
-                          id="company"
-                          value={formData.company}
-                          onChange={(e) => handleInputChange('company', e.target.value)}
-                          className="pl-10 rounded-xl border-slate-200 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-700 dark:text-white h-12"
-                          placeholder="Unternehmensname"
-                        />
-                      </div>
-                    </div>
                   </div>
                   <div className="flex justify-stretch md:justify-end">
                     <Button

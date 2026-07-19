@@ -13,7 +13,7 @@ export type IntentKey =
   | 'sub:invoice-create' | 'sub:invoice-update' | 'sub:invoice-delete' | 'sub:invoice-submit' | 'sub:invoice-revision'
   | 'sub:company-update' | 'sub:document-upload' | 'sub:document-delete'
   | 'received-invoices:status' | 'received-invoices:note'
-  | 'settings:feature-flags'
+  | 'settings:feature-flags' | 'settings:company-profile'
   | 'lager:article:create' | 'lager:article:update' | 'lager:article:delete'
   | 'lager:article:image:presign' | 'lager:article:image:commit' | 'lager:article:image:delete' | 'lager:article:image:upload'
   | 'lager:category:create' | 'lager:category:update' | 'lager:category:delete'

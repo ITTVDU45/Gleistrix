@@ -19,43 +19,59 @@ export interface EmailData {
 }
 
 /**
- * Firmenname des absendenden (internen) Unternehmens für E-Mail-Signaturen.
- * Bewusst getrennt vom EMAIL_FROM (Absenderadresse) und vom Subunternehmen-Namen.
+ * E-Mail-Branding (Firmenname + Logo-Header) aus dem Firmenprofil.
+ * Primärquelle ist das in den Einstellungen gepflegte Firmenprofil (DB),
+ * Fallbacks: hinterlegtes Logo aus /public, sonst Text-Header. Der Firmenname
+ * kommt aus dem Profil, ersatzweise aus der ENV.
  */
-export function senderCompanyName(): string {
-  return (
-    firstEnv('EMAIL_COMPANY_NAME', 'COMPANY_NAME', 'EMAIL_FROM_NAME') ||
-    'Mülheimer Wachdienst GmbH'
-  );
-}
-
-/**
- * Liefert das Firmenlogo als Inline-Attachment (CID) plus HTML-Snippet für den
- * E-Mail-Header. CID statt data:-URI, weil Gmail/Outlook data:-URIs blocken.
- * Fällt bei fehlendem Logo auf einen Text-Header zurück.
- */
-export async function getEmailLogo(): Promise<{
+export async function getEmailBranding(): Promise<{
+  companyName: string;
   attachment?: EmailAttachment;
   headerHtml: string;
 }> {
-  const companyName = senderCompanyName();
-  const fallback = {
-    headerHtml: `<h1 style="margin: 0; font-size: 24px; color: white;">${companyName}</h1>`,
-  };
+  const { getCompanyProfile } = await import('@/lib/company/companyProfile');
+  const profile = await getCompanyProfile();
+  const companyName = profile.companyName;
+  const textHeader = `<h1 style="margin: 0; font-size: 24px; color: white;">${companyName}</h1>`;
+  const cid = 'company-logo';
+
+  // 1) Logo aus dem Firmenprofil (Base64 in DB) – funktioniert auch serverless
+  if (profile.logoBase64 && profile.logoContentType) {
+    return {
+      companyName,
+      attachment: {
+        filename: 'logo',
+        content: Buffer.from(profile.logoBase64, 'base64'),
+        contentType: profile.logoContentType,
+        cid,
+      },
+      headerHtml: `<img src="cid:${cid}" alt="${companyName}" style="max-height: 64px; max-width: 260px; height: auto;" />`,
+    };
+  }
+
+  // 2) Fallback: mitgeliefertes Logo aus /public (best effort)
   try {
     const { readFileSync, existsSync } = await import('fs');
     const { join } = await import('path');
     const logoPath = join(process.cwd(), 'public', 'mwd-logo.png');
-    if (!existsSync(logoPath)) return fallback;
-    const content = readFileSync(logoPath);
-    const cid = 'company-logo';
-    return {
-      attachment: { filename: 'logo.png', content, contentType: 'image/png', cid },
-      headerHtml: `<img src="cid:${cid}" alt="${companyName}" style="max-height: 64px; max-width: 260px; height: auto;" />`,
-    };
+    if (existsSync(logoPath)) {
+      return {
+        companyName,
+        attachment: {
+          filename: 'logo.png',
+          content: readFileSync(logoPath),
+          contentType: 'image/png',
+          cid,
+        },
+        headerHtml: `<img src="cid:${cid}" alt="${companyName}" style="max-height: 64px; max-width: 260px; height: auto;" />`,
+      };
+    }
   } catch {
-    return fallback;
+    // ignorieren → Text-Header
   }
+
+  // 3) Kein Logo verfügbar
+  return { companyName, headerHtml: textHeader };
 }
 
 function firstEnv(...keys: string[]): string | undefined {
@@ -369,10 +385,10 @@ export async function sendSubcontractorInviteEmailResult(
   /** Name der Person, die die Einladung versendet hat (für die Signatur) */
   inviterName?: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const logo = await getEmailLogo();
-  const sender = senderCompanyName();
+  const branding = await getEmailBranding();
+  const sender = branding.companyName;
   const signatureName = (inviterName && inviterName.trim()) || sender;
-  const attachments = logo.attachment ? [logo.attachment] : undefined;
+  const attachments = branding.attachment ? [branding.attachment] : undefined;
 
   const emailData: EmailData = {
     to: email,
@@ -380,7 +396,7 @@ export async function sendSubcontractorInviteEmailResult(
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #114F6B; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          ${logo.headerHtml}
+          ${branding.headerHtml}
           <p style="margin: 10px 0 0 0; font-size: 14px;">Gleistrix Subunternehmen-Portal</p>
         </div>
         <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
