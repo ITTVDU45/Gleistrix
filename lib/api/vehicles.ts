@@ -16,6 +16,7 @@ export interface VehicleItemResponse {
   vehicle?: ApiVehicle
   data?: ApiVehicle
   message?: string
+  error?: string
 }
 
 export interface VehicleMutationResponse {

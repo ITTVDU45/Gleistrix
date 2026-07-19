@@ -76,11 +76,11 @@ export default function PerformMaintenanceDialog({
         ergebnis: ergebnis.trim() || undefined,
         naechsterTermin: naechsterTermin ? new Date(naechsterTermin).toISOString() : null
       })
-      if ((res as any)?.success !== false) {
+      if (res?.success !== false) {
         onOpenChange(false)
         onSuccess()
       } else {
-        setError((res as any)?.message ?? 'Fehler beim Speichern')
+        setError(res?.message ?? 'Fehler beim Speichern')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Fehler beim Speichern')

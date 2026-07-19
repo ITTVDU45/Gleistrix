@@ -56,7 +56,7 @@ export default function EditVehicleDialog({ vehicle, open, onOpenChange, onVehic
 
     try {
       const data = await VehiclesApi.update(vehicle.id, editedVehicle)
-      if ((data as any).success !== false) {
+      if (data.success !== false) {
         setShowSuccess(true);
         setTimeout(() => {
           setShowSuccess(false);
@@ -64,7 +64,7 @@ export default function EditVehicleDialog({ vehicle, open, onOpenChange, onVehic
           onVehicleUpdated();
         }, 1500);
       } else {
-        setError(((data as any).message || (data as any).error) ?? 'Fehler beim Bearbeiten des Fahrzeugs');
+        setError((data.message || data.error) ?? 'Fehler beim Bearbeiten des Fahrzeugs');
       }
     } catch (error) {
       setError('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');

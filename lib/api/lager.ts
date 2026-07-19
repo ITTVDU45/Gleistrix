@@ -198,7 +198,7 @@ export const LagerApi = {
     }) =>
       postJSON<{ success: boolean; message?: string }>('/api/lager/assignments/bulk', data as Record<string, unknown>, 'lager:assignments:bulk'),
     return: (id: string) =>
-      putJSON(`/api/lager/assignments/${id}/return`, {}, 'lager:assignments:return')
+      putJSON<{ success: boolean; message?: string; error?: string }>(`/api/lager/assignments/${id}/return`, {}, 'lager:assignments:return')
   },
   maintenance: {
     list: (params?: { artikelId?: string; status?: string }) => {
@@ -220,7 +220,7 @@ export const LagerApi = {
     }) =>
       postJSON('/api/lager/maintenance', data as Record<string, unknown>, 'lager:maintenance:create'),
     update: (id: string, data: { durchfuehrungsdatum?: string | Date | null; status?: string; ergebnis?: string; naechsterTermin?: string | Date | null }) =>
-      putJSON(`/api/lager/maintenance/${id}`, data as Record<string, unknown>, 'lager:maintenance:update'),
+      putJSON<{ success: boolean; message?: string; error?: string }>(`/api/lager/maintenance/${id}`, data as Record<string, unknown>, 'lager:maintenance:update'),
     delete: (id: string) =>
       delJSON(`/api/lager/maintenance/${id}`, 'lager:maintenance:delete')
   },
