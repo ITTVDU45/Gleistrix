@@ -55,13 +55,13 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
       setEditedEmployee({
         name: employee.name || '',
         position: employee.position || '',
-        email: (employee as any).email || '',
-        phone: (employee as any).phone || '',
+        email: employee.email || '',
+        phone: employee.phone || '',
         status: (employee.status as EmployeeStatus) || 'aktiv',
-        elbaId: (employee as any).elbaId || '',
-        address: (employee as any).address || '',
-        postalCode: (employee as any).postalCode || '',
-        city: (employee as any).city || ''
+        elbaId: employee.elbaId || '',
+        address: employee.address || '',
+        postalCode: employee.postalCode || '',
+        city: employee.city || ''
       })
       setSelectedPositions(employee.position ? employee.position.split(',').map(p => p.trim()).filter(Boolean) : [])
       setError('')
@@ -93,10 +93,10 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
         address: editedEmployee.address,
         postalCode: editedEmployee.postalCode,
         city: editedEmployee.city,
-      } as any
+      }
 
-      const id = (employee as any).id || (employee as any)._id
-      const data: any = await EmployeesApi.update(id, payload)
+      const id = employee.id || (employee as { _id?: string })._id || ''
+      const data = await EmployeesApi.update(id, payload)
       if (data?.success === false) {
         throw new Error(data?.message || data?.error || 'Fehler beim Bearbeiten des Mitarbeiters')
       }

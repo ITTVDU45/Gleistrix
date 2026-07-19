@@ -15,6 +15,7 @@ export interface EmployeeItemResponse {
   employee?: ApiEmployee
   data?: ApiEmployee
   message?: string
+  error?: string
 }
 
 export interface EmployeeMutationResponse {
