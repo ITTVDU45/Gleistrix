@@ -160,6 +160,15 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     return pid ? { ...p, id: pid } : p
   }
 
+  // Die Projekt-API liefert entweder { project } oder das Projekt direkt.
+  // Extrahiert das Projekt aus beiden Formen (oder null, wenn keine ID vorhanden).
+  const extractFreshProject = (res: unknown): (Project & { _id?: string }) | null => {
+    if (!res || typeof res !== 'object') return null
+    const envelope = res as { project?: unknown }
+    const candidate = (envelope.project ?? res) as Project & { _id?: string }
+    return candidate && (candidate._id || candidate.id) ? candidate : null
+  }
+
   const getProjectId = (): string => {
     const pid = (project && ((project as any).id || (project as any)._id)) || id
     return typeof pid === 'string' ? pid : ''
@@ -434,9 +443,8 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
       // Projekt neu laden
       try {
-        const fresh = await ProjectsApi.get(getProjectId());
-        if ((fresh as any).project) setProject(normalizeProject((fresh as any).project));
-        else if ((fresh as any)._id) setProject(normalizeProject(fresh));
+        const fresh = extractFreshProject(await ProjectsApi.get(getProjectId()));
+        if (fresh) setProject(normalizeProject(fresh));
       } catch (e) {
         logger.warn('ProjectsApi.get after bulk delete failed, relying on context fetch', e);
       }
@@ -508,10 +516,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     const load = async () => {
       // 1) Versuche vollständiges Projekt direkt vom Server zu laden (inkl. mitarbeiterZeiten)
       try {
-        const res = await ProjectsApi.get(id as string);
-        const full = res && (res as any).project ? (res as any).project : (res as any);
-        if (!cancelled && full && (full as any)._id) {
-          setProject(normalizeProject(full) as any);
+        const full = extractFreshProject(await ProjectsApi.get(id as string));
+        if (!cancelled && full) {
+          setProject(normalizeProject(full));
           setError(null);
           return;
         }
@@ -600,7 +607,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
       const response = await ProjectsApi.update(pid, payload as any)
-      if ((response as any).success !== false) {
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
           open: true,
@@ -660,10 +667,11 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       const result = await ProjectsApi.update(id, { technik: { action: 'edit', ...requestBody } } as any)
       logger.debug('API Response:', result);
       
-      if ((result as any).project) {
-        logger.debug('Updating project with:', (result as any).project);
-        setProject((result as any).project as any);
-        
+      const updatedProject = extractFreshProject(result);
+      if (updatedProject) {
+        logger.debug('Updating project with:', updatedProject);
+        setProject(updatedProject);
+
         setSnackbar({
           open: true,
           message: 'Technik erfolgreich bearbeitet',
@@ -710,7 +718,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
       const response = await ProjectsApi.update(pid, { technik: { action: 'remove', date, technikId } } as any)
-      if ((response as any).success !== false) {
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
           open: true,
@@ -832,14 +840,13 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
           times: { action: 'add', dates, entry } 
         } as any);
       }
-      if ((response as any).success !== false) {
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         // Projekt sofort gezielt neu laden und lokalen State aktualisieren
         try {
-          const res = await ProjectsApi.get(getProjectId());
-          const freshProject = res && (res as any).project ? (res as any).project : (res as any);
-          if (freshProject && (freshProject as any)._id) {
-            setProject(normalizeProject(freshProject) as any);
+          const freshProject = extractFreshProject(await ProjectsApi.get(getProjectId()));
+          if (freshProject) {
+            setProject(normalizeProject(freshProject));
           }
         } catch (e) {
           logger.warn('ProjectsApi.get after time add failed, relying on context fetch', e);
@@ -883,7 +890,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
       const response = await ProjectsApi.update(pid, { vehicles: { action: 'assign', dates: Array.isArray(dateOrDays) ? dateOrDays : [dateOrDays], vehicle } } as any)
-      if ((response as any).success !== false) {
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
           open: true,
@@ -925,7 +932,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
       const response = await ProjectsApi.updateStatus(pid, newStatus)
-      if ((response as any).success !== false) {
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
           open: true,
@@ -977,10 +984,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       await fetchProjects();
       // Robust: Projekt frisch laden und lokalen State setzen
       try {
-        const res = await ProjectsApi.get(id as string);
-        const freshProject = res && (res as any).project ? (res as any).project : (res as any);
-        if (freshProject && (freshProject as any)._id) {
-          setProject(freshProject as any);
+        const freshProject = extractFreshProject(await ProjectsApi.get(id as string));
+        if (freshProject) {
+          setProject(freshProject);
         } else {
           const updated = projects.find((p) => p.id === id);
           if (updated) setProject(updated);
@@ -1030,10 +1036,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       // Projekt neu laden
       await fetchProjects();
       try {
-        const resFull = await ProjectsApi.get(pid);
-        const freshProject = resFull && (resFull as any).project ? (resFull as any).project : (resFull as any);
-        if (freshProject && (freshProject as any)._id) {
-          setProject(freshProject as any);
+        const freshProject = extractFreshProject(await ProjectsApi.get(pid));
+        if (freshProject) {
+          setProject(freshProject);
         } else {
           const updated = projects.find((p) => p.id === id);
           if (updated) setProject(updated);
@@ -1317,10 +1322,10 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                   try {
                     const res = await ProjectsApi.get(project.id as string);
                     // API may return either the project directly or { project: project }
-                    const freshProject = res && (res as any).project ? (res as any).project : (res as any);
-                    if (freshProject && (freshProject as any)._id) {
-                      setProject(freshProject as any);
-                      logger.debug('ProjectDetailClient: fetched full project, dokumente count=', (freshProject as any).dokumente?.all?.length || 0);
+                    const freshProject = extractFreshProject(res);
+                    if (freshProject) {
+                      setProject(freshProject);
+                      logger.debug('ProjectDetailClient: fetched full project, dokumente count=', (freshProject as { dokumente?: { all?: unknown[] } }).dokumente?.all?.length || 0);
                     }
                   } catch (e) {
                     logger.warn('ProjectsApi.get failed, falling back to fetchProjects', e);
