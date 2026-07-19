@@ -43,6 +43,20 @@ const PERMISSION_OPTIONS: Array<{ id: SubcontractorPermission; label: string }> 
   { id: 'subcontractor.company.update', label: 'Unternehmensdaten bearbeiten' },
 ]
 
+/** Datum + Uhrzeit im deutschen Format, z. B. "19.07.2026, 21:16" */
+const formatDateTime = (value?: string): string => {
+  if (!value) return '–'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '–'
+  return d.toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 const STATUS_BADGES: Record<SubcontractorInvite['status'], { label: string; className: string }> = {
   pending: { label: 'Ausstehend', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
   accepted: { label: 'Angenommen', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
@@ -488,6 +502,7 @@ export default function SubcontractorInviteAdmin() {
                     <TableRow>
                       <TableHead>Unternehmen</TableHead>
                       <TableHead>E-Mail</TableHead>
+                      <TableHead>Gesendet</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Aktionen</TableHead>
                     </TableRow>
@@ -497,6 +512,18 @@ export default function SubcontractorInviteAdmin() {
                       <TableRow key={invite.id}>
                         <TableCell className="font-medium">{invite.companyName}</TableCell>
                         <TableCell className="text-sm">{invite.email}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          <div className="text-slate-700 dark:text-slate-300">{formatDateTime(invite.createdAt)}</div>
+                          {invite.status === 'accepted' && invite.acceptedAt ? (
+                            <div className="text-xs text-green-600 dark:text-green-400">
+                              angenommen: {formatDateTime(invite.acceptedAt)}
+                            </div>
+                          ) : (invite.status === 'pending' || invite.status === 'expired') && invite.expiresAt ? (
+                            <div className="text-xs text-slate-400 dark:text-slate-500">
+                              gültig bis: {formatDateTime(invite.expiresAt)}
+                            </div>
+                          ) : null}
+                        </TableCell>
                         <TableCell>
                           <Badge className={`rounded-xl px-3 py-1 ${STATUS_BADGES[invite.status].className}`}>
                             {STATUS_BADGES[invite.status].label}
