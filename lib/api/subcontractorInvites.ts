@@ -35,7 +35,15 @@ export interface CreateSubcontractorInvitePayload {
 export const SubcontractorInvitesApi = {
   list: () => getJSON<{ invites: SubcontractorInvite[] }>('/api/invite/subcontractor'),
   create: (payload: CreateSubcontractorInvitePayload) =>
-    postJSON<{ message?: string; error?: string; emailSent?: boolean; invite?: SubcontractorInvite }>(
+    postJSON<{
+      message?: string
+      error?: string
+      emailSent?: boolean
+      emailError?: string
+      /** Nur gesetzt, wenn der Mailversand fehlschlug – zum manuellen Weitergeben */
+      inviteLink?: string
+      invite?: SubcontractorInvite
+    }>(
       '/api/invite/subcontractor',
       payload as unknown as Record<string, unknown>,
       'invite:subcontractor-create'

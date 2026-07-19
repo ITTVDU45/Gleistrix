@@ -2,16 +2,60 @@ import { getErrorMessage } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 import nodemailer from 'nodemailer';
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+  /** Content-ID für Inline-Bilder (Referenz im HTML via src="cid:...") */
+  cid?: string;
+}
+
 export interface EmailData {
   to: string;
   subject: string;
   html: string;
   text?: string;
-  attachments?: Array<{
-    filename: string;
-    content: Buffer | string;
-    contentType?: string;
-  }>; 
+  attachments?: EmailAttachment[];
+}
+
+/**
+ * Firmenname des absendenden (internen) Unternehmens für E-Mail-Signaturen.
+ * Bewusst getrennt vom EMAIL_FROM (Absenderadresse) und vom Subunternehmen-Namen.
+ */
+export function senderCompanyName(): string {
+  return (
+    firstEnv('EMAIL_COMPANY_NAME', 'COMPANY_NAME', 'EMAIL_FROM_NAME') ||
+    'Mülheimer Wachdienst GmbH'
+  );
+}
+
+/**
+ * Liefert das Firmenlogo als Inline-Attachment (CID) plus HTML-Snippet für den
+ * E-Mail-Header. CID statt data:-URI, weil Gmail/Outlook data:-URIs blocken.
+ * Fällt bei fehlendem Logo auf einen Text-Header zurück.
+ */
+export async function getEmailLogo(): Promise<{
+  attachment?: EmailAttachment;
+  headerHtml: string;
+}> {
+  const companyName = senderCompanyName();
+  const fallback = {
+    headerHtml: `<h1 style="margin: 0; font-size: 24px; color: white;">${companyName}</h1>`,
+  };
+  try {
+    const { readFileSync, existsSync } = await import('fs');
+    const { join } = await import('path');
+    const logoPath = join(process.cwd(), 'public', 'mwd-logo.png');
+    if (!existsSync(logoPath)) return fallback;
+    const content = readFileSync(logoPath);
+    const cid = 'company-logo';
+    return {
+      attachment: { filename: 'logo.png', content, contentType: 'image/png', cid },
+      headerHtml: `<img src="cid:${cid}" alt="${companyName}" style="max-height: 64px; max-width: 260px; height: auto;" />`,
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 function firstEnv(...keys: string[]): string | undefined {
@@ -311,22 +355,33 @@ export async function sendInviteEmailResult(
   };
   return sendEmailResult(emailData);
 } 
-/** Einladung für Subunternehmen-Benutzer (Portal-Zugang). */
+/**
+ * Einladung für Subunternehmen-Benutzer (Portal-Zugang).
+ * Header trägt das Firmenlogo des absendenden Unternehmens, die Signatur den
+ * Namen der einladenden Person sowie den Firmennamen.
+ */
 export async function sendSubcontractorInviteEmailResult(
   email: string,
   contactName: string,
   companyName: string,
   inviteLink: string,
-  expiresAt: Date
+  expiresAt: Date,
+  /** Name der Person, die die Einladung versendet hat (für die Signatur) */
+  inviterName?: string
 ): Promise<{ ok: boolean; error?: string }> {
+  const logo = await getEmailLogo();
+  const sender = senderCompanyName();
+  const signatureName = (inviterName && inviterName.trim()) || sender;
+  const attachments = logo.attachment ? [logo.attachment] : undefined;
+
   const emailData: EmailData = {
     to: email,
     subject: `Einladung zum Gleistrix Subunternehmen-Portal – ${companyName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #114F6B; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="margin: 0; font-size: 24px;">${process.env.EMAIL_FROM || 'Mülheimer Wachdienst'}</h1>
-          <p style="margin: 5px 0 0 0; font-size: 14px;">Gleistrix Subunternehmen-Portal</p>
+          ${logo.headerHtml}
+          <p style="margin: 10px 0 0 0; font-size: 14px;">Gleistrix Subunternehmen-Portal</p>
         </div>
         <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #114F6B; margin-bottom: 20px;">Einladung zum Subunternehmen-Portal</h2>
@@ -348,11 +403,12 @@ export async function sendSubcontractorInviteEmailResult(
             <strong>Wichtig:</strong> Dieser Link ist nur einmal und zeitlich begrenzt gültig. Falls der Link nicht funktioniert, kopieren Sie diese URL in Ihren Browser:<br>
             <span style="word-break: break-all; color: #1976d2;">${inviteLink}</span>
           </p>
-          <p style="font-size: 16px; line-height: 1.6; color: #333;">Viele Grüße<br>Ihr ${process.env.EMAIL_FROM || 'Mülheimer Wachdienst'} Team</p>
+          <p style="font-size: 16px; line-height: 1.6; color: #333;">Mit freundlichen Grüßen<br><strong>${signatureName}</strong><br>${sender}</p>
         </div>
       </div>
     `,
-    text: `Einladung zum Gleistrix Subunternehmen-Portal\n\nHallo ${contactName},\n\nSie wurden eingeladen, für das Subunternehmen ${companyName} auf das Gleistrix-Portal zuzugreifen.\n\nGültig bis: ${expiresAt.toLocaleString('de-DE')}\n\nLink: ${inviteLink}\n\nViele Grüße\nIhr ${process.env.EMAIL_FROM || 'Mülheimer Wachdienst'} Team`,
+    text: `Einladung zum Gleistrix Subunternehmen-Portal\n\nHallo ${contactName},\n\nSie wurden eingeladen, für das Subunternehmen ${companyName} auf das Gleistrix-Portal zuzugreifen.\n\nGültig bis: ${expiresAt.toLocaleString('de-DE')}\n\nLink: ${inviteLink}\n\nMit freundlichen Grüßen\n${signatureName}\n${sender}`,
+    attachments,
   };
   return sendEmailResult(emailData);
 }

@@ -88,6 +88,8 @@ export default function SubcontractorInviteAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [emailWarning, setEmailWarning] = useState('')
+  const [fallbackInviteLink, setFallbackInviteLink] = useState('')
 
   const loadInvites = useCallback(async () => {
     setIsLoadingInvites(true)
@@ -112,6 +114,8 @@ export default function SubcontractorInviteAdmin() {
     e.preventDefault()
     setError('')
     setSuccess('')
+    setEmailWarning('')
+    setFallbackInviteLink('')
     setIsSubmitting(true)
     try {
       if (form.mode === 'existing' && !form.subcontractorCompanyId) {
@@ -144,7 +148,16 @@ export default function SubcontractorInviteAdmin() {
         setError(result.error)
         return
       }
-      setSuccess(result.message || 'Einladung versendet')
+      if (result.emailSent === false) {
+        // Einladung wurde gespeichert, aber die E-Mail kam nicht raus:
+        // SMTP-Fehler deutlich anzeigen + Link zum manuellen Weitergeben
+        setEmailWarning(
+          `Einladung angelegt, aber die E-Mail konnte nicht zugestellt werden${result.emailError ? `: ${result.emailError}` : '.'}`
+        )
+        setFallbackInviteLink(result.inviteLink || '')
+      } else {
+        setSuccess(result.message || 'Einladung versendet')
+      }
       setForm(EMPTY_FORM)
       await loadInvites()
     } catch (err) {
@@ -171,6 +184,8 @@ export default function SubcontractorInviteAdmin() {
   const handleResend = async (invite: SubcontractorInvite) => {
     setError('')
     setSuccess('')
+    setEmailWarning('')
+    setFallbackInviteLink('')
     try {
       const result = await SubcontractorInvitesApi.create({
         subcontractorCompanyId: invite.companyId,
@@ -184,7 +199,14 @@ export default function SubcontractorInviteAdmin() {
         setError(result.error)
         return
       }
-      setSuccess(`Einladung an ${invite.email} erneut versendet`)
+      if (result.emailSent === false) {
+        setEmailWarning(
+          `Einladung erneuert, aber die E-Mail konnte nicht zugestellt werden${result.emailError ? `: ${result.emailError}` : '.'}`
+        )
+        setFallbackInviteLink(result.inviteLink || '')
+      } else {
+        setSuccess(`Einladung an ${invite.email} erneut versendet`)
+      }
       await loadInvites()
     } catch (err) {
       setError(getErrorMessage(err))
@@ -388,6 +410,36 @@ export default function SubcontractorInviteAdmin() {
               {success && (
                 <Alert className="rounded-lg bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
                   <AlertDescription className="text-green-800 dark:text-green-300">{success}</AlertDescription>
+                </Alert>
+              )}
+              {emailWarning && (
+                <Alert className="rounded-lg bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
+                  <AlertDescription className="text-amber-800 dark:text-amber-300 space-y-2">
+                    <p><strong>E-Mail-Versand fehlgeschlagen:</strong> {emailWarning}</p>
+                    <p className="text-xs">
+                      Bitte SMTP-Zugangsdaten prüfen (EMAIL_PASS in .env.local) und danach
+                      „Erneut senden" nutzen – oder den Link unten direkt weitergeben.
+                    </p>
+                    {fallbackInviteLink && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          readOnly
+                          value={fallbackInviteLink}
+                          onFocus={(e) => e.currentTarget.select()}
+                          className="h-9 rounded-lg font-mono text-xs bg-white dark:bg-slate-800"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg shrink-0"
+                          onClick={() => navigator.clipboard?.writeText(fallbackInviteLink)}
+                        >
+                          Kopieren
+                        </Button>
+                      </div>
+                    )}
+                  </AlertDescription>
                 </Alert>
               )}
 

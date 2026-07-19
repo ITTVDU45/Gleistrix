@@ -171,7 +171,8 @@ export async function POST(req: NextRequest) {
       `${data.firstName} ${data.lastName}`,
       String(company.name),
       inviteLink,
-      expiresAt
+      expiresAt,
+      adminAuth.user.name
     )
 
     await logSubcontractorActivity({
@@ -192,6 +193,10 @@ export async function POST(req: NextRequest) {
           : 'Einladung angelegt, E-Mail konnte nicht zugestellt werden.',
         emailSent: emailResult.ok,
         emailError: emailResult.error,
+        // Fallback bei Mailversand-Fehler: Link zum manuellen Weitergeben an den
+        // Admin zurückgeben (gleiche Vertraulichkeit wie die E-Mail selbst;
+        // in der DB liegt weiterhin nur der Hash).
+        ...(emailResult.ok ? {} : { inviteLink }),
         invite: {
           id: String(invite._id),
           email,
