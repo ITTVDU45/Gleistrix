@@ -30,9 +30,21 @@ if (!global.mongooseCache) {
 const cached = global.mongooseCache
 
 async function dbConnect(): Promise<typeof mongoose> {
-  // Bestehende Verbindung wiederverwenden
+  // Bestehende Verbindung nur wiederverwenden, wenn sie tatsächlich verbunden
+  // ist (readyState 1). In Serverless-Umgebungen schließt MongoDB Idle-
+  // Verbindungen (maxIdleTimeMS/minPoolSize:0); die gecachte Verbindung kann
+  // dann getrennt sein. Mit bufferCommands:false würde jede Query darauf sofort
+  // werfen (→ 500). Daher: getrennte/stale Verbindung verwerfen und neu aufbauen.
   if (cached.conn) {
-    return cached.conn
+    if (mongoose.connection.readyState === 1) {
+      return cached.conn
+    }
+    // 0 = disconnected, 3 = disconnecting → Cache verwerfen und frisch verbinden.
+    // (2 = connecting wird über das vorhandene cached.promise weiter abgewartet.)
+    if (mongoose.connection.readyState !== 2) {
+      cached.conn = null
+      cached.promise = null
+    }
   }
 
   // Verbindungspromise wiederverwenden falls vorhanden
@@ -43,7 +55,12 @@ async function dbConnect(): Promise<typeof mongoose> {
     // Halte den Pool fuer M0 bewusst klein, damit mehrere Serverless-Instanzen
     // das Cluster nicht gemeinsam an die Verbindungsgrenze fahren.
     const options: mongoose.ConnectOptions = {
-      bufferCommands: false,
+      // In Serverless werden Instanzen eingefroren/getrennt; der Socket kann tot
+      // sein, während mongoose noch "connected" meldet. Mit bufferCommands:true
+      // puffert mongoose die Query während des automatischen Reconnects, statt
+      // sofort zu werfen (→ keine sporadischen 500er). Server-Selection ist auf
+      // 5s begrenzt, sodass echte Ausfälle weiterhin zeitnah fehlschlagen.
+      bufferCommands: true,
       dbName: 'MHZeiterfassung',
       maxPoolSize: 1,
       minPoolSize: 0,                    // Keine Idle-Connections in Serverless
