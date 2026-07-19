@@ -3,6 +3,7 @@ import dbConnect from "../../../../lib/dbConnect"
 import mongoose from "mongoose"
 import { getToken } from "next-auth/jwt"
 import { ENV_SUPERADMIN_JWT_ID, isEnvSuperadminJwtToken } from "../../../../lib/auth/envSuperadmin"
+import { logger } from "../../../../lib/logger"
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,12 +11,9 @@ export async function GET(req: NextRequest) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     
     if (!token) {
-      console.log("Kein gültiges NextAuth-Token gefunden");
       return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
     }
 
-    console.log("NextAuth-Token gefunden:", token);
-    
     await dbConnect();
     
     // Benutzer direkt aus der Collection abrufen
@@ -25,9 +23,8 @@ export async function GET(req: NextRequest) {
     }
     const usersCollection = db.collection('users');
     const userId = token.id as string | undefined;
-    
+
     if (!userId) {
-      console.log("Keine Benutzer-ID im Token");
       return NextResponse.json({ error: "Ungültiges Token" }, { status: 401 });
     }
 
@@ -52,31 +49,23 @@ export async function GET(req: NextRequest) {
     try {
       objectId = new mongoose.Types.ObjectId(String(userId));
     } catch (error) {
-      console.error("Ungültige Benutzer-ID:", userId, error);
+      logger.warn("Ungültige Benutzer-ID im Token", error);
       return NextResponse.json({ error: "Ungültige Benutzer-ID" }, { status: 401 });
     }
     
     const user = await usersCollection.findOne({ _id: objectId });
     
     if (!user) {
-      console.log("Benutzer nicht gefunden mit ID:", userId);
+      logger.debug("Benutzer nicht gefunden", { userId });
       return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 401 });
     }
 
     // Prüfen ob Account aktiv ist
     if (user.isActive === false) {
-      console.log("Account ist deaktiviert:", user.email);
       return NextResponse.json({ error: "Account ist deaktiviert" }, { status: 401 });
     }
 
-    console.log('=== BENUTZERDATEN GELADEN ===');
-    console.log('Benutzer ID:', user._id);
-    console.log('Name:', user.name);
-    console.log('E-Mail:', user.email);
-    console.log('Rolle:', user.role);
-    console.log('============================');
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       user: { 
         id: user._id.toString(),
         email: user.email, 
@@ -92,7 +81,7 @@ export async function GET(req: NextRequest) {
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Auth verification error:', error);
+    logger.error('Auth verification error', error);
     return NextResponse.json({ error: "Ein Fehler ist aufgetreten" }, { status: 500 });
   }
 } 

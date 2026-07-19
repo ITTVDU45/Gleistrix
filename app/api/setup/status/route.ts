@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
+import { logger } from "../../../../lib/logger"
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Setup status error:', error);
+    logger.error('Setup status error', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
     }, { status: 500 });

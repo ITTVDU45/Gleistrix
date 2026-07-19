@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { logger } from './logger'
 
 /**
  * Serverless-optimiertes MongoDB Singleton Pattern
@@ -37,7 +38,7 @@ async function dbConnect(): Promise<typeof mongoose> {
   // Verbindungspromise wiederverwenden falls vorhanden
   if (!cached.promise) {
     const mongoUri = getMongoUri()
-    console.log('Verbindung zur MongoDB herstellen...')
+    logger.debug('Verbindung zur MongoDB herstellen...')
 
     // Halte den Pool fuer M0 bewusst klein, damit mehrere Serverless-Instanzen
     // das Cluster nicht gemeinsam an die Verbindungsgrenze fahren.
@@ -61,11 +62,11 @@ async function dbConnect(): Promise<typeof mongoose> {
           return m
         } catch (err: unknown) {
           lastErr = err instanceof Error ? err : new Error(String(err))
-          console.error(`MongoDB connect attempt ${i + 1} failed:`, lastErr.message)
+          logger.warn(`MongoDB connect attempt ${i + 1} failed`, { message: lastErr.message })
           // Nur bei transienten Netzwerk/DNS-Fehlern warten und erneut versuchen
           if (i < attempts - 1) {
             const delay = 500 * (i + 1)
-            console.log(`Warte ${delay}ms vor erneutem Verbindungsversuch...`)
+            logger.debug(`Warte ${delay}ms vor erneutem Verbindungsversuch...`)
             await new Promise((r) => setTimeout(r, delay))
           }
         }
@@ -75,17 +76,16 @@ async function dbConnect(): Promise<typeof mongoose> {
 
     cached.promise = tryConnect(mongoUri, options)
       .then((m) => {
-        console.log('MongoDB-Verbindung erfolgreich hergestellt')
-        if (mongoose.connection.db) {
-          console.log('Verbundene Datenbank:', mongoose.connection.db.databaseName)
-        }
-        console.log(`Connection Pool: maxPoolSize=${options.maxPoolSize}`)
+        logger.info('MongoDB-Verbindung hergestellt', {
+          database: mongoose.connection.db?.databaseName,
+          maxPoolSize: options.maxPoolSize,
+        })
         return m
       })
       .catch((err) => {
         // Promise zurücksetzen damit ein neuer Versuch möglich ist
         cached.promise = null
-        console.error('MongoDB-Verbindungsfehler nach mehreren Versuchen:', err)
+        logger.error('MongoDB-Verbindungsfehler nach mehreren Versuchen', err)
         throw err
       })
   }

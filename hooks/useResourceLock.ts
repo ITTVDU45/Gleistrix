@@ -93,25 +93,30 @@ export function useResourceLock({
             : undefined,
         };
         
-        // Prüfen, ob sich der Sperrstatus geändert hat
-        const lockStateChanged = 
-          previousLockState.current.isLocked !== newLockState.isLocked ||
-          previousLockState.current.isOwnLock !== newLockState.isOwnLock;
-        
+        // Vorherigen Zustand sichern, BEVOR er überschrieben wird – die
+        // Callbacks vergleichen alt gegen neu.
+        const prev = previousLockState.current;
+        const lockStateChanged =
+          prev.isLocked !== newLockState.isLocked ||
+          prev.isOwnLock !== newLockState.isOwnLock;
+
         setLockInfo(newLockState);
         isOwnLockRef.current = data.isOwnLock;
         previousLockState.current = {
           isLocked: data.isLocked,
           isOwnLock: data.isOwnLock
         };
-        
+
         // Nur bei tatsächlichen Änderungen Callbacks aufrufen
         if (lockStateChanged) {
-          if (newLockState.isOwnLock && !previousLockState.current.isOwnLock) {
+          if (newLockState.isOwnLock && !prev.isOwnLock) {
+            // Eigene Sperre neu erhalten
             onLockAcquired?.();
-          } else if (!newLockState.isOwnLock && previousLockState.current.isOwnLock) {
+          } else if (!newLockState.isLocked && prev.isOwnLock) {
+            // Eigene Sperre wurde freigegeben (Ressource jetzt frei)
             onLockReleased?.();
-          } else if (newLockState.isLocked && !newLockState.isOwnLock && previousLockState.current.isOwnLock) {
+          } else if (newLockState.isLocked && !newLockState.isOwnLock && prev.isOwnLock) {
+            // Sperre ging verloren – jetzt von jemand anderem gehalten
             onLockLost?.();
           }
         }

@@ -42,3 +42,6 @@ insertTestProject.js
 
 # Dokumentation und Pläne (nur lokal)
 docs/
+# Artefakte / lokale Dateien
+cookies.txt
+tsconfig.tsbuildinfo

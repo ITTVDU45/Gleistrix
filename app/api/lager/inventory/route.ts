@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       (body.unitIds ?? []).filter((v) => mongoose.Types.ObjectId.isValid(v))
     )
 
-    let unitsByArticle: Record<string, mongoose.Types.ObjectId[]> = {}
+    const unitsByArticle: Record<string, mongoose.Types.ObjectId[]> = {}
     if (validUnitIds.length > 0) {
       const units = await ArticleUnit.find({
         _id: { $in: validUnitIds.map((id) => new mongoose.Types.ObjectId(id)) }

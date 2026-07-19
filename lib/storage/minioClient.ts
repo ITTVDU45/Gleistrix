@@ -25,6 +25,11 @@ const usedAccessKey = process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USE
 const usedSecretKey = process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || '';
 const accessKeySource = process.env.MINIO_ACCESS_KEY ? 'MINIO_ACCESS_KEY' : (process.env.MINIO_ROOT_USER ? 'MINIO_ROOT_USER' : 'none');
 const secretKeySource = process.env.MINIO_SECRET_KEY ? 'MINIO_SECRET_KEY' : (process.env.MINIO_ROOT_PASSWORD ? 'MINIO_ROOT_PASSWORD' : 'none');
+// Fehlkonfiguration früh und klar sichtbar machen, statt still mit leeren Credentials
+// einen Client zu bauen, der erst beim ersten Request kryptisch scheitert.
+if (!usedAccessKey || !usedSecretKey) {
+  console.error('MinIO: Access-Key oder Secret-Key fehlt (MINIO_ACCESS_KEY/MINIO_SECRET_KEY bzw. MINIO_ROOT_USER/MINIO_ROOT_PASSWORD). Uploads werden fehlschlagen.');
+}
 const pathStyle = process.env.MINIO_PATH_STYLE === 'true';
 const region = process.env.MINIO_REGION || undefined;
 console.info('MinIO client configured - endpoint=', endPoint + ':' + port, 'useSSL=', useSSL, 'pathStyle=', pathStyle, 'region=', region ?? 'none', 'accessKeyFrom=', accessKeySource, 'secretKeyFrom=', secretKeySource);

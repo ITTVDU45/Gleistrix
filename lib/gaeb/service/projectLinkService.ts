@@ -86,7 +86,7 @@ export async function linkGaebAsProjectDocument(projectId: string, jobId: string
   const project = await Project.findById(projectId)
   if (!project) return
   if (!(project as { dokumente?: unknown }).dokumente || typeof (project as { dokumente?: unknown }).dokumente !== 'object') {
-    ;(project as { dokumente?: unknown }).dokumente = {}
+    (project as { dokumente?: unknown }).dokumente = {}
   }
   const dokumente = (project as unknown as { dokumente: { all?: Array<Record<string, unknown>> } }).dokumente
   if (!Array.isArray(dokumente.all)) dokumente.all = []
@@ -116,7 +116,7 @@ export async function unlinkGaebProjectDocument(projectId: string, jobId: string
   const before = dokumente.all.length
   dokumente.all = dokumente.all.filter((d) => !(d && d.gaebImportJobId === jobId))
   if (dokumente.all.length !== before) {
-    ;(project as unknown as { markModified: (p: string) => void }).markModified('dokumente')
+    (project as unknown as { markModified: (p: string) => void }).markModified('dokumente')
     await (project as unknown as { save: () => Promise<unknown> }).save()
   }
 }

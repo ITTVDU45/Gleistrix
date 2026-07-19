@@ -5,7 +5,8 @@ import mongoose from 'mongoose';
 import { ENV_SUPERADMIN_JWT_ID, isEnvSuperadminJwtToken } from './envSuperadmin';
 
 export interface CurrentUser {
-  _id: any;
+  // ObjectId für DB-Benutzer, String-Konstante für den ENV-Superadmin.
+  _id: mongoose.Types.ObjectId | string;
   id: string;
   email?: string;
   name?: string;
@@ -32,7 +33,7 @@ export async function getCurrentUser(req: NextRequest): Promise<CurrentUser | nu
     return null;
   }
   const users = db.collection('users');
-  let objectId: any;
+  let objectId: mongoose.Types.ObjectId;
   try {
     objectId = new mongoose.Types.ObjectId(String(token.id));
   } catch {

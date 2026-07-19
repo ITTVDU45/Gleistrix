@@ -8,10 +8,10 @@ import { ThemeProvider } from './ThemeProvider';
 import { SessionProvider } from 'next-auth/react';
 import JoyrideProvider from './JoyrideProvider';
 
-export default function ClientLayout({ children }: { children: ReactNode }) {
+export default function ClientLayout({ children, nonce }: { children: ReactNode; nonce?: string }) {
   return (
     <SessionProvider>
-      <ThemeProvider>
+      <ThemeProvider nonce={nonce}>
         <div className="flex h-full">
           <ConditionalSidebar />
           <ConditionalLayout>

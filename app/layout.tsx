@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="de" className="h-full" suppressHydrationWarning>
       <body className="h-full bg-slate-50 dark:bg-slate-900 antialiased">
-        <ClientLayout>
+        <ClientLayout nonce={nonce ?? undefined}>
           {children}
         </ClientLayout>
       </body>

@@ -5,6 +5,7 @@ import User from "../../../../lib/models/User"
 import { hash } from "bcryptjs"
 import { z } from "zod"
 import { requireAdminUser } from "../../../../lib/auth/requireAdminUser"
+import { logger } from "../../../../lib/logger"
 
 export async function POST(req: NextRequest) {
   try {
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    console.error("Activate user error:", error)
+    logger.error("Activate user error", error)
     return NextResponse.json(
       { error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." },
       { status: 500 }

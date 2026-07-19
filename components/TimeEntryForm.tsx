@@ -1198,7 +1198,7 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
                   const isDisabled = activeTab === 'external' ? false : (copyMode ? isBelegt : isSelectedEmployeeOnVacation);
                   
                   // Bestimme die Button-Variante basierend auf Status
-                  let buttonVariant: "default" | "outline" = selectedDays.includes(day) ? 'default' : 'outline';
+                  const buttonVariant: "default" | "outline" = selectedDays.includes(day) ? 'default' : 'outline';
                   let buttonClassName = `rounded-xl transition-all duration-200 ${
                     selectedDays.includes(day)
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'

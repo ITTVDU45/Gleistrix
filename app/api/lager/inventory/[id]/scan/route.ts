@@ -91,7 +91,7 @@ export async function POST(
       }
     }
 
-    ;(inv as any).scanEvents = (inv as any).scanEvents ?? []
+    (inv as any).scanEvents = (inv as any).scanEvents ?? []
     ;(inv as any).scanEvents.push({
       artikelId: articleId,
       unitId: body.unitId && mongoose.Types.ObjectId.isValid(body.unitId) ? new mongoose.Types.ObjectId(body.unitId) : undefined,
@@ -106,7 +106,7 @@ export async function POST(
       session.scans = (session.scans ?? 0) + 1
     }
 
-    ;(inv as any).lastScanAt = now
+    (inv as any).lastScanAt = now
     if (inv.status === 'offen') {
       inv.status = 'in_bearbeitung'
     }

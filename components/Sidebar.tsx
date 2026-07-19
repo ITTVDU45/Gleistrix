@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AuthApi } from '@/lib/api/auth'
+import { signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '../lib/utils';
 import {
@@ -106,20 +107,14 @@ export default function Sidebar() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const response = await AuthApi.logout()
-      if ((response as any).ok !== false) {
-        // Weiterleitung zur Login-Seite
-        router.push('/login');
-      } else {
-        console.error('Logout fehlgeschlagen');
-        // Trotzdem zur Login-Seite weiterleiten
-        router.push('/login');
-      }
+      // NextAuth-Session (JWT-Cookie) serverseitig invalidieren.
+      // Ohne signOut bliebe die Session trotz Redirect gültig.
+      await signOut({ redirect: false });
     } catch (error) {
       console.error('Logout-Fehler:', error);
-      // Bei Fehler trotzdem zur Login-Seite weiterleiten
-      router.push('/login');
     } finally {
+      // In jedem Fall zur Login-Seite – auch wenn signOut fehlschlägt.
+      router.push('/login');
       setIsLoggingOut(false);
     }
   };

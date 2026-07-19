@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { checkRateLimit } from './lib/rateLimit';
 
-// Einfache In-Memory Rate-Limitierung (pro IP)
-type Bucket = { count: number; resetAt: number };
+// Rate-Limit-Parameter (Store: In-Memory oder Upstash, siehe lib/rateLimit.ts)
 const windowMs = 60_000; // 1 Minute
 const defaultMax = 100; // Standardlimit für mutierende API-Calls
 const authMax = 20; // Strengeres Limit für Auth-Endpunkte
-const buckets = new Map<string, Bucket>();
 
 function getClientIp(req: NextRequest): string {
   const xf = req.headers.get('x-forwarded-for');
@@ -32,12 +31,16 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next({ request: { headers: reqHeaders } });
 
   // Security Headers (CSP mit Nonce)
-  // In Entwicklung muss 'unsafe-eval' für React Refresh / HMR erlaubt werden
+  // Prod: Nonce + 'strict-dynamic' statt 'unsafe-inline' → deutlich stärkerer
+  //       XSS-Schutz. Next.js liest den Nonce aus der CSP auf den Request-Headern
+  //       (siehe reqHeaders unten) und versieht seine eigenen <script>-Tags damit.
+  //       'https:'/'blob:' bleiben als Fallback für Browser ohne strict-dynamic-Support;
+  //       moderne Browser ignorieren sie zugunsten der Nonce-Propagation.
+  // Dev:  'unsafe-eval'/'unsafe-inline' für React Refresh / HMR nötig.
   const csp = (process.env.NODE_ENV === 'production'
     ? [
         "default-src 'self'",
-        // Vereinfachte Script-Policy für Next.js in Prod: keine Nonce/strict-dynamic, damit _next Scripts sicher geladen werden
-        "script-src 'self' 'unsafe-inline' https: blob:",
+        `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https: blob:`,
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob:",
         // Externe Verbindungen erlauben (z. B. Next intern, Vercel)
@@ -61,6 +64,9 @@ export async function middleware(req: NextRequest) {
         "frame-ancestors 'none'",
       ]
   ).join('; ');
+  // CSP auch auf den Request-Headern setzen: nur so übernimmt Next.js den Nonce
+  // automatisch für seine gestreamten/gebündelten Skripte.
+  reqHeaders.set('Content-Security-Policy', csp);
   res.headers.set('Content-Security-Policy', csp);
 
   // HSTS nur in Prod setzen
@@ -114,21 +120,17 @@ export async function middleware(req: NextRequest) {
   const ip = getClientIp(req);
   const isAuthEndpoint = pathname.startsWith('/api/auth');
   const max = isAuthEndpoint ? authMax : defaultMax;
-  const key = `${ip}`;
+  // Auth- und Standard-Limit in getrennten Buckets führen, sonst teilen sie
+  // sich denselben IP-Zähler und beeinflussen sich gegenseitig.
+  const scope = isAuthEndpoint ? 'auth' : 'api';
+  const key = `${scope}:${ip}`;
 
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || now > bucket.resetAt) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return res;
-  }
-
-  if (bucket.count >= max) {
+  const result = await checkRateLimit(key, max, windowMs);
+  if (!result.allowed) {
     const limited = NextResponse.json({ error: 'Rate limit überschritten. Bitte später erneut versuchen.' }, { status: 429 });
-    limited.headers.set('Retry-After', Math.ceil((bucket.resetAt - now) / 1000).toString());
+    limited.headers.set('Retry-After', String(result.retryAfterSec));
     return limited;
   }
-  bucket.count += 1;
   return res;
 }
 

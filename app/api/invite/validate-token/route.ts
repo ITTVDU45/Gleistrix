@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import InviteToken from "../../../../lib/models/InviteToken"
+import { logger } from "../../../../lib/logger"
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Validate token error:', error);
+    logger.error('Validate token error', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut." 
     }, { status: 500 });
