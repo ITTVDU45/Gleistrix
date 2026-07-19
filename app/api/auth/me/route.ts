@@ -3,6 +3,7 @@ import dbConnect from "../../../../lib/dbConnect"
 import mongoose from "mongoose"
 import { getToken } from "next-auth/jwt"
 import { ENV_SUPERADMIN_JWT_ID, isEnvSuperadminJwtToken } from "../../../../lib/auth/envSuperadmin"
+import SuperadminProfile from "../../../../lib/models/SuperadminProfile"
 import { logger } from "../../../../lib/logger"
 
 export async function GET(req: NextRequest) {
@@ -29,15 +30,19 @@ export async function GET(req: NextRequest) {
     }
 
     if (isEnvSuperadminJwtToken(token as { id?: string; role?: string })) {
+      // Gespeicherte Profil-Overrides (Name/Telefon) berücksichtigen
+      const override = (await SuperadminProfile.findOne({ scope: 'env-superadmin' }).lean()) as
+        | { name?: string; phone?: string }
+        | null;
       return NextResponse.json({
         user: {
           id: ENV_SUPERADMIN_JWT_ID,
           email: (token as { email?: string }).email ?? "",
-          name: (token as { name?: string }).name || "Super Admin",
+          name: override?.name || (token as { name?: string }).name || "Super Admin",
           role: "superadmin",
           firstName: "",
           lastName: "",
-          phone: "",
+          phone: override?.phone ?? "",
           address: undefined,
           lastLogin: undefined,
           modules: [],

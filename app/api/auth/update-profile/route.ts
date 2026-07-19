@@ -1,40 +1,67 @@
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
+import SuperadminProfile from "../../../../lib/models/SuperadminProfile"
 import { getCurrentUser } from "../../../../lib/auth/getCurrentUser"
+import { ENV_SUPERADMIN_JWT_ID } from "../../../../lib/auth/envSuperadmin"
 import { logger } from "../../../../lib/logger"
 import { z } from 'zod'
 
 export async function PUT(req: NextRequest) {
   try {
     await dbConnect();
-    
+
     const current = await getCurrentUser(req);
     if (!current) {
       return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
     }
-    // Benutzer in Datenbank finden
-    const user = await User.findById(current._id);
-    
-    if (!user) {
-      return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 404 });
-    }
 
-    // Request-Body parsen
+    // Request-Body parsen (CSRF zuerst)
     const csrf = req.headers.get('x-csrf-intent');
     if (process.env.NODE_ENV === 'production' && csrf !== 'auth:update-profile') {
       return NextResponse.json({ error: 'Ungültige Anforderung' }, { status: 400 });
     }
     const schema = z.object({
       name: z.string().min(1),
-      email: z.string().email(),
+      // E-Mail ist read-only – wird angenommen, aber nicht verändert
+      email: z.string().email().optional(),
       phone: z.string().optional().or(z.literal('')),
     });
     const parseResult = schema.safeParse(await req.json());
     if (!parseResult.success) {
       return NextResponse.json({ error: 'Validierungsfehler', issues: parseResult.error.flatten() }, { status: 400 });
     }
-    const { name, email, phone } = parseResult.data;
+    const { name, phone } = parseResult.data;
+
+    // ENV-Superadmin besitzt kein users-Dokument → Name/Telefon in eigenem
+    // Profil-Speicher ablegen (E-Mail bleibt über SUPERADMIN_EMAIL fixiert).
+    if (String(current._id) === ENV_SUPERADMIN_JWT_ID) {
+      const doc = await SuperadminProfile.findOneAndUpdate(
+        { scope: 'env-superadmin' },
+        { $set: { name: name.trim(), phone: phone ?? '' }, $setOnInsert: { scope: 'env-superadmin' } },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      ).lean() as { name?: string; phone?: string } | null;
+
+      logger.info('ENV-Superadmin-Profil aktualisiert');
+      return NextResponse.json({
+        message: "Profil erfolgreich aktualisiert",
+        user: {
+          id: ENV_SUPERADMIN_JWT_ID,
+          name: doc?.name || name.trim(),
+          email: current.email || '',
+          phone: doc?.phone ?? phone ?? '',
+          role: 'superadmin',
+        },
+      }, { status: 200 });
+    }
+
+    // Benutzer in Datenbank finden
+    const user = await User.findById(current._id);
+    if (!user) {
+      return NextResponse.json({ error: "Benutzer nicht gefunden" }, { status: 404 });
+    }
+
+    const email = user.email; // E-Mail read-only: bestehende Adresse beibehalten
 
     // Validierung
     if (!name || !email) {

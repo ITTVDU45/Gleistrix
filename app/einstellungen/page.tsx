@@ -364,12 +364,15 @@ export default function EinstellungenPage() {
                           id="email"
                           type="email"
                           value={formData.email}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          className="pl-10 rounded-xl border-slate-200 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-700 dark:text-white h-12"
+                          readOnly
+                          disabled
+                          className="pl-10 rounded-xl border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 cursor-not-allowed h-12"
                           placeholder="ihre.email@beispiel.de"
-                          required
                         />
                       </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Die E-Mail-Adresse ist Ihr Login und kann hier nicht geändert werden.
+                      </p>
                     </div>
 
                     <div className="space-y-2">
