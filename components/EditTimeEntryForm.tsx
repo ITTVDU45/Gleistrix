@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React from 'react'
 import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
@@ -217,7 +218,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
           setDbHolidays(response.holidays.map(h => h.date))
         }
       } catch (error) {
-        console.error('Fehler beim Laden der Feiertage:', error)
+        logger.error('Fehler beim Laden der Feiertage:', error)
       }
     }
     loadHolidays()

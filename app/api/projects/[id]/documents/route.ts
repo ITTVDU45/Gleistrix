@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const exists = await minioClient.bucketExists(bucketName);
         if (!exists) await minioClient.makeBucket(bucketName);
       } catch (e) {
-        console.warn('MinIO bucket check failed:', e);
+        logger.warn('MinIO bucket check failed:', e);
       }
     }
 
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         readable.push(null);
         await promisify(minioClient.putObject.bind(minioClient))(bucketName, key, readable, fileBuffer.byteLength);
       } catch (e) {
-        console.error('MinIO upload failed for', name, e);
+        logger.error('MinIO upload failed for', name, e);
       }
       const resolvedDescription =
         descriptionList[index] ??
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ success: true, uploaded });
   } catch (e) {
-    console.error('Dokument-Upload fehlgeschlagen:', e);
+    logger.error('Dokument-Upload fehlgeschlagen:', e);
     return NextResponse.json({ message: 'Upload fehlgeschlagen' }, { status: 500 });
   }
 }

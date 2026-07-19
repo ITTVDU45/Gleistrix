@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '../../../lib/dbConnect';
 import { Project } from '../../../lib/models/Project';
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Lightweight debug: only log counts
-    console.log(`Fetched projects page=${page} limit=${limit} returned=${projectsJson.length} total=${total}`);
+    logger.debug(`Fetched projects page=${page} limit=${limit} returned=${projectsJson.length} total=${total}`);
 
     return NextResponse.json({
       success: true,
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
       meta: { total, page, limit }
     });
   } catch (error) {
-    console.error('Fehler beim Laden der Projekte:', error);
+    logger.error('Fehler beim Laden der Projekte:', error);
     return NextResponse.json({ success: false, message: 'Fehler beim Laden der Projekte' }, { status: 500 });
   }
 }
@@ -141,9 +142,9 @@ export async function POST(request: NextRequest) {
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Projekt-Erstellung');
+        logger.debug('Activity Log erstellt für Projekt-Erstellung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
       project: project 
     }, { status: 201 });
   } catch (error) {
-    console.error('Fehler beim Erstellen des Projekts:', error);
+    logger.error('Fehler beim Erstellen des Projekts:', error);
     return NextResponse.json(
       { 
         success: false,

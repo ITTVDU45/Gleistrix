@@ -1,4 +1,5 @@
 'use client'
+import { logger } from '@/lib/logger'
 
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -30,7 +31,7 @@ export function ArticleImageSection({ articleId, images, onUpdate, disabled }: A
       await LagerApi.articles.uploadImage(articleId, file)
       onUpdate()
     } catch (err) {
-      console.error('Bild-Upload fehlgeschlagen:', err)
+      logger.error('Bild-Upload fehlgeschlagen:', err)
     } finally {
       setUploading(false)
     }
@@ -43,7 +44,7 @@ export function ArticleImageSection({ articleId, images, onUpdate, disabled }: A
       await LagerApi.articles.deleteImage(articleId, attachmentId)
       onUpdate()
     } catch (err) {
-      console.error('Bild löschen fehlgeschlagen:', err)
+      logger.error('Bild löschen fehlgeschlagen:', err)
     } finally {
       setDeletingId(null)
     }

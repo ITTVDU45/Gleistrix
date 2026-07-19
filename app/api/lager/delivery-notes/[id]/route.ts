@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { DeliveryNote } from '@/lib/models/DeliveryNote'
@@ -24,7 +25,7 @@ export async function GET(
     }
     return NextResponse.json({ success: true, data: doc })
   } catch (error) {
-    console.error('Fehler beim Laden des Lieferscheins:', error)
+    logger.error('Fehler beim Laden des Lieferscheins:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden des Lieferscheins' },
       { status: 500 }
@@ -98,7 +99,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: doc })
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Lieferscheins:', error)
+    logger.error('Fehler beim Aktualisieren des Lieferscheins:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Aktualisieren des Lieferscheins' },
       { status: 500 }

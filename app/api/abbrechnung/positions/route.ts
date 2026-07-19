@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, positions })
   } catch (error) {
-    console.error('Fehler beim Laden der Abrechnungspositionen:', error)
+    logger.error('Fehler beim Laden der Abrechnungspositionen:', error)
     return NextResponse.json({ message: 'Fehler beim Laden der Abrechnungspositionen' }, { status: 500 })
   }
 }

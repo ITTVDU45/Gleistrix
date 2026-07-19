@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import User from "../../../../lib/models/User"
@@ -101,7 +102,7 @@ export async function PUT(
         }
       }).save()
     } catch (logError) {
-      console.error('Activity Log Fehler:', logError)
+      logger.error('Activity Log Fehler:', logError)
     }
 
     return NextResponse.json({
@@ -119,7 +120,7 @@ export async function PUT(
       }
     })
   } catch (error) {
-    console.error('Update user error:', error)
+    logger.error('Update user error:', error)
     return NextResponse.json({ error: "Ein Fehler ist aufgetreten" }, { status: 500 })
   }
 }
@@ -181,27 +182,27 @@ export async function DELETE(
       });
       
       await activityLog.save();
-      console.log('Activity Log erstellt für Benutzer-Löschung');
+      logger.debug('Activity Log erstellt für Benutzer-Löschung');
     } catch (logError) {
-      console.error('Fehler beim Erstellen des Activity Logs:', logError);
+      logger.error('Fehler beim Erstellen des Activity Logs:', logError);
       // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
     }
 
     // Benutzer löschen
     await User.findByIdAndDelete(id);
 
-    console.log('=== BENUTZER GELÖSCHT ===');
-    console.log(`Benutzer: ${user.name} (${user.email})`);
-    console.log(`Rolle: ${user.role}`);
-    console.log(`Gelöscht von: ${currentUser.name} (${currentUser.role})`);
-    console.log('==========================');
+    logger.debug('=== BENUTZER GELÖSCHT ===');
+    logger.debug(`Benutzer: ${user.name} (${user.email})`);
+    logger.debug(`Rolle: ${user.role}`);
+    logger.debug(`Gelöscht von: ${currentUser.name} (${currentUser.role})`);
+    logger.debug('==========================');
 
     return NextResponse.json({ 
       message: "Benutzer erfolgreich gelöscht"
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Delete user error:', error);
+    logger.error('Delete user error:', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten" 
     }, { status: 500 });

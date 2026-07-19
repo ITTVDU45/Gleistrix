@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Maintenance } from '@/lib/models/Maintenance'
@@ -25,7 +26,7 @@ export async function GET(
     if (!doc) return NextResponse.json({ success: false, message: 'Wartung nicht gefunden' }, { status: 404 })
     return NextResponse.json({ success: true, data: doc })
   } catch (error) {
-    console.error('Fehler beim Laden der Wartung:', error)
+    logger.error('Fehler beim Laden der Wartung:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Wartung' },
       { status: 500 }
@@ -109,7 +110,7 @@ export async function PUT(
     }
     return NextResponse.json({ success: true, data: doc })
   } catch (error) {
-    console.error('Fehler beim Aktualisieren der Wartung:', error)
+    logger.error('Fehler beim Aktualisieren der Wartung:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Aktualisieren der Wartung' },
       { status: 500 }
@@ -142,7 +143,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, message: 'Wartung geloescht' })
   } catch (error) {
-    console.error('Fehler beim Loeschen der Wartung:', error)
+    logger.error('Fehler beim Loeschen der Wartung:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Loeschen der Wartung' },
       { status: 500 }

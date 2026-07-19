@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Inventory } from '@/lib/models/Inventory'
@@ -97,7 +98,7 @@ export async function POST(
           }
         })
       } catch (logErr) {
-        console.error('ActivityLog Fehler:', logErr)
+        logger.error('ActivityLog Fehler:', logErr)
       }
     }
 
@@ -106,7 +107,7 @@ export async function POST(
       .lean()
     return NextResponse.json({ success: true, data: doc })
   } catch (error) {
-    console.error('Fehler beim Abschliessen der Inventur:', error)
+    logger.error('Fehler beim Abschliessen der Inventur:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Abschliessen der Inventur' },
       { status: 500 }

@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useEffect } from 'react';
 import { UsersApi } from '@/lib/api/users'
 import { InvitesApi } from '@/lib/api/invites'
@@ -141,7 +142,7 @@ export default function UserManagement() {
       const data = await UsersApi.list()
       setExistingUsers(data.users)
     } catch (err) {
-      console.error('Fehler beim Laden der Benutzer:', err);
+      logger.error('Fehler beim Laden der Benutzer:', err);
       setError('Fehler beim Laden der Benutzer: Netzwerkfehler');
     } finally {
       setIsLoadingUsers(false);
@@ -167,7 +168,7 @@ export default function UserManagement() {
         }))
       )
     } catch (err) {
-      console.error('Fehler beim Laden der Einladungen:', err);
+      logger.error('Fehler beim Laden der Einladungen:', err);
       setError('Fehler beim Laden der Einladungen: Netzwerkfehler');
     } finally {
       setIsLoadingInvites(false);
@@ -205,12 +206,12 @@ export default function UserManagement() {
     try {
       const resp = await InvitesApi.deleteAllForEmail(email)
       if ((resp as any).error) {
-        console.error('Fehler beim Löschen der Einladungen')
+        logger.error('Fehler beim Löschen der Einladungen')
         return false
       }
       return true;
     } catch (err) {
-      console.error('Fehler beim Löschen der Einladungen:', err);
+      logger.error('Fehler beim Löschen der Einladungen:', err);
       return false;
     }
   };
@@ -223,13 +224,13 @@ export default function UserManagement() {
     try {
       const resp = await InvitesApi.deleteAllForEmail(email)
       if ((resp as any).error) {
-        console.error('Fehler beim Löschen der Einladung')
+        logger.error('Fehler beim Löschen der Einladung')
         setError('Fehler beim Löschen der Einladung')
       } else {
         fetchInvitedUsers()
       }
     } catch (err) {
-      console.error('Fehler beim Löschen der Einladung:', err);
+      logger.error('Fehler beim Löschen der Einladung:', err);
       setError('Ein Fehler ist aufgetreten');
     }
   };
@@ -300,7 +301,7 @@ export default function UserManagement() {
                   setError(retryErrorData.message || retryErrorData.error || 'Fehler beim erneuten Senden der Einladung');
                 }
               } catch (err) {
-                console.error('Fehler beim erneuten Senden:', err);
+                logger.error('Fehler beim erneuten Senden:', err);
                 setError('Fehler beim erneuten Senden der Einladung');
               }
             }, 1000);
@@ -312,7 +313,7 @@ export default function UserManagement() {
         }
       }
     } catch (err) {
-      console.error('Fehler beim Senden der Einladung:', err);
+      logger.error('Fehler beim Senden der Einladung:', err);
       setError('Ein Fehler ist aufgetreten');
     } finally {
       setIsLoading(false);
@@ -328,7 +329,7 @@ export default function UserManagement() {
         setError('Fehler beim Ändern des Benutzer-Status');
       }
     } catch (err) {
-      console.error('Fehler beim Ändern des Benutzer-Status:', err);
+      logger.error('Fehler beim Ändern des Benutzer-Status:', err);
       setError('Ein Fehler ist aufgetreten');
     }
   };
@@ -399,7 +400,7 @@ export default function UserManagement() {
         setError('Fehler beim Löschen des Benutzers');
       }
     } catch (err) {
-      console.error('Fehler beim Löschen des Benutzers:', err);
+      logger.error('Fehler beim Löschen des Benutzers:', err);
       setError('Ein Fehler ist aufgetreten');
     }
   };

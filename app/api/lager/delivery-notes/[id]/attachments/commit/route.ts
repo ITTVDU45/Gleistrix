@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import dbConnect from '@/lib/dbConnect'
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ success: true, attachment })
   } catch (error) {
-    console.error('Commit-Lieferscheinanhang fehlgeschlagen:', error)
+    logger.error('Commit-Lieferscheinanhang fehlgeschlagen:', error)
     return NextResponse.json({ success: false, message: 'Anhang konnte nicht gespeichert werden' }, { status: 500 })
   }
 }

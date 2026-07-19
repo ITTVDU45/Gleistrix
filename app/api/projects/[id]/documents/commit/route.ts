@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     // Return the actual stored documents (with IDs)
     return NextResponse.json({ success: true, added });
   } catch (e) {
-    console.error('Commit documents failed', e);
+    logger.error('Commit documents failed', e);
     return NextResponse.json({ message: 'Commit fehlgeschlagen' }, { status: 500 });
   }
 }

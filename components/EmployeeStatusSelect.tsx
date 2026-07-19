@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -43,7 +44,7 @@ export default function EmployeeStatusSelect({
       await onStatusChange(employee.id, newStatus);
       setIsOpen(false);
     } catch (error) {
-      console.error('Fehler beim Ändern des Status:', error);
+      logger.error('Fehler beim Ändern des Status:', error);
     } finally {
       setIsLoading(false);
     }

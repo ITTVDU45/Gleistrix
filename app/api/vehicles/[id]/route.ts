@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/dbConnect';
 import { Vehicle } from '../../../../lib/models/Vehicle';
@@ -32,7 +33,7 @@ export async function GET(
 
     return NextResponse.json(vehicle);
   } catch (error) {
-    console.error('Fehler beim Laden des Fahrzeugs:', error);
+    logger.error('Fehler beim Laden des Fahrzeugs:', error);
     return NextResponse.json(
       { error: 'Fehler beim Laden des Fahrzeugs' },
       { status: 500 }
@@ -130,16 +131,16 @@ export async function PUT(
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Fahrzeug-Update');
+        logger.debug('Activity Log erstellt für Fahrzeug-Update');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
 
     return NextResponse.json(vehicle);
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Fahrzeugs:', error);
+    logger.error('Fehler beim Aktualisieren des Fahrzeugs:', error);
     return NextResponse.json(
       { error: 'Fehler beim Aktualisieren des Fahrzeugs' },
       { status: 400 }
@@ -200,9 +201,9 @@ export async function DELETE(
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Fahrzeug-Löschung');
+        logger.debug('Activity Log erstellt für Fahrzeug-Löschung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -215,7 +216,7 @@ export async function DELETE(
       message: 'Fahrzeug erfolgreich gelöscht' 
     });
   } catch (error) {
-    console.error('Fehler beim Löschen des Fahrzeugs:', error);
+    logger.error('Fehler beim Löschen des Fahrzeugs:', error);
     return NextResponse.json(
       { 
         success: false,

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '../../../lib/dbConnect';
 import NotificationSettings from '../../../lib/models/NotificationSettings';
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
       configByKey: Object.fromEntries(merged.configByKey),
     });
   } catch (e) {
-    console.error('GET /api/notifications error', e);
+    logger.error('GET /api/notifications error', e);
     return NextResponse.json({ error: 'Fehler beim Laden der Benachrichtigungseinstellungen' }, { status: 500 });
   }
 }
@@ -70,7 +71,7 @@ export async function PUT(req: NextRequest) {
       configByKey: Object.fromEntries(merged.configByKey),
     });
   } catch (e) {
-    console.error('PUT /api/notifications error', e);
+    logger.error('PUT /api/notifications error', e);
     return NextResponse.json({ error: 'Fehler beim Speichern der Benachrichtigungseinstellungen' }, { status: 500 });
   }
 }

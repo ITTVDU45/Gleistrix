@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/dbConnect';
 import { Employee } from '../../../../lib/models/Employee';
@@ -38,13 +39,13 @@ export async function GET(
       vacationDays: employeeData.vacationDays || []
     };
 
-    console.log('GET /api/employees/[id] - Employee data being returned:', employeeWithVacationDays);
-    console.log('GET /api/employees/[id] - vacationDays length:', employeeWithVacationDays.vacationDays?.length);
-    console.log('GET /api/employees/[id] - Raw employee.vacationDays:', employeeData.vacationDays);
+    logger.debug('GET /api/employees/[id] - Employee data being returned:', employeeWithVacationDays);
+    logger.debug('GET /api/employees/[id] - vacationDays length:', employeeWithVacationDays.vacationDays?.length);
+    logger.debug('GET /api/employees/[id] - Raw employee.vacationDays:', employeeData.vacationDays);
 
     return NextResponse.json({ employee: employeeWithVacationDays });
   } catch (error) {
-    console.error('Fehler beim Laden des Mitarbeiters:', error);
+    logger.error('Fehler beim Laden des Mitarbeiters:', error);
     return NextResponse.json(
       { error: 'Fehler beim Laden des Mitarbeiters' },
       { status: 500 }
@@ -109,7 +110,7 @@ export async function PUT(
       if (body[key] !== undefined) updateData[key] = body[key];
     }
 
-    console.log('Updating employee with data:', updateData);
+    logger.debug('Updating employee with data:', updateData);
 
     // Stelle sicher, dass vacationDays korrekt gespeichert werden
     let updated;
@@ -121,7 +122,7 @@ export async function PUT(
         endDate: new Date(vacation.endDate)
       }));
       
-      console.log('Saving vacationDays with dates:', vacationDaysWithDates);
+      logger.debug('Saving vacationDays with dates:', vacationDaysWithDates);
       
       // Speichere vacationDays explizit in der Datenbank
       const db = mongoose.connection.db;
@@ -208,9 +209,9 @@ export async function PUT(
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Mitarbeiter-Update');
+        logger.debug('Activity Log erstellt für Mitarbeiter-Update');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -218,8 +219,8 @@ export async function PUT(
     // Stelle sicher, dass vacationDays in der Antwort enthalten sind
     const responseData = updated.toObject();
     
-    console.log('Raw updated employee from database:', responseData);
-    console.log('Raw vacationDays from database:', responseData.vacationDays);
+    logger.debug('Raw updated employee from database:', responseData);
+    logger.debug('Raw vacationDays from database:', responseData.vacationDays);
     
     // Lade die vacationDays explizit aus der Datenbank
     const employeeWithVacationDays = {
@@ -227,14 +228,14 @@ export async function PUT(
       vacationDays: body.vacationDays || responseData.vacationDays || []
     };
     
-    console.log('Updated employee data with vacationDays:', employeeWithVacationDays);
+    logger.debug('Updated employee data with vacationDays:', employeeWithVacationDays);
 
     return NextResponse.json({ 
       success: true, 
       employee: employeeWithVacationDays 
     });
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Mitarbeiters:', error);
+    logger.error('Fehler beim Aktualisieren des Mitarbeiters:', error);
     return NextResponse.json(
       { error: 'Fehler beim Aktualisieren des Mitarbeiters' },
       { status: 500 }
@@ -301,9 +302,9 @@ export async function DELETE(
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Mitarbeiter-Löschung');
+        logger.debug('Activity Log erstellt für Mitarbeiter-Löschung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -316,7 +317,7 @@ export async function DELETE(
       message: 'Mitarbeiter erfolgreich gelöscht' 
     });
   } catch (error) {
-    console.error('Fehler beim Löschen des Mitarbeiters:', error);
+    logger.error('Fehler beim Löschen des Mitarbeiters:', error);
     return NextResponse.json(
       { 
         success: false,

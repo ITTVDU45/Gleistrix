@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger'
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { lockWebSocket } from '../lib/websocket';
 import { fetchWithIntent } from '@/lib/http/fetchWithIntent';
@@ -134,7 +135,7 @@ export function useResourceLock({
         };
       }
     } catch (err: any) {
-      console.error('Fehler beim Prüfen der Sperre:', err);
+      logger.error('Fehler beim Prüfen der Sperre:', err);
       setError('Fehler beim Prüfen der Sperre');
       return { 
         isLocked: lockInfo.isLocked, 
@@ -198,7 +199,7 @@ export function useResourceLock({
         return false;
       }
     } catch (err) {
-      console.error('Fehler beim Erwerben der Sperre:', err);
+      logger.error('Fehler beim Erwerben der Sperre:', err);
       setError('Fehler beim Erwerben der Sperre');
       return false;
     } finally {
@@ -245,7 +246,7 @@ export function useResourceLock({
         return false;
       }
     } catch (err: any) {
-      console.error('Fehler beim Freigeben der Sperre:', err);
+      logger.error('Fehler beim Freigeben der Sperre:', err);
       setError('Fehler beim Freigeben der Sperre');
       return false;
     } finally {
@@ -260,7 +261,7 @@ export function useResourceLock({
     try {
       await LocksApi.updateActivity(resourceType, resourceId);
     } catch (err: any) {
-      console.error('Fehler beim Aktualisieren der Aktivität:', err);
+      logger.error('Fehler beim Aktualisieren der Aktivität:', err);
     }
   }, [resourceType, resourceId]);
 
@@ -350,7 +351,7 @@ export function useResourceLock({
       const isPersisted = (event as any)?.persisted === true;
       const isHidden = typeof document !== 'undefined' ? document.visibilityState === 'hidden' : true;
       if (autoRelease && isOwnLockRef.current && !isReleasingRef.current && !isPersisted && isHidden) {
-        console.log('[Lock] Sende Sperre-Freigabe per sendBeacon (pagehide)', { resourceType, resourceId });
+        logger.debug('[Lock] Sende Sperre-Freigabe per sendBeacon (pagehide)', { resourceType, resourceId });
         try {
           const blob = new Blob([JSON.stringify({ resourceType, resourceId })], { type: 'application/json' });
           navigator.sendBeacon('/api/locks/release', blob);
@@ -364,7 +365,7 @@ export function useResourceLock({
           }).catch(() => {});
         }
       } else {
-        console.log('[Lock] Kein Freigeben nötig beim Verlassen', {
+        logger.debug('[Lock] Kein Freigeben nötig beim Verlassen', {
           autoRelease,
           isOwnLock: isOwnLockRef.current,
           isReleasing: isReleasingRef.current,
@@ -390,10 +391,10 @@ export function useResourceLock({
   //   if (autoAcquire && !lockInfo.isLocked && !lockInfo.isOwnLock && isInitialized && !isAcquiringRef.current) {
   //     const timer = setTimeout(() => {
   //       if (!isAcquiringRef.current && !isOwnLockRef.current && !lockInfo.isLocked) {
-  //         console.log('Automatischer Erwerb nach Statusänderung');
+  //         logger.debug('Automatischer Erwerb nach Statusänderung');
   //         acquireLock();
   //       } else {
-  //         console.log('Automatischer Erwerb übersprungen - Status hat sich geändert');
+  //         logger.debug('Automatischer Erwerb übersprungen - Status hat sich geändert');
   //       }
   //     }, 3000);
   //     
@@ -435,18 +436,18 @@ export function useResourceLock({
         // Verbesserte lock-released handler - Status aktualisieren und Benutzer informieren
         const handleLockReleased = (data: any) => {
           if (data.resourceType === resourceType && data.resourceId === resourceId) {
-            console.log('WebSocket lock released event received:', data);
+            logger.debug('WebSocket lock released event received:', data);
             
             // Status sofort prüfen, um UI zu aktualisieren
             setTimeout(() => {
               checkLock(true).then((status) => {
-                console.log('Lock status updated after WebSocket release notification:', status);
+                logger.debug('Lock status updated after WebSocket release notification:', status);
                 
                 // Hier könnten wir eine Benachrichtigung anzeigen, dass die Sperre freigegeben wurde
                 // z.B. über einen Toast/Snackbar oder ein Event-System
                 // Wir verwenden die bestehenden Callbacks
                 if (!status.isLocked) {
-                  console.log('Resource is now available after release!');
+                  logger.debug('Resource is now available after release!');
                   // Optional: Callback aufrufen, wenn definiert
                   onLockReleased?.();
                 }
@@ -469,7 +470,7 @@ export function useResourceLock({
           // Wichtig: Hier NICHT freigeben, da dieser Cleanup auch bei Re-Renders/Dependency-Änderungen läuft
         };
       } catch (error) {
-        console.log('WebSocket not available, using HTTP polling fallback');
+        logger.debug('WebSocket not available, using HTTP polling fallback');
         // Fallback: Kontinuierliche HTTP-Polling
         const timer = setInterval(() => {
           if (!lockInfo.isOwnLock) {

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/dbConnect';
 import NotificationLog from '../../../../lib/models/NotificationLog';
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     }));
     return NextResponse.json({ logs: rows });
   } catch (e) {
-    console.error('GET /api/notifications/logs error', e);
+    logger.error('GET /api/notifications/logs error', e);
     return NextResponse.json({ error: 'Fehler beim Laden der Logs' }, { status: 500 });
   }
 }

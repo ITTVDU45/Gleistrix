@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import dbConnect from '@/lib/dbConnect'
@@ -26,7 +27,7 @@ export async function GET() {
       .lean()
     return NextResponse.json({ success: true, inventory: list }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
-    console.error('Fehler beim Laden der Inventuren:', error)
+    logger.error('Fehler beim Laden der Inventuren:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Inventuren' },
       { status: 500 }
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: populated ?? doc }, { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Anlegen der Inventur:', error)
+    logger.error('Fehler beim Anlegen der Inventur:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Anlegen der Inventur' },
       { status: 500 }

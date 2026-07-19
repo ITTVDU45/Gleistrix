@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { ArticleUnit } from '@/lib/models/ArticleUnit'
@@ -27,7 +28,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: unit })
   } catch (error) {
-    console.error('Fehler beim Laden der Unit:', error)
+    logger.error('Fehler beim Laden der Unit:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Laden der Unit' }, { status: 500 })
   }
 }
@@ -86,7 +87,7 @@ export async function PUT(
         { status: 409 }
       )
     }
-    console.error('Fehler beim Aktualisieren der Unit:', error)
+    logger.error('Fehler beim Aktualisieren der Unit:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Aktualisieren der Unit' }, { status: 500 })
   }
 }
@@ -118,7 +119,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, message: 'Unit gelöscht' })
   } catch (error) {
-    console.error('Fehler beim Löschen der Unit:', error)
+    logger.error('Fehler beim Löschen der Unit:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Löschen der Unit' }, { status: 500 })
   }
 }

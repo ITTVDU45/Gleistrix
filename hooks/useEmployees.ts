@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { fetchWithIntent } from '@/lib/http/fetchWithIntent'
 import { EmployeesApi } from '@/lib/api/employees'
@@ -57,7 +58,7 @@ export function useEmployees() {
       employeeData.status = 'aktiv';
     }
     
-    console.log('Sende Mitarbeiterdaten an API:', employeeData);
+    logger.debug('Sende Mitarbeiterdaten an API:', employeeData);
     
     const data = await EmployeesApi.create(employeeData)
     if ((data as any).success && (data as any).data) {
@@ -80,7 +81,7 @@ export function useEmployees() {
           newEmployee
         );
       } catch (error) {
-        console.error('Error logging employee creation:', error);
+        logger.error('Error logging employee creation:', error);
       }
       
       return newEmployee;
@@ -131,7 +132,7 @@ export function useEmployees() {
           { status }
         );
       } catch (error) {
-        console.error('Error logging status change:', error);
+        logger.error('Error logging status change:', error);
       }
     } else {
       throw new Error(((data as any).message) || 'Fehler beim Aktualisieren des Status');
@@ -151,7 +152,7 @@ export function useEmployees() {
         endDate: new Date(vacation.endDate).toISOString()
       };
       
-      console.log('Hinzufügen von Urlaub:', processedVacation);
+      logger.debug('Hinzufügen von Urlaub:', processedVacation);
       
       const updatedVacationDays = [...(employee.vacationDays || []), processedVacation];
       
@@ -162,7 +163,7 @@ export function useEmployees() {
       // Bestimme den neuen Status basierend auf aktiven Urlaubszeiten
       const newStatus: EmployeeStatus = hasActiveVacations ? 'urlaub' : 'aktiv';
       
-      console.log(`Neuer Status für ${employee.name}: ${newStatus}`);
+      logger.debug(`Neuer Status für ${employee.name}: ${newStatus}`);
       
       const data = await EmployeesApi.update(employeeId, { vacationDays: updatedVacationDays, status: newStatus })
       if ((data as any).success && (data as any).employee) {
@@ -187,7 +188,7 @@ export function useEmployees() {
             updatedVacationDays
           );
         } catch (error) {
-          console.error('Error logging vacation addition:', error);
+          logger.error('Error logging vacation addition:', error);
         }
         
         return true;
@@ -195,7 +196,7 @@ export function useEmployees() {
         throw new Error(((data as any).message) || 'Fehler beim Speichern der Urlaubszeiten');
       }
     } catch (error: any) {
-      console.error('Fehler beim Hinzufügen von Urlaub:', error);
+      logger.error('Fehler beim Hinzufügen von Urlaub:', error);
       throw error;
     }
   };
@@ -231,7 +232,7 @@ export function useEmployees() {
         throw new Error(((data as any).message) || 'Fehler beim Löschen der Urlaubszeiten');
       }
     } catch (error: any) {
-      console.error('Fehler beim Löschen von Urlaub:', error);
+      logger.error('Fehler beim Löschen von Urlaub:', error);
       throw error;
     }
   };
@@ -257,7 +258,7 @@ export function useEmployees() {
       }
       return false;
     } catch (error: any) {
-      console.error('Fehler beim Aktualisieren des Status basierend auf Urlaub:', error);
+      logger.error('Fehler beim Aktualisieren des Status basierend auf Urlaub:', error);
       throw error;
     }
   };
@@ -268,26 +269,26 @@ export function useEmployees() {
       const today = new Date();
       let updatedCount = 0;
 
-      console.log('=== AUTOMATISCHE STATUS-ANPASSUNG STARTET ===');
-      console.log('Aktuelles Datum:', today.toISOString());
-      console.log('Anzahl Mitarbeiter:', employees.length);
+      logger.debug('=== AUTOMATISCHE STATUS-ANPASSUNG STARTET ===');
+      logger.debug('Aktuelles Datum:', today.toISOString());
+      logger.debug('Anzahl Mitarbeiter:', employees.length);
 
       for (const employee of employees) {
-        console.log(`\nPrüfe Mitarbeiter: ${employee.name}`);
-        console.log(`Aktueller Status: ${employee.status}`);
-        console.log(`Urlaubszeiten:`, employee.vacationDays);
+        logger.debug(`\nPrüfe Mitarbeiter: ${employee.name}`);
+        logger.debug(`Aktueller Status: ${employee.status}`);
+        logger.debug(`Urlaubszeiten:`, employee.vacationDays);
         
         const isOnVacation = isEmployeeOnVacation(employee, employee.vacationDays || [], today);
         const shouldBeOnVacation = isOnVacation && employee.status !== 'urlaub';
         const shouldBeActive = !isOnVacation && employee.status === 'urlaub';
 
-        console.log(`Ist im Urlaub: ${isOnVacation}`);
-        console.log(`Sollte auf Urlaub gesetzt werden: ${shouldBeOnVacation}`);
-        console.log(`Sollte auf Aktiv gesetzt werden: ${shouldBeActive}`);
+        logger.debug(`Ist im Urlaub: ${isOnVacation}`);
+        logger.debug(`Sollte auf Urlaub gesetzt werden: ${shouldBeOnVacation}`);
+        logger.debug(`Sollte auf Aktiv gesetzt werden: ${shouldBeActive}`);
 
         if (shouldBeOnVacation || shouldBeActive) {
           const newStatus: EmployeeStatus = isOnVacation ? 'urlaub' : 'aktiv';
-          console.log(`Setze Status auf: ${newStatus}`);
+          logger.debug(`Setze Status auf: ${newStatus}`);
           
           const data = await EmployeesApi.update(employee.id, { status: newStatus })
           if ((data as any).success !== false) {
@@ -295,20 +296,20 @@ export function useEmployees() {
               emp.id === employee.id ? { ...emp, status: newStatus } : emp
             ));
             updatedCount++;
-            console.log(`✅ Status für ${employee.name} aktualisiert`);
+            logger.debug(`✅ Status für ${employee.name} aktualisiert`);
           } else {
-            console.log(`❌ Fehler beim Aktualisieren von ${employee.name}`);
+            logger.debug(`❌ Fehler beim Aktualisieren von ${employee.name}`);
           }
         } else {
-          console.log(`⏭️ Keine Änderung für ${employee.name} nötig`);
+          logger.debug(`⏭️ Keine Änderung für ${employee.name} nötig`);
         }
       }
 
-      console.log(`\n${updatedCount} Mitarbeiter-Status basierend auf Urlaubszeiten aktualisiert`);
-      console.log('=== AUTOMATISCHE STATUS-ANPASSUNG BEENDET ===');
+      logger.debug(`\n${updatedCount} Mitarbeiter-Status basierend auf Urlaubszeiten aktualisiert`);
+      logger.debug('=== AUTOMATISCHE STATUS-ANPASSUNG BEENDET ===');
       return updatedCount;
     } catch (error: any) {
-      console.error('Fehler beim automatischen Aktualisieren der Status:', error);
+      logger.error('Fehler beim automatischen Aktualisieren der Status:', error);
       throw error;
     }
   };
@@ -319,11 +320,11 @@ export function useEmployees() {
     const startDate = new Date(vacation.startDate);
     const endDate = new Date(vacation.endDate);
     
-    console.log('isCurrentlyOnVacation Check:');
-    console.log('  Heute:', today.toISOString());
-    console.log('  Start:', startDate.toISOString());
-    console.log('  Ende:', endDate.toISOString());
-    console.log('  Ist im Urlaub:', today >= startDate && today <= endDate);
+    logger.debug('isCurrentlyOnVacation Check:');
+    logger.debug('  Heute:', today.toISOString());
+    logger.debug('  Start:', startDate.toISOString());
+    logger.debug('  Ende:', endDate.toISOString());
+    logger.debug('  Ist im Urlaub:', today >= startDate && today <= endDate);
     
     return today >= startDate && today <= endDate;
   };
@@ -331,22 +332,22 @@ export function useEmployees() {
   // Hilfsfunktion: Prüft, ob ein Mitarbeiter mit seinen Urlaubszeiten aktuell im Urlaub ist
   const isEmployeeOnVacation = (employee: Employee, vacationDays = employee.vacationDays || [], checkDate?: Date) => {
     const dateToCheck = checkDate || new Date();
-    console.log(`isEmployeeOnVacation Check für ${employee.name}:`);
-    console.log('  Datum zu prüfen:', dateToCheck.toISOString());
-    console.log('  Anzahl Urlaubszeiten:', vacationDays.length);
+    logger.debug(`isEmployeeOnVacation Check für ${employee.name}:`);
+    logger.debug('  Datum zu prüfen:', dateToCheck.toISOString());
+    logger.debug('  Anzahl Urlaubszeiten:', vacationDays.length);
     
     const isOnVacation = vacationDays.some(vacation => {
       const startDate = new Date(vacation.startDate);
       const endDate = new Date(vacation.endDate);
       const isCurrentlyOnVacation = dateToCheck >= startDate && dateToCheck <= endDate;
       
-      console.log(`  Urlaub: ${startDate.toISOString()} - ${endDate.toISOString()}`);
-      console.log(`  Ist im Urlaub: ${isCurrentlyOnVacation}`);
+      logger.debug(`  Urlaub: ${startDate.toISOString()} - ${endDate.toISOString()}`);
+      logger.debug(`  Ist im Urlaub: ${isCurrentlyOnVacation}`);
       
       return isCurrentlyOnVacation;
     });
     
-    console.log(`  Gesamtergebnis für ${employee.name}: ${isOnVacation}`);
+    logger.debug(`  Gesamtergebnis für ${employee.name}: ${isOnVacation}`);
     return isOnVacation;
   };
 

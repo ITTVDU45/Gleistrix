@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     const articles = await Article.find(filter).sort({ bezeichnung: 1 }).lean()
     return NextResponse.json({ success: true, articles })
   } catch (error) {
-    console.error('Fehler beim Laden der Artikel:', error)
+    logger.error('Fehler beim Laden der Artikel:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Artikel' },
       { status: 500 }
@@ -120,13 +121,13 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (logErr) {
-        console.error('ActivityLog Fehler:', logErr)
+        logger.error('ActivityLog Fehler:', logErr)
       }
     }
 
     return NextResponse.json({ success: true, data: article }, { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Anlegen des Artikels:', error)
+    logger.error('Fehler beim Anlegen des Artikels:', error)
     if ((error as { code?: number }).code === 11000) {
       return NextResponse.json(
         { success: false, message: 'Ein Artikel mit dieser Artikelnummer existiert bereits' },

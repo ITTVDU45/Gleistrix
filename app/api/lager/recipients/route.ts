@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { LagerRecipient } from '@/lib/models/LagerRecipient'
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(await buildPayload())
   } catch (error) {
-    console.error('Fehler beim Laden der Empfaengerliste:', error)
+    logger.error('Fehler beim Laden der Empfaengerliste:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Empfaengerliste' },
       { status: 500 }
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(await buildPayload(), { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Speichern des Empfaengers:', error)
+    logger.error('Fehler beim Speichern des Empfaengers:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Speichern des Empfaengers' },
       { status: 500 }

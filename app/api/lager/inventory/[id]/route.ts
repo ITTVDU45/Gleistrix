@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Inventory } from '@/lib/models/Inventory'
@@ -44,7 +45,7 @@ export async function GET(
     }
     return NextResponse.json({ success: true, data: doc }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
-    console.error('Fehler beim Laden der Inventur:', error)
+    logger.error('Fehler beim Laden der Inventur:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Inventur' },
       { status: 500 }
@@ -241,7 +242,7 @@ export async function PUT(
       .lean()
     return NextResponse.json({ success: true, data: doc }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
-    console.error('Fehler beim Aktualisieren der Inventur:', error)
+    logger.error('Fehler beim Aktualisieren der Inventur:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Aktualisieren der Inventur' },
       { status: 500 }
@@ -274,7 +275,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Fehler beim Loeschen der Inventur:', error)
+    logger.error('Fehler beim Loeschen der Inventur:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Loeschen der Inventur' },
       { status: 500 }

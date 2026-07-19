@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -172,7 +173,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(await buildPayload())
   } catch (error) {
-    console.error('Fehler beim Laden der Partnerliste:', error)
+    logger.error('Fehler beim Laden der Partnerliste:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Laden der Partnerliste' }, { status: 500 })
   }
 }
@@ -287,7 +288,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(await buildPayload(), { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Speichern des Partners:', error)
+    logger.error('Fehler beim Speichern des Partners:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Speichern des Partners' }, { status: 500 })
   }
 }

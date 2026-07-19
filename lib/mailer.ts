@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import nodemailer from 'nodemailer';
 
 export interface EmailData {
@@ -75,23 +76,23 @@ export async function sendEmailResult(emailData: EmailData): Promise<{ ok: boole
 
     const info = await transporter.sendMail(mailOptions);
     if (process.env.NODE_ENV !== 'production') {
-      console.log('=== E-MAIL ERFOLGREICH GESENDET ===');
-      console.log(`Message ID: ${info.messageId}`);
-      console.log(`Von: ${mailOptions.from}`);
-      console.log(`An: ${emailData.to}`);
-      console.log(`Betreff: ${emailData.subject}`);
-      console.log('=====================================');
+      logger.debug('=== E-MAIL ERFOLGREICH GESENDET ===');
+      logger.debug(`Message ID: ${info.messageId}`);
+      logger.debug(`Von: ${mailOptions.from}`);
+      logger.debug(`An: ${emailData.to}`);
+      logger.debug(`Betreff: ${emailData.subject}`);
+      logger.debug('=====================================');
     }
     return { ok: true };
   } catch (error: any) {
-    console.error('E-Mail-Versand fehlgeschlagen:', error);
+    logger.error('E-Mail-Versand fehlgeschlagen:', error);
     const message = typeof error?.message === 'string' ? error.message : 'Unbekannter SMTP-Fehler';
     if (process.env.NODE_ENV !== 'production') {
-      console.log('=== E-MAIL DEMO-LOGGING (Fallback) ===');
-      console.log(`An: ${emailData.to}`);
-      console.log(`Betreff: ${emailData.subject}`);
-      console.log(`Fehler: ${message}`);
-      console.log('========================================');
+      logger.debug('=== E-MAIL DEMO-LOGGING (Fallback) ===');
+      logger.debug(`An: ${emailData.to}`);
+      logger.debug(`Betreff: ${emailData.subject}`);
+      logger.debug(`Fehler: ${message}`);
+      logger.debug('========================================');
     }
     return { ok: false, error: message };
   }

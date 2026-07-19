@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../lib/dbConnect"
 import mongoose from "mongoose"
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
       { status: 200 }
     )
   } catch (error) {
-    console.error("Get users error:", error)
+    logger.error("Get users error:", error)
     return NextResponse.json({ error: "Ein Fehler ist aufgetreten" }, { status: 500 })
   }
 }

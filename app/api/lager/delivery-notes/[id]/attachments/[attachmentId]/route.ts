@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { DeliveryNote } from '@/lib/models/DeliveryNote'
@@ -30,13 +31,13 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     try {
       await removeObject(foundAttachment.bucket, foundAttachment.objectKey)
     } catch (storageError) {
-      console.warn('MinIO removeObject fehlgeschlagen:', storageError)
+      logger.warn('MinIO removeObject fehlgeschlagen:', storageError)
     }
 
     await DeliveryNote.findByIdAndUpdate(id, { $pull: { attachments: { attachmentId } } })
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Löschen Lieferscheinanhang fehlgeschlagen:', error)
+    logger.error('Löschen Lieferscheinanhang fehlgeschlagen:', error)
     return NextResponse.json({ success: false, message: 'Anhang konnte nicht gelöscht werden' }, { status: 500 })
   }
 }

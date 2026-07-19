@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 class LockWebSocket {
   private socket: WebSocket | null = null;
   private listeners: Map<string, Function[]> = new Map();
@@ -14,13 +15,13 @@ class LockWebSocket {
     
     // Verhindere mehrfache Verbindungsversuche
     if (this.isConnecting) {
-      console.log('WebSocket already connecting');
+      logger.debug('WebSocket already connecting');
       return;
     }
     
     // Wenn bereits verbunden, aber mit anderer Benutzer-ID, neu verbinden
     if (this.isConnected && this.socket && this.socket.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected, sending identification');
+      logger.debug('WebSocket already connected, sending identification');
       try {
         // Sende Identifikation an den Server
         this.socket.send(JSON.stringify({
@@ -29,7 +30,7 @@ class LockWebSocket {
         }));
         return;
       } catch (error) {
-        console.log('Error sending identification, reconnecting');
+        logger.debug('Error sending identification, reconnecting');
         this.socket.close();
       }
     }
@@ -45,19 +46,19 @@ class LockWebSocket {
 
       // Feature-Flag: Wenn keine URL konfiguriert oder explizit "disabled", WS komplett überspringen
       if (!envUrl || envUrl === 'disabled') {
-        console.log('WebSocket disabled (NEXT_PUBLIC_WS_URL not set or disabled). Using HTTP polling.');
+        logger.debug('WebSocket disabled (NEXT_PUBLIC_WS_URL not set or disabled). Using HTTP polling.');
         this.isConnecting = false;
         this.isConnected = false;
         return;
       }
 
       const wsUrl = envUrl;
-      console.log('Attempting to connect to WebSocket:', wsUrl, 'with userId:', userId);
+      logger.debug('Attempting to connect to WebSocket:', wsUrl, 'with userId:', userId);
       
       this.socket = new WebSocket(`${wsUrl}?userId=${userId}`);
 
       this.socket.onopen = () => {
-        console.log('WebSocket connected successfully');
+        logger.debug('WebSocket connected successfully');
         this.isConnected = true;
         this.isConnecting = false;
         this.reconnectAttempts = 0;
@@ -72,14 +73,14 @@ class LockWebSocket {
       };
 
       this.socket.onclose = (event) => {
-        console.log('WebSocket disconnected:', event.code, event.reason);
+        logger.debug('WebSocket disconnected:', event.code, event.reason);
         this.isConnected = false;
         this.isConnecting = false;
         this.attemptReconnect();
       };
 
       this.socket.onerror = (error) => {
-        console.log('WebSocket connection failed, will attempt reconnect');
+        logger.debug('WebSocket connection failed, will attempt reconnect');
         this.isConnected = false;
         this.isConnecting = false;
       };
@@ -87,14 +88,14 @@ class LockWebSocket {
       this.socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('WebSocket message received:', data);
+          logger.debug('WebSocket message received:', data);
           this.notifyListeners(data.type, data);
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          logger.error('Error parsing WebSocket message:', error);
         }
       };
     } catch (error) {
-      console.log('WebSocket not available, using HTTP polling fallback');
+      logger.debug('WebSocket not available, using HTTP polling fallback');
       this.isConnected = false;
       this.isConnecting = false;
     }
@@ -103,7 +104,7 @@ class LockWebSocket {
   private attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts && this.userId) {
       this.reconnectAttempts++;
-      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      logger.debug(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
       
       // Abbrechen eines vorherigen Reconnect-Timers
       if (this.reconnectTimer) {
@@ -120,7 +121,7 @@ class LockWebSocket {
         this.reconnectTimer = null;
       }, delay);
     } else {
-      console.log('Max reconnection attempts reached, using HTTP polling fallback');
+      logger.debug('Max reconnection attempts reached, using HTTP polling fallback');
     }
   }
 
@@ -159,7 +160,7 @@ class LockWebSocket {
 
   emitLockUpdate(resourceType: string, resourceId: string, action: 'acquired' | 'released' | 'updated') {
     if (this.socket && this.socket.readyState === WebSocket.OPEN && this.isConnected) {
-      console.log('Sending WebSocket lock update:', { resourceType, resourceId, action });
+      logger.debug('Sending WebSocket lock update:', { resourceType, resourceId, action });
       
       // Bestimme den Event-Typ basierend auf der Aktion
       let eventType = 'lock-update';
@@ -198,7 +199,7 @@ class LockWebSocket {
         });
       }
     } else {
-      console.log('WebSocket not available for lock update, using HTTP polling');
+      logger.debug('WebSocket not available for lock update, using HTTP polling');
       
       // Bei fehlender WebSocket-Verbindung trotzdem lokale Benachrichtigung senden
       if (action === 'released') {

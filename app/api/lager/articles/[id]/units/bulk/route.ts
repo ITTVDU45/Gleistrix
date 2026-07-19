@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
@@ -99,7 +100,7 @@ export async function POST(
         { status: 409 }
       )
     }
-    console.error('Fehler beim Bulk-Import:', error)
+    logger.error('Fehler beim Bulk-Import:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Bulk-Import' }, { status: 500 })
   }
 }

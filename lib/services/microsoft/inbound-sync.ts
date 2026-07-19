@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import dbConnect from '@/lib/dbConnect'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
 import { graphGet } from './graph-client'
@@ -144,6 +145,6 @@ export async function reconcileEventNotification(
       },
     })
   } catch (err) {
-    console.error('[MS→Plantafel] Reconcile fehlgeschlagen:', err)
+    logger.error('[MS→Plantafel] Reconcile fehlgeschlagen:', err)
   }
 }

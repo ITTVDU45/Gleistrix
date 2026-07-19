@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 import dbConnect from '../../../../lib/dbConnect'
@@ -46,11 +47,11 @@ export async function GET(req: NextRequest) {
     const isOwnLock = lockUserIdStr === currentUserId
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('=== SPERRE PRUEFUNG ===')
-      console.log(`Aktueller Benutzer: ${currentUserId}`)
-      console.log(`Sperre von: ${lockUserIdStr} (${lock.lockedBy?.name || '-'})`)
-      console.log(`Ist eigene Sperre: ${isOwnLock}`)
-      console.log('========================')
+      logger.debug('=== SPERRE PRUEFUNG ===')
+      logger.debug(`Aktueller Benutzer: ${currentUserId}`)
+      logger.debug(`Sperre von: ${lockUserIdStr} (${lock.lockedBy?.name || '-'})`)
+      logger.debug(`Ist eigene Sperre: ${isOwnLock}`)
+      logger.debug('========================')
     }
 
     return NextResponse.json({
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Fehler beim Pruefen der Sperre:', error)
+    logger.error('Fehler beim Pruefen der Sperre:', error)
     return NextResponse.json({ error: 'Fehler beim Pruefen der Sperre' }, { status: 500 })
   }
 }

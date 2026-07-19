@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 ﻿import { NextRequest, NextResponse } from "next/server"
 export const runtime = "nodejs"
 import dbConnect from "../../../lib/dbConnect"
@@ -124,7 +125,7 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Error fetching activity logs:", error)
+    logger.error("Error fetching activity logs:", error)
     return NextResponse.json({ error: "Fehler beim Laden der Activity Logs" }, { status: 500 })
   }
 }

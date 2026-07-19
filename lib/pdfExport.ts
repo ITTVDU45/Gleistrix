@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -135,7 +136,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
         totalSonntag += Number.isFinite(sonntagNum) ? sonntagNum : 0
         
         // Für Debug-Zwecke
-        console.log('Sonntagsstunden Berechnung:', {
+        logger.debug('Sonntagsstunden Berechnung:', {
           tag: d,
           mitarbeiter: e.name || e.mitarbeiter,
           sonntag: e.sonntag,
@@ -149,7 +150,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
         
         // Debug-Log für Sonntagsstunden
         if (e.sonntag !== undefined || e.sonntagsstunden !== undefined || e.sonntagstunden !== undefined) {
-          console.log('Sonntagsstunden gefunden:', {
+          logger.debug('Sonntagsstunden gefunden:', {
             sonntag: e.sonntag,
             sonntagsstunden: e.sonntagsstunden,
             sonntagstunden: e.sonntagstunden,
@@ -377,7 +378,7 @@ export async function createPDFForProjectDays(project: any, days: string[]) {
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
     return pdfBuffer
   } catch (e) {
-    console.error('createPDFForProjectDays failed:', e)
+    logger.error('createPDFForProjectDays failed:', e)
     throw e
   }
 }

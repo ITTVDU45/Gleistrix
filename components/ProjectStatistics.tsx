@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
@@ -90,7 +91,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
         'Top 10 Mitarbeiter'
       ];
       if (typeof document === 'undefined') {
-        console.warn('PDF-Export nur im Browser verfÃƒÂ¼gbar');
+        logger.warn('PDF-Export nur im Browser verfÃƒÂ¼gbar');
         return;
       }
       const charts = document.querySelectorAll('.chart-container');
@@ -114,7 +115,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
           doc.addImage(dataUrl, 'PNG', 14, yOffset, imgWidth, imgHeight);
           yOffset += imgHeight + 10;
         } catch (error) {
-          console.error('Fehler beim Exportieren des Diagramms:', error);
+          logger.error('Fehler beim Exportieren des Diagramms:', error);
         }
       });
       // Speichern nach allen Diagrammen (Timeout, da toPng async ist)
@@ -122,7 +123,7 @@ export default function ProjectStatistics({ projects, employees, vehicles }: Pro
         doc.save(`Dashboard_Statistiken_${timestamp.replace(/[:.]/g, '-')}.pdf`);
       }, 1000);
     } catch (error) {
-      console.error('Fehler beim PDF-Export:', error);
+      logger.error('Fehler beim PDF-Export:', error);
       alert('Beim Export ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.');
     }
   };

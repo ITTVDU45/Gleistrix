@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useCallback, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
@@ -95,7 +96,7 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
         // Hole Projekt direkt mit credentials, da ProjectsApi.get wrappers unterschiedliche Shapes zurückgeben können
         const resRaw = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
         if (!resRaw.ok) {
-          console.warn('Failed to fetch project docs, status=', resRaw.status);
+          logger.warn('Failed to fetch project docs, status=', resRaw.status);
           return;
         }
         const pj = await resRaw.json();
@@ -104,7 +105,7 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
           setLocalDocs(projectObj.dokumente.all);
         }
       } catch (e) {
-        console.warn('Failed to fetch project docs', e);
+        logger.warn('Failed to fetch project docs', e);
       }
     };
     fetchProjectDocs();
@@ -149,17 +150,17 @@ export default function DocumentsCard({ projectId, documents = [], onUpload, onU
       try {
         json = await res.json();
       } catch (parseErr) {
-        console.warn('Delete response not JSON', parseErr);
+        logger.warn('Delete response not JSON', parseErr);
       }
       if (res.ok && json?.success) {
         setLocalDocs(prev => prev.filter(d => d.id !== docId));
         setToDeleteId(null);
       } else {
-        console.warn('Delete failed', res.status, json);
+        logger.warn('Delete failed', res.status, json);
         alert('Löschen fehlgeschlagen');
       }
     } catch (e) {
-      console.error('Delete error', e);
+      logger.error('Delete error', e);
       alert('Löschen fehlgeschlagen');
     }
   };

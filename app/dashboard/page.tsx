@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useEffect, useState } from 'react';
 import { AuthApi } from '@/lib/api/auth'
 import { ProjectsApi } from '@/lib/api/projects'
@@ -46,10 +47,10 @@ export default function DashboardPage() {
     try {
       const sessionData = await AuthApi.session()
 
-      console.log('NextAuth Session:', sessionData);
+      logger.debug('NextAuth Session:', sessionData);
 
       if (!sessionData || !sessionData.user) {
-        console.log('Keine gueltige NextAuth-Session gefunden');
+        logger.debug('Keine gueltige NextAuth-Session gefunden');
         router.push('/login');
         return;
       }
@@ -61,7 +62,7 @@ export default function DashboardPage() {
         router.push('/login');
       }
     } catch (err) {
-      console.error('Auth check error:', err);
+      logger.error('Auth check error:', err);
       router.push('/login');
     } finally {
       setIsLoading(false);
@@ -70,7 +71,7 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      console.log('Dashboard - Starte Datenladung...');
+      logger.debug('Dashboard - Starte Datenladung...');
 
       const projectsData = await ProjectsApi.list(0, 500, '', { includeTimes: true, includeVehicles: true, includeTechnik: true })
       setProjects((projectsData as any).projects || [])
@@ -81,9 +82,9 @@ export default function DashboardPage() {
       const vehiclesData = await VehiclesApi.list()
       setVehicles((vehiclesData as any).vehicles || [])
 
-      console.log('Dashboard - Datenladung abgeschlossen');
+      logger.debug('Dashboard - Datenladung abgeschlossen');
     } catch (err) {
-      console.error('Dashboard data loading error:', err);
+      logger.error('Dashboard data loading error:', err);
     }
   };
 

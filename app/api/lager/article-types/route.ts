@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { ArticleType } from '@/lib/models/ArticleType'
@@ -19,7 +20,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, types: names })
   } catch (error) {
-    console.error('Fehler beim Laden der Artikeltypen:', error)
+    logger.error('Fehler beim Laden der Artikeltypen:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Artikeltypen' },
       { status: 500 }
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     await ArticleType.create({ name })
     return NextResponse.json({ success: true, name }, { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Anlegen des Artikeltyps:', error)
+    logger.error('Fehler beim Anlegen des Artikeltyps:', error)
     if ((error as { code?: number }).code === 11000) {
       return NextResponse.json({ success: false, message: 'Typ existiert bereits' }, { status: 409 })
     }

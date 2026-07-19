@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import dbConnect from '../../../../lib/dbConnect'
@@ -57,7 +58,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true, subcompany })
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Subunternehmens:', error)
+    logger.error('Fehler beim Aktualisieren des Subunternehmens:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Aktualisieren des Subunternehmens' },
       { status: 500 }
@@ -88,7 +89,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Fehler beim Loeschen des Subunternehmens:', error)
+    logger.error('Fehler beim Loeschen des Subunternehmens:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Loeschen des Subunternehmens' },
       { status: 500 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
@@ -82,7 +83,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Document content proxy failed:', error)
+    logger.error('Document content proxy failed:', error)
     return NextResponse.json({ message: 'Dokument kann nicht angezeigt werden' }, { status: 500 })
   }
 }

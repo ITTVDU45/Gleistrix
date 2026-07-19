@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Feiertags-API - Einzelner Feiertag
  * GET: Einzelnen Feiertag abrufen
@@ -40,7 +41,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       }
     })
   } catch (error) {
-    console.error('Fehler beim Laden des Feiertags:', error)
+    logger.error('Fehler beim Laden des Feiertags:', error)
     return NextResponse.json(
       { success: false, error: 'Fehler beim Laden des Feiertags' },
       { status: 500 }
@@ -133,7 +134,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       }
     })
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Feiertags:', error)
+    logger.error('Fehler beim Aktualisieren des Feiertags:', error)
     return NextResponse.json(
       { success: false, error: 'Fehler beim Aktualisieren des Feiertags' },
       { status: 500 }
@@ -176,7 +177,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       message: 'Feiertag erfolgreich gelöscht'
     })
   } catch (error) {
-    console.error('Fehler beim Löschen des Feiertags:', error)
+    logger.error('Fehler beim Löschen des Feiertags:', error)
     return NextResponse.json(
       { success: false, error: 'Fehler beim Löschen des Feiertags' },
       { status: 500 }

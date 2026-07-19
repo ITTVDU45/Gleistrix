@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -116,7 +117,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Partners:', error)
+    logger.error('Fehler beim Aktualisieren des Partners:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Aktualisieren des Partners' }, { status: 500 })
   }
 }

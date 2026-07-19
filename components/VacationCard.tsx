@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -63,7 +64,7 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
         setCurrentEmployee(updatedEmployee)
       }
     } catch (error) {
-      console.error('Fehler beim Laden der aktuellen Mitarbeiterdaten:', error);
+      logger.error('Fehler beim Laden der aktuellen Mitarbeiterdaten:', error);
     }
   };
 

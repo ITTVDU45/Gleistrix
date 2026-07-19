@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import mongoose from 'mongoose';
 
 interface ILock {
@@ -192,7 +193,7 @@ LockSchema.statics.createLock = async function(
     
     return lock;
   } catch (error) {
-    console.error('Fehler beim Erstellen der Sperre:', error);
+    logger.error('Fehler beim Erstellen der Sperre:', error);
     throw error;
   } finally {
     await session.endSession();
@@ -201,9 +202,9 @@ LockSchema.statics.createLock = async function(
 
 // Statische Methode zum Freigeben einer Sperre
 LockSchema.statics.releaseLock = async function(resourceType: string, resourceId: string, userId: string) {
-  console.log(`=== SPERRE FREIGEBEN ===`);
-  console.log(`Ressource: ${resourceType}/${resourceId}`);
-  console.log(`Benutzer-ID: ${userId}`);
+  logger.debug(`=== SPERRE FREIGEBEN ===`);
+  logger.debug(`Ressource: ${resourceType}/${resourceId}`);
+  logger.debug(`Benutzer-ID: ${userId}`);
   
   // Alle Sperren für diese Ressource finden
   const existingLocks = await this.find({
@@ -211,7 +212,7 @@ LockSchema.statics.releaseLock = async function(resourceType: string, resourceId
     resourceId
   });
   
-  console.log(`Gefundene Sperren: ${existingLocks.length}`);
+  logger.debug(`Gefundene Sperren: ${existingLocks.length}`);
   
   if (existingLocks.length > 0) {
     // Alle Sperren für diese Ressource löschen (nicht nur die des aktuellen Benutzers)
@@ -220,13 +221,13 @@ LockSchema.statics.releaseLock = async function(resourceType: string, resourceId
       resourceId
     });
     
-    console.log(`Freigegebene Sperren: ${result.deletedCount} für ${resourceType}/${resourceId}`);
-    console.log(`===========================`);
+    logger.debug(`Freigegebene Sperren: ${result.deletedCount} für ${resourceType}/${resourceId}`);
+    logger.debug(`===========================`);
     
     return result.deletedCount > 0;
   } else {
-    console.log(`Keine Sperren gefunden für ${resourceType}/${resourceId}`);
-    console.log(`===========================`);
+    logger.debug(`Keine Sperren gefunden für ${resourceType}/${resourceId}`);
+    logger.debug(`===========================`);
     
     return false;
   }
@@ -254,7 +255,7 @@ LockSchema.statics.updateActivity = async function(resourceType: string, resourc
 
     return false;
   } catch (error) {
-    console.warn('Lock.updateActivity failed:', error);
+    logger.warn('Lock.updateActivity failed:', error);
     return false;
   }
 };
@@ -266,7 +267,7 @@ LockSchema.statics.cleanupExpiredLocks = async function() {
     lastActivity: { $lt: thirtyMinutesAgo }
   });
   
-  console.log(`Bereinigt: ${result.deletedCount} abgelaufene Sperren`);
+  logger.debug(`Bereinigt: ${result.deletedCount} abgelaufene Sperren`);
   return result.deletedCount;
 };
 

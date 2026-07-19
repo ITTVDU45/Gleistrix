@@ -1,4 +1,5 @@
 "use client"
+import { logger } from '@/lib/logger'
 import React from 'react'
 import { Button } from '../../components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
@@ -76,7 +77,7 @@ export default function AbrechnungClient({ projects = [] }: Props){
       setLocalProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus } : p))
       setFilteredProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus } : p))
     } catch (e) {
-      console.error('Status update failed', e)
+      logger.error('Status update failed', e)
     }
   }
 

@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -42,7 +43,7 @@ export default function TechnikList({
     
     setTechnikEintraege(entries);
     
-    console.log('TechnikList Debug:', {
+    logger.debug('TechnikList Debug:', {
       projectId: project.id,
       selectedDate,
       technikType: typeof project.technik,

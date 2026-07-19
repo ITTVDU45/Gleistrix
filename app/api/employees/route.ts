@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '../../../lib/dbConnect';
 import { Employee } from '../../../lib/models/Employee';
@@ -25,7 +26,7 @@ export async function GET() {
       employees: employeesWithVacationDays 
     });
   } catch (error) {
-    console.error('Fehler beim Laden der Mitarbeiter:', error);
+    logger.error('Fehler beim Laden der Mitarbeiter:', error);
     return NextResponse.json(
       { 
         success: false,
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Logging für Debugging
-    console.log('Neuer Mitarbeiter wird angelegt:', { name: data.name, position: data.position, status: data.status });
+    logger.debug('Neuer Mitarbeiter wird angelegt:', { name: data.name, position: data.position, status: data.status });
     
     const lastEmployee = await Employee.findOne({}, {}, { sort: { miNumber: -1 } });
     const nextMiNumber = lastEmployee && lastEmployee.miNumber ? lastEmployee.miNumber + 1 : 1;
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
     
     // Prüfen, ob der Status tatsächlich gespeichert wurde
     if (employee && employee.status !== data.status) {
-      console.warn('Status wurde nicht korrekt gespeichert:', {
+      logger.warn('Status wurde nicht korrekt gespeichert:', {
         requested: data.status,
         saved: employee.status
       });
@@ -133,9 +134,9 @@ export async function POST(request: NextRequest) {
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Mitarbeiter-Erstellung');
+        logger.debug('Activity Log erstellt für Mitarbeiter-Erstellung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
       data: employeeResponse 
     }, { status: 201 });
   } catch (error) {
-    console.error('Fehler beim Erstellen des Mitarbeiters:', error);
+    logger.error('Fehler beim Erstellen des Mitarbeiters:', error);
     return NextResponse.json(
       { 
         success: false,

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Fehler beim Laden der LVS-Statistiken:', error)
+    logger.error('Fehler beim Laden der LVS-Statistiken:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Statistiken' },
       { status: 500 }

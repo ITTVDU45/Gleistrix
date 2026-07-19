@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger'
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -187,7 +188,7 @@ export default function MitarbeiterPage() {
       await setEmployeeStatus(employeeId, status);
       setSnackbar({ open: true, message: 'Mitarbeiterstatus erfolgreich aktualisiert', severity: 'success' });
     } catch (err: any) {
-      console.error('Fehler beim Aktualisieren des Mitarbeiterstatus:', err);
+      logger.error('Fehler beim Aktualisieren des Mitarbeiterstatus:', err);
       setSnackbar({ open: true, message: err?.message || 'Fehler beim Aktualisieren des Mitarbeiterstatus', severity: 'error' });
     }
   };

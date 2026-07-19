@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Zeiteintrag-Berechnungs-API
  * POST: Berechnet Pausen und Zuschläge für einen Zeiteintrag
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
       }
     })
   } catch (error) {
-    console.error('Fehler bei der Zeiteintrag-Berechnung:', error)
+    logger.error('Fehler bei der Zeiteintrag-Berechnung:', error)
     return NextResponse.json(
       { success: false, error: 'Fehler bei der Berechnung' },
       { status: 500 }

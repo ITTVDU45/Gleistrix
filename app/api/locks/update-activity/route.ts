@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 import dbConnect from '../../../../lib/dbConnect'
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
       message: updated ? 'Aktivitaet aktualisiert' : 'Keine Sperre zum Aktualisieren gefunden',
     })
   } catch (error: any) {
-    console.error('Fehler beim Aktualisieren der Aktivitaet:', error)
+    logger.error('Fehler beim Aktualisieren der Aktivitaet:', error)
     return NextResponse.json({ error: 'Fehler beim Aktualisieren der Aktivitaet' }, { status: 500 })
   }
 }

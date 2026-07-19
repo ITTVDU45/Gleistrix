@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useParams, useRouter } from 'next/navigation';
@@ -55,7 +56,7 @@ export default function Page() {
     lazyLoad: false,
     userId: (session as any)?.user?.id as string | undefined,
     onLockAcquired: () => {
-      console.log('Lock acquired - showing snackbar');
+      logger.debug('Lock acquired - showing snackbar');
       setSnackbar({
         open: true,
         message: 'Sperre erfolgreich erworben - Sie können jetzt bearbeiten',
@@ -63,7 +64,7 @@ export default function Page() {
       });
     },
     onLockReleased: () => {
-      console.log('Lock released - showing snackbar');
+      logger.debug('Lock released - showing snackbar');
       setSnackbar({
         open: true,
         message: 'Sperre wurde freigegeben',
@@ -71,7 +72,7 @@ export default function Page() {
       });
     },
     onLockLost: () => {
-      console.log('Lock lost - showing snackbar');
+      logger.debug('Lock lost - showing snackbar');
       setSnackbar({
         open: true,
         message: 'Sperre verloren - Mitarbeiter wird von einem anderen Benutzer bearbeitet',
@@ -178,7 +179,7 @@ export default function Page() {
         });
       }
     } catch (error) {
-      console.error('Fehler beim Freigeben der Sperre:', error);
+      logger.error('Fehler beim Freigeben der Sperre:', error);
       setSnackbar({
         open: true,
         message: 'Fehler beim Freigeben der Sperre',
@@ -189,8 +190,8 @@ export default function Page() {
 
   // Debug-Logging für employee-Daten
   React.useEffect(() => {
-    console.log('Mitarbeiterdetailseite - employee:', employee);
-    console.log('Mitarbeiterdetailseite - employee.vacationDays:', employee?.vacationDays);
+    logger.debug('Mitarbeiterdetailseite - employee:', employee);
+    logger.debug('Mitarbeiterdetailseite - employee.vacationDays:', employee?.vacationDays);
   }, [employee]);
 
   // Hinweis: Keine automatische Status-Überschreibung beim Seitenaufruf.
@@ -272,12 +273,12 @@ export default function Page() {
   const employeeAssignments = React.useMemo(() => {
     if (!employee || !projectsLoaded || !projects) return [];
     
-    console.log('Projekte geladen:', projects.length);
-    console.log('Mitarbeitername:', employee.name);
+    logger.debug('Projekte geladen:', projects.length);
+    logger.debug('Mitarbeitername:', employee.name);
     
     // Debug-Log für die ersten 3 Projekte
     projects.slice(0, 3).forEach(project => {
-      console.log(`Projekt ${project.name} mitarbeiterZeiten:`, 
+      logger.debug(`Projekt ${project.name} mitarbeiterZeiten:`, 
         project.mitarbeiterZeiten ? 
         Object.keys(project.mitarbeiterZeiten).length + ' Tage' : 
         'keine');
@@ -289,14 +290,14 @@ export default function Page() {
       return Object.entries(project.mitarbeiterZeiten)
         .flatMap(([date, entries]) => {
           if (!Array.isArray(entries)) {
-            console.warn(`Keine Array-Einträge für Projekt ${project.name} am ${date}:`, entries);
+            logger.warn(`Keine Array-Einträge für Projekt ${project.name} am ${date}:`, entries);
             return [];
           }
           
           return entries
             .filter(entry => {
               const nameMatch = entry.name === employee.name;
-              if (nameMatch) console.log(`Eintrag gefunden für ${employee.name} in ${project.name} am ${date}`);
+              if (nameMatch) logger.debug(`Eintrag gefunden für ${employee.name} in ${project.name} am ${date}`);
               return nameMatch;
             })
             .map(entry => {
@@ -764,7 +765,7 @@ export default function Page() {
                 employee={employee} 
                 onVacationChange={(isOnVacation) => {
                   // Hier können wir später Logik für die Projektvergabe hinzufügen
-                  console.log(`Mitarbeiter ${employee.name} ist ${isOnVacation ? 'im Urlaub' : 'verfügbar'}`);
+                  logger.debug(`Mitarbeiter ${employee.name} ist ${isOnVacation ? 'im Urlaub' : 'verfügbar'}`);
                 }}
               />
             )}
@@ -878,11 +879,11 @@ export default function Page() {
         isOpen={lockInfo.isLocked && !lockInfo.isOwnLock}
         onClose={() => checkLock()}
         onRetry={async () => {
-          console.log('Retry clicked - checking lock and attempting to acquire');
+          logger.debug('Retry clicked - checking lock and attempting to acquire');
           await checkLock();
           const success = await acquireLock();
           if (success) {
-            console.log('Lock acquired successfully - reloading page');
+            logger.debug('Lock acquired successfully - reloading page');
             window.location.reload();
           }
         }}

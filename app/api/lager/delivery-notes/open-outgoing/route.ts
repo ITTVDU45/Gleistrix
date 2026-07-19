@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import dbConnect from '@/lib/dbConnect'
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, deliveryNotes: openOutgoing })
   } catch (error) {
-    console.error('Fehler beim Laden offener Warenausgang-Lieferscheine:', error)
+    logger.error('Fehler beim Laden offener Warenausgang-Lieferscheine:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden offener Warenausgang-Lieferscheine' },
       { status: 500 }

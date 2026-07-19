@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest){
     // Erzeuge PDF(s) via helper (wird in lib/pdfExport erwartet)
     const pdfBuffers: Array<{ filename: string; buffer: Buffer }> = []
     try {
-      console.debug('Abrechnung request', { projectId, days: Array.isArray(days) ? days.length : 0, copyDays: Array.isArray(copyDays) ? copyDays.length : 0 })
+      logger.debug('Abrechnung request', { projectId, days: Array.isArray(days) ? days.length : 0, copyDays: Array.isArray(copyDays) ? copyDays.length : 0 })
       if (typeof createPDFForProjectDays === 'function'){
         const pseudoTimesByDay: Record<string, any[]> = {}
         selectedRows.forEach((row) => {
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest){
         pdfBuffers.push({ filename: `${projectName}-abrechnung.pdf`, buffer: buf })
       }
     } catch (pdfErr) {
-      console.error('Failed to generate PDF for abrechnung', pdfErr)
+      logger.error('Failed to generate PDF for abrechnung', pdfErr)
       return NextResponse.json({ message: 'Fehler beim Erstellen der Abrechnungs-PDF' }, { status: 500 })
     }
 
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest){
             emailAttachments.push({ filename: pd.name, content: buf })
           }
         } catch (e) {
-          console.warn('Failed to attach project doc from MinIO', e)
+          logger.warn('Failed to attach project doc from MinIO', e)
         }
       }
     }
@@ -262,7 +263,7 @@ export async function POST(req: NextRequest){
         meta: { days: daysFromRows, copyDays: Array.from(copySet), selectedRowKeys, performedBy: (auth as any).token?.email || 'system' }
       })
     } catch (logErr) {
-      console.error('Failed to create notification log:', logErr)
+      logger.error('Failed to create notification log:', logErr)
     }
 
     // Update project's billed days and status based on billed billing positions
@@ -339,10 +340,10 @@ export async function POST(req: NextRequest){
             })
           }
         } catch (logErr) {
-          console.warn('ActivityLog for billing/status failed:', logErr)
+          logger.warn('ActivityLog for billing/status failed:', logErr)
         }
     } catch (e) {
-      console.warn('Could not update project billed days/status', e)
+      logger.warn('Could not update project billed days/status', e)
     }
 
     const firstPdf = pdfBuffers[0]
@@ -357,7 +358,7 @@ export async function POST(req: NextRequest){
         : null,
     })
   }catch(e){
-    console.error('Abrechnung failed', e)
+    logger.error('Abrechnung failed', e)
     return NextResponse.json({ message: 'Fehler bei Abrechnung' }, { status: 500 })
   }
 }

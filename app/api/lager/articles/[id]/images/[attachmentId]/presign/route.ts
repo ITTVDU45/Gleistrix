@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
@@ -51,7 +52,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, url })
   } catch (error) {
-    console.error('Presign-Artikelbild fehlgeschlagen:', error)
+    logger.error('Presign-Artikelbild fehlgeschlagen:', error)
     return NextResponse.json(
       { success: false, message: 'Bild-URL konnte nicht erstellt werden' },
       { status: 500 }

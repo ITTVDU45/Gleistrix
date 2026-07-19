@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { EmployeesApi } from '@/lib/api/employees'
@@ -30,7 +31,7 @@ export default function EmployeeActions({ employee }: EmployeeActionsProps) {
       // Seite neu laden um die Änderung zu reflektieren
       window.location.reload();
     } catch (error) {
-      console.error('Fehler beim Löschen des Mitarbeiters:', error);
+      logger.error('Fehler beim Löschen des Mitarbeiters:', error);
     } finally {
       setIsDeleting(false);
       setIsDialogOpen(false);

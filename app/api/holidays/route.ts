@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Feiertags-API - CRUD Operationen für Feiertage
  * GET: Liste aller Feiertage (optional gefiltert nach Jahr, Bundesland, Datumsbereich)
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
       }))
     })
   } catch (error) {
-    console.error('Fehler beim Laden der Feiertage:', error)
+    logger.error('Fehler beim Laden der Feiertage:', error)
     return NextResponse.json(
       { success: false, error: 'Fehler beim Laden der Feiertage' },
       { status: 500 }
@@ -132,7 +133,7 @@ export async function POST(request: Request) {
       }
     }, { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Erstellen des Feiertags:', error)
+    logger.error('Fehler beim Erstellen des Feiertags:', error)
     return NextResponse.json(
       { success: false, error: 'Fehler beim Erstellen des Feiertags' },
       { status: 500 }

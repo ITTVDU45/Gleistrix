@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       : await new Promise<string>((resolve, reject) => (minioClient as any).presignedGetObject(bucketName, key, expires, (err: any, url: string) => err ? reject(err) : resolve(url)));
     return NextResponse.json({ url: presigned });
   } catch (e) {
-    console.error('Presign failed', e);
+    logger.error('Presign failed', e);
     return NextResponse.json({ message: 'Presign fehlgeschlagen' }, { status: 500 });
   }
 }

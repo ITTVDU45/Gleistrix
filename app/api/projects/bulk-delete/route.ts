@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server';
 import { Project } from '../../../../lib/models/Project';
 import { Employee } from '../../../../lib/models/Employee';
@@ -68,9 +69,9 @@ export async function POST(request: Request) {
         { $pull: { einsaetze: { projektId: { $in: projectIds } } } }
       );
       cleanedEmployees = cleanupResult.modifiedCount;
-      console.log(`Bulk-Delete: ${cleanedEmployees} Mitarbeiter-Einsätze bereinigt`);
+      logger.debug(`Bulk-Delete: ${cleanedEmployees} Mitarbeiter-Einsätze bereinigt`);
     } catch (cleanupError) {
-      console.error('Fehler beim Bereinigen der Mitarbeiter-Einsätze:', cleanupError);
+      logger.error('Fehler beim Bereinigen der Mitarbeiter-Einsätze:', cleanupError);
       // Fortfahren trotz Fehler
     }
 
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
           }
         }
       }).catch((err: any) => {
-        console.warn(`Activity Log für Projekt ${project._id} fehlgeschlagen:`, err.message);
+        logger.warn(`Activity Log für Projekt ${project._id} fehlgeschlagen:`, err.message);
       })
     );
 
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
     // 3. Projekte löschen
     const deleteResult = await Project.deleteMany({ _id: { $in: projectIds } });
 
-    console.log(`Bulk-Delete abgeschlossen: ${deleteResult.deletedCount} Projekte gelöscht`);
+    logger.debug(`Bulk-Delete abgeschlossen: ${deleteResult.deletedCount} Projekte gelöscht`);
 
     return NextResponse.json({
       message: `${deleteResult.deletedCount} Projekte erfolgreich gelöscht`,
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('Fehler beim Bulk-Delete:', error);
+    logger.error('Fehler beim Bulk-Delete:', error);
     return NextResponse.json(
       { message: 'Fehler beim Löschen der Projekte' },
       { status: 500 }

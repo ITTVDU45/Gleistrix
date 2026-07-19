@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -125,7 +126,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: doc })
   } catch (error) {
-    console.error('Fehler bei Inventur-Scan-Session:', error)
+    logger.error('Fehler bei Inventur-Scan-Session:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Verarbeiten der Inventur-Scan-Session' },
       { status: 500 }

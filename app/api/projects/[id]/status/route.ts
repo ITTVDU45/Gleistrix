@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs'
 import dbConnect from '../../../../../lib/dbConnect';
@@ -47,7 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Benachrichtigung: Projekt auf "fertiggestellt" gesetzt
     if (status === 'fertiggestellt') {
-      console.log('[STATUS] Projekt auf "fertiggestellt" gesetzt → Benachrichtigung prüfen');
+      logger.debug('[STATUS] Projekt auf "fertiggestellt" gesetzt → Benachrichtigung prüfen');
       // Einstellungen laden und mit Defaults mergen
       const doc = await NotificationSettings.findOne({ scope: 'global' });
       const enabledByKey = new Map<string, boolean>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultEnabled]));
@@ -189,7 +190,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             });
           }
         } catch (e) {
-          console.log('PDF-Tabelle (Projekttage) konnte nicht erzeugt werden:', e);
+          logger.debug('PDF-Tabelle (Projekttage) konnte nicht erzeugt werden:', e);
         }
 
         // Technik-Tabelle
@@ -233,7 +234,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           Auftragsnummer: ${project.auftragsnummer}</p>
           <p>Die Projektdetails finden Sie im Anhang (PDF).</p>
         `;
-        console.log(`[MAIL] Sende E-Mail an ${to} ...`);
+        logger.debug(`[MAIL] Sende E-Mail an ${to} ...`);
         const result = await sendEmailResult({
           to,
           subject,
@@ -246,7 +247,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             },
           ],
         });
-        console.log(`[MAIL] Ergebnis: ${result.ok ? 'OK' : 'FEHLER'}${result.error ? ' - ' + result.error : ''}`);
+        logger.debug(`[MAIL] Ergebnis: ${result.ok ? 'OK' : 'FEHLER'}${result.error ? ' - ' + result.error : ''}`);
 
         try {
           const performerName = (auth as any)?.token?.name || (auth as any)?.token?.email || 'Unbekannt';
@@ -262,14 +263,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             meta: { status: project.status, performedBy: performerName },
           });
         } catch (logErr) {
-          console.error('NotificationLog create error:', logErr);
+          logger.error('NotificationLog create error:', logErr);
         }
       }
     }
 
     return NextResponse.json({ success: true, project });
   } catch (e) {
-    console.error('PUT /api/projects/[id]/status error', e);
+    logger.error('PUT /api/projects/[id]/status error', e);
     return NextResponse.json({ error: 'Fehler beim Aktualisieren des Status' }, { status: 500 });
   }
 }

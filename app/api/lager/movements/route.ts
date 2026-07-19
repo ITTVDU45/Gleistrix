@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { StockMovement } from '@/lib/models/StockMovement'
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
       .lean()
     return NextResponse.json({ success: true, movements })
   } catch (error) {
-    console.error('Fehler beim Laden der Bewegungen:', error)
+    logger.error('Fehler beim Laden der Bewegungen:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Bewegungen' },
       { status: 500 }
@@ -205,13 +206,13 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (logErr) {
-        console.error('ActivityLog Fehler:', logErr)
+        logger.error('ActivityLog Fehler:', logErr)
       }
     }
 
     return NextResponse.json({ success: true, data: movement }, { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Erfassen der Bewegung:', error)
+    logger.error('Fehler beim Erfassen der Bewegung:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Erfassen der Bewegung' },
       { status: 500 }

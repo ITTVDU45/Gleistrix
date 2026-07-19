@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server';
 import { Project } from '../../../../lib/models/Project';
 import { Employee } from '../../../../lib/models/Employee';
@@ -86,7 +87,7 @@ async function validateAndEnrichTimeEntry(entry: any, day: string): Promise<any>
       sonntagsstunden: minutesToHours(result.premiums.sundayMinutes)
     };
   } catch (error) {
-    console.error('Fehler bei Backend-Validierung:', error);
+    logger.error('Fehler bei Backend-Validierung:', error);
     return entry; // Bei Fehler Original zurückgeben
   }
 }
@@ -115,7 +116,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json(project);
   } catch (error) {
-    console.error('Fehler beim Laden des Projekts:', error);
+    logger.error('Fehler beim Laden des Projekts:', error);
     return NextResponse.json(
       { message: 'Fehler beim Laden des Projekts' },
       { status: 500 }
@@ -239,7 +240,7 @@ export async function PUT(request: Request) {
                   }
                 }}
               ).catch((err) => {
-                console.warn(`Mitarbeiter-Sync fehlgeschlagen für ${entry.name}:`, err.message);
+                logger.warn(`Mitarbeiter-Sync fehlgeschlagen für ${entry.name}:`, err.message);
               })
           );
           // Parallel ausführen, aber nicht auf Ergebnis warten
@@ -312,7 +313,7 @@ export async function PUT(request: Request) {
                   }}
                 );
               } catch (syncErr) {
-                console.warn('Mitarbeiter-Sync bei edit fehlgeschlagen:', syncErr);
+                logger.warn('Mitarbeiter-Sync bei edit fehlgeschlagen:', syncErr);
               }
             }
             
@@ -361,7 +362,7 @@ export async function PUT(request: Request) {
                 { $pull: { einsaetze: { entryId: entryId } }}
               );
             } catch (syncErr) {
-              console.warn('Mitarbeiter-Sync bei delete fehlgeschlagen:', syncErr);
+              logger.warn('Mitarbeiter-Sync bei delete fehlgeschlagen:', syncErr);
             }
           }
           
@@ -394,7 +395,7 @@ export async function PUT(request: Request) {
 
         return NextResponse.json(project);
       } catch (e) {
-        console.error('Fehler bei Zeiten-Aktion über PUT:', e);
+        logger.error('Fehler bei Zeiten-Aktion über PUT:', e);
         return NextResponse.json({ message: 'Fehler bei Zeiten-Aktion' }, { status: 500 });
       }
     }
@@ -531,7 +532,7 @@ export async function PUT(request: Request) {
         await (project as any).save();
         return NextResponse.json(project);
       } catch (e) {
-        console.error('Fehler bei Fahrzeuge-Aktion über PUT:', e);
+        logger.error('Fehler bei Fahrzeuge-Aktion über PUT:', e);
         return NextResponse.json({ message: 'Fehler bei Fahrzeuge-Aktion' }, { status: 500 });
       }
     }
@@ -726,7 +727,7 @@ export async function PUT(request: Request) {
         // Optional: Activity Log könnte hier ergänzt werden
         return NextResponse.json(project);
       } catch (e) {
-        console.error('Fehler bei Technik-Aktion über PUT:', e);
+        logger.error('Fehler bei Technik-Aktion über PUT:', e);
         return NextResponse.json({ message: 'Fehler bei Technik-Aktion' }, { status: 500 });
       }
     }
@@ -775,16 +776,16 @@ export async function PUT(request: Request) {
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Projekt-Update');
+        logger.debug('Activity Log erstellt für Projekt-Update');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
 
     return NextResponse.json(project);
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Projekts:', error);
+    logger.error('Fehler beim Aktualisieren des Projekts:', error);
     return NextResponse.json(
       { message: 'Fehler beim Aktualisieren des Projekts' },
       { status: 500 }
@@ -883,12 +884,12 @@ export async function PATCH(request: Request) {
         }
       }
     } catch (notifyErr) {
-      console.error('Benachrichtigung (geleistet, PATCH) fehlgeschlagen:', notifyErr);
+      logger.error('Benachrichtigung (geleistet, PATCH) fehlgeschlagen:', notifyErr);
     }
 
     return NextResponse.json(project);
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Projekts:', error);
+    logger.error('Fehler beim Aktualisieren des Projekts:', error);
     return NextResponse.json(
       { message: 'Fehler beim Aktualisieren des Projekts' },
       { status: 500 }
@@ -952,9 +953,9 @@ export async function DELETE(request: Request) {
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Projekt-Löschung');
+        logger.debug('Activity Log erstellt für Projekt-Löschung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -965,9 +966,9 @@ export async function DELETE(request: Request) {
         { 'einsaetze.projektId': id },
         { $pull: { einsaetze: { projektId: id } }}
       );
-      console.log(`Mitarbeiter-Einsätze bereinigt: ${cleanupResult.modifiedCount} Mitarbeiter aktualisiert`);
+      logger.debug(`Mitarbeiter-Einsätze bereinigt: ${cleanupResult.modifiedCount} Mitarbeiter aktualisiert`);
     } catch (cleanupError) {
-      console.error('Fehler beim Bereinigen der Mitarbeiter-Einsätze:', cleanupError);
+      logger.error('Fehler beim Bereinigen der Mitarbeiter-Einsätze:', cleanupError);
       // Cleanup-Fehler sollte nicht die Hauptlöschung verhindern
     }
 
@@ -976,7 +977,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ message: 'Projekt erfolgreich gelöscht' });
   } catch (error) {
-    console.error('Fehler beim Löschen des Projekts:', error);
+    logger.error('Fehler beim Löschen des Projekts:', error);
     return NextResponse.json(
       { message: 'Fehler beim Löschen des Projekts' },
       { status: 500 }

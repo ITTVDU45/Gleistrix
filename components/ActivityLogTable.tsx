@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useEffect } from 'react';
 import { ActivityLogApi } from '@/lib/api/activityLog'
 import { Card, CardContent, CardHeader } from './ui/card';
@@ -170,7 +171,7 @@ export default function ActivityLogTable() {
 
   const handleExportCSV = () => {
     if (typeof document === 'undefined' || !document.body) {
-      console.warn('CSV Export abgebrochen: Dokument noch nicht bereit');
+      logger.warn('CSV Export abgebrochen: Dokument noch nicht bereit');
       return;
     }
     const headers = ['Datum', 'Modul', 'Aktion', 'Ausgefuehrt von', 'Details'];

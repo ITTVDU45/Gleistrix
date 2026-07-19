@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
@@ -39,7 +40,7 @@ export async function POST(req: Request, context: any){
     const allDays = Array.from(allDaysSet)
     const abgerechneteTage: string[] = Array.isArray((project as any).abgerechneteTage) ? (project as any).abgerechneteTage : []
     
-    console.log('Projektstatus-Berechnung:', {
+    logger.debug('Projektstatus-Berechnung:', {
       projektId: (project as any)._id,
       allDays,
       abgerechneteTage,
@@ -56,7 +57,7 @@ export async function POST(req: Request, context: any){
       newStatus = 'geleistet'
     }
     
-    console.log('Setze neuen Status:', newStatus)
+    logger.debug('Setze neuen Status:', newStatus)
     await Project.findByIdAndUpdate(id, { $set: { status: newStatus } })
 
     return NextResponse.json({ 
@@ -67,7 +68,7 @@ export async function POST(req: Request, context: any){
       abgerechneteTage
     })
   } catch(e){
-    console.error('Status-Update fehlgeschlagen', e)
+    logger.error('Status-Update fehlgeschlagen', e)
     return NextResponse.json({ message: 'Fehler beim Aktualisieren des Status' }, { status: 500 })
   }
 }

@@ -3,12 +3,12 @@
  *
  * Ziele:
  *  - Level-Steuerung: in Production standardmäßig ab `info`, in Dev ab `debug`.
- *    Überschreibbar via `LOG_LEVEL` (debug|info|warn|error).
+ *    Überschreibbar via `LOG_LEVEL` (debug|info|warn|error). Dadurch werden
+ *    `logger.debug`-Aufrufe in Production automatisch unterdrückt.
  *  - Redaction: Felder wie password/token/secret werden in Meta-Objekten
  *    automatisch maskiert, damit keine Geheimnisse in die Logs geraten.
- *  - Strukturierte Ausgabe (JSON) für bessere Auswertbarkeit in Vercel-Logs.
- *
- * Migration: `console.*` sollte schrittweise durch `logger.*` ersetzt werden.
+ *  - Drop-in für `console`: variadische Argumente; das erste String-Argument
+ *    ist die Message, der Rest ist Meta.
  */
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -25,6 +25,9 @@ const SENSITIVE_KEY = /pass(word)?|token|secret|authorization|cookie|apikey|api_
 
 function redact(value: unknown, depth = 0): unknown {
   if (depth > 4 || value === null || typeof value !== 'object') return value
+  if (value instanceof Error) {
+    return { name: value.name, message: value.message, stack: value.stack }
+  }
   if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1))
   const out: Record<string, unknown> = {}
   for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
@@ -33,19 +36,20 @@ function redact(value: unknown, depth = 0): unknown {
   return out
 }
 
-function normalizeError(err: unknown): unknown {
-  if (err instanceof Error) {
-    return { name: err.name, message: err.message, stack: err.stack }
-  }
-  return err
-}
-
-function emit(level: LogLevel, msg: string, meta?: unknown): void {
+function emit(level: LogLevel, args: unknown[]): void {
   if (LEVELS[level] < resolveThreshold()) return
+
+  const [first, ...rest] = args
+  const msg = typeof first === 'string' ? first : ''
+  const metaArgs = typeof first === 'string' ? rest : args
+
   const entry: Record<string, unknown> = { t: new Date().toISOString(), level, msg }
-  if (meta !== undefined) {
-    entry.meta = redact(level === 'error' || level === 'warn' ? normalizeError(meta) : meta)
+  if (metaArgs.length === 1) {
+    entry.meta = redact(metaArgs[0])
+  } else if (metaArgs.length > 1) {
+    entry.meta = metaArgs.map((m) => redact(m))
   }
+
   const line = JSON.stringify(entry)
   if (level === 'error') console.error(line)
   else if (level === 'warn') console.warn(line)
@@ -53,8 +57,8 @@ function emit(level: LogLevel, msg: string, meta?: unknown): void {
 }
 
 export const logger = {
-  debug: (msg: string, meta?: unknown) => emit('debug', msg, meta),
-  info: (msg: string, meta?: unknown) => emit('info', msg, meta),
-  warn: (msg: string, meta?: unknown) => emit('warn', msg, meta),
-  error: (msg: string, meta?: unknown) => emit('error', msg, meta),
+  debug: (...args: unknown[]) => emit('debug', args),
+  info: (...args: unknown[]) => emit('info', args),
+  warn: (...args: unknown[]) => emit('warn', args),
+  error: (...args: unknown[]) => emit('error', args),
 }

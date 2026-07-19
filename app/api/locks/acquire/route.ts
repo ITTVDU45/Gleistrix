@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs'
 import dbConnect from '../../../../lib/dbConnect';
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!currentUser) {
-      console.log('Benutzer nicht gefunden mit ID:', resolvedUser.effectiveUserId);
+      logger.debug('Benutzer nicht gefunden mit ID:', resolvedUser.effectiveUserId);
       return NextResponse.json({ error: 'Benutzer nicht gefunden' }, { status: 404 });
     }
 
@@ -67,11 +68,11 @@ export async function POST(req: NextRequest) {
       existingLock.lastActivity = new Date();
       await existingLock.save();
 
-      console.log('=== SPERRE AKTUALISIERT ===');
-      console.log(`Ressource: ${resourceType}/${resourceId}`);
-      console.log(`Benutzer: ${currentUserName} (${currentUserRole})`);
-      console.log(`Zeit: ${new Date().toLocaleString('de-DE')}`);
-      console.log('========================');
+      logger.debug('=== SPERRE AKTUALISIERT ===');
+      logger.debug(`Ressource: ${resourceType}/${resourceId}`);
+      logger.debug(`Benutzer: ${currentUserName} (${currentUserRole})`);
+      logger.debug(`Zeit: ${new Date().toLocaleString('de-DE')}`);
+      logger.debug('========================');
 
       return NextResponse.json({
         success: true,
@@ -89,12 +90,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (otherLock) {
-      console.log('=== SPERRE VERWEIGERT ===');
-      console.log(`Ressource: ${resourceType}/${resourceId}`);
-      console.log(`Benutzer: ${currentUserName} (${currentUserRole})`);
-      console.log(`Gesperrt von: ${otherLock.lockedBy.name} (${otherLock.lockedBy.role})`);
-      console.log(`Zeit: ${new Date().toLocaleString('de-DE')}`);
-      console.log('========================');
+      logger.debug('=== SPERRE VERWEIGERT ===');
+      logger.debug(`Ressource: ${resourceType}/${resourceId}`);
+      logger.debug(`Benutzer: ${currentUserName} (${currentUserRole})`);
+      logger.debug(`Gesperrt von: ${otherLock.lockedBy.name} (${otherLock.lockedBy.role})`);
+      logger.debug(`Zeit: ${new Date().toLocaleString('de-DE')}`);
+      logger.debug('========================');
 
       return NextResponse.json({
         success: false,
@@ -115,17 +116,17 @@ export async function POST(req: NextRequest) {
         req.headers.get('user-agent') || 'unknown'
       );
 
-      console.log('=== SPERRE ERWORBEN ===');
-      console.log(`Ressource: ${resourceType}/${resourceId}`);
-      console.log(`Benutzer: ${currentUserName} (${currentUserRole})`);
-      console.log(`Zeit: ${new Date().toLocaleString('de-DE')}`);
-      console.log('========================');
+      logger.debug('=== SPERRE ERWORBEN ===');
+      logger.debug(`Ressource: ${resourceType}/${resourceId}`);
+      logger.debug(`Benutzer: ${currentUserName} (${currentUserRole})`);
+      logger.debug(`Zeit: ${new Date().toLocaleString('de-DE')}`);
+      logger.debug('========================');
 
       try {
         const { lockWebSocket } = await import('../../../../lib/websocket');
         lockWebSocket.emitLockUpdate(resourceType, resourceId, 'acquired');
       } catch (error) {
-        console.log('WebSocket not available for lock update');
+        logger.debug('WebSocket not available for lock update');
       }
 
       return NextResponse.json({
@@ -137,11 +138,11 @@ export async function POST(req: NextRequest) {
       });
     } catch (error: any) {
       if (error.message === 'Ressource ist bereits von einem anderen Benutzer gesperrt') {
-        console.log('=== SPERRE VERWEIGERT (RACE CONDITION) ===');
-        console.log(`Ressource: ${resourceType}/${resourceId}`);
-        console.log(`Benutzer: ${currentUserName} (${currentUserRole})`);
-        console.log(`Zeit: ${new Date().toLocaleString('de-DE')}`);
-        console.log('========================');
+        logger.debug('=== SPERRE VERWEIGERT (RACE CONDITION) ===');
+        logger.debug(`Ressource: ${resourceType}/${resourceId}`);
+        logger.debug(`Benutzer: ${currentUserName} (${currentUserRole})`);
+        logger.debug(`Zeit: ${new Date().toLocaleString('de-DE')}`);
+        logger.debug('========================');
 
         return NextResponse.json({
           success: false,
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (error: any) {
-    console.error('Fehler beim Erwerben der Sperre:', error);
+    logger.error('Fehler beim Erwerben der Sperre:', error);
     return NextResponse.json({
       error: 'Fehler beim Erwerben der Sperre'
     }, { status: 500 });
