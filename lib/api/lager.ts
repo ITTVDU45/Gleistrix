@@ -186,7 +186,7 @@ export const LagerApi = {
       evidencePhotos?: Array<{ dataUrl: string; filename?: string; capturedAt?: string | Date }>
       createDeliveryNote?: boolean
     }) =>
-      postJSON('/api/lager/assignments', data as Record<string, unknown>, 'lager:assignments:create'),
+      postJSON<{ success: boolean; message?: string }>('/api/lager/assignments', data as Record<string, unknown>, 'lager:assignments:create'),
     bulk: (data: {
       personId: string
       ausgabedatum: string | Date
@@ -196,7 +196,7 @@ export const LagerApi = {
       createDeliveryNote?: boolean
       positionen: { artikelId: string; menge: number }[]
     }) =>
-      postJSON('/api/lager/assignments/bulk', data as Record<string, unknown>, 'lager:assignments:bulk'),
+      postJSON<{ success: boolean; message?: string }>('/api/lager/assignments/bulk', data as Record<string, unknown>, 'lager:assignments:bulk'),
     return: (id: string) =>
       putJSON(`/api/lager/assignments/${id}/return`, {}, 'lager:assignments:return')
   },
@@ -325,7 +325,7 @@ export const LagerApi = {
     list: () =>
       getJSON<{ success: boolean; inventory: unknown[] }>('/api/lager/inventory'),
     get: (id: string) =>
-      getJSON<{ success: boolean; data: unknown }>(`/api/lager/inventory/${id}`),
+      getJSON<{ success: boolean; data: Record<string, unknown> }>(`/api/lager/inventory/${id}`),
     create: (data: {
       name?: string
       beschreibung?: string
@@ -338,7 +338,7 @@ export const LagerApi = {
       lagerorte?: string[]
       unitIds?: string[]
     }) =>
-      postJSON('/api/lager/inventory', data as Record<string, unknown>, 'lager:inventory:create'),
+      postJSON<{ success: boolean; data: Record<string, unknown> }>('/api/lager/inventory', data as Record<string, unknown>, 'lager:inventory:create'),
     update: (id: string, data: {
       name?: string
       beschreibung?: string

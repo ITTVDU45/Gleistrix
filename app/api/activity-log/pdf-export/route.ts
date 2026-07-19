@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 ﻿import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import ActivityLog from "../../../../lib/models/ActivityLog"
@@ -63,11 +64,11 @@ export async function POST(req: NextRequest) {
 
     await activityLog.save()
 
-    console.log(`PDF Export logged: ${module} - ${entityName || "Uebersicht"}`)
+    logger.debug(`PDF Export logged: ${module} - ${entityName || "Uebersicht"}`)
 
     return NextResponse.json({ success: true, message: "PDF Export Activity Log erstellt" })
   } catch (error) {
-    console.error("Error creating PDF export activity log:", error)
+    logger.error("Error creating PDF export activity log:", error)
     return NextResponse.json({ error: "Fehler beim Erstellen des PDF Export Activity Logs" }, { status: 500 })
   }
 }

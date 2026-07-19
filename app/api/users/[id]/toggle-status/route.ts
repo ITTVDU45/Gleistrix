@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../../lib/dbConnect"
 import User from "../../../../../lib/models/User"
@@ -79,17 +80,17 @@ export async function PUT(
       });
       
       await activityLog.save();
-      console.log('Activity Log erstellt für Benutzer-Status-Änderung');
+      logger.debug('Activity Log erstellt für Benutzer-Status-Änderung');
     } catch (logError) {
-      console.error('Fehler beim Erstellen des Activity Logs:', logError);
+      logger.error('Fehler beim Erstellen des Activity Logs:', logError);
       // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
     }
 
-    console.log('=== BENUTZER-STATUS GEÄNDERT ===');
-    console.log(`Benutzer: ${user.name} (${user.email})`);
-    console.log(`Neuer Status: ${isActive ? 'Aktiv' : 'Inaktiv'}`);
-    console.log(`Geändert von: ${currentUser.name} (${currentUser.role})`);
-    console.log('==================================');
+    logger.debug('=== BENUTZER-STATUS GEÄNDERT ===');
+    logger.debug(`Benutzer: ${user.name} (${user.email})`);
+    logger.debug(`Neuer Status: ${isActive ? 'Aktiv' : 'Inaktiv'}`);
+    logger.debug(`Geändert von: ${currentUser.name} (${currentUser.role})`);
+    logger.debug('==================================');
 
     return NextResponse.json({ 
       message: `Benutzer erfolgreich ${isActive ? 'aktiviert' : 'deaktiviert'}`,
@@ -103,7 +104,7 @@ export async function PUT(
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Toggle user status error:', error);
+    logger.error('Toggle user status error:', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten" 
     }, { status: 500 });

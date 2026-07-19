@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../../lib/dbConnect"
 import User from "../../../../../lib/models/User"
@@ -43,11 +44,11 @@ export async function PUT(
     user.role = role;
     await user.save();
 
-    console.log('=== BENUTZER-ROLLE GEÄNDERT ===');
-    console.log(`Benutzer: ${user.name} (${user.email})`);
-    console.log(`Neue Rolle: ${role}`);
-    console.log(`Geändert von: ${currentUser.name} (${currentUser.role})`);
-    console.log('================================');
+    logger.debug('=== BENUTZER-ROLLE GEÄNDERT ===');
+    logger.debug(`Benutzer: ${user.name} (${user.email})`);
+    logger.debug(`Neue Rolle: ${role}`);
+    logger.debug(`Geändert von: ${currentUser.name} (${currentUser.role})`);
+    logger.debug('================================');
 
     return NextResponse.json({ 
       message: `Rolle erfolgreich zu ${role} geändert`,
@@ -60,7 +61,7 @@ export async function PUT(
     }, { status: 200 });
     
   } catch (error) {
-    console.error('Update role error:', error);
+    logger.error('Update role error:', error);
     return NextResponse.json({ 
       error: "Ein Fehler ist aufgetreten" 
     }, { status: 500 });

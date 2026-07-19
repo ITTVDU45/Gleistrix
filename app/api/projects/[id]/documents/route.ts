@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
 
-    if (!project.dokumente || typeof project.dokumente !== 'object') (project as any).dokumente = {};
+    if (!project.dokumente || typeof project.dokumente !== 'object') project.dokumente = {};
 
     const uploaded: any[] = [];
     const bucketName = process.env.MINIO_BUCKET || 'project-documents';
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const exists = await minioClient.bucketExists(bucketName);
         if (!exists) await minioClient.makeBucket(bucketName);
       } catch (e) {
-        console.warn('MinIO bucket check failed:', e);
+        logger.warn('MinIO bucket check failed:', e);
       }
     }
 
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         readable.push(null);
         await promisify(minioClient.putObject.bind(minioClient))(bucketName, key, readable, fileBuffer.byteLength);
       } catch (e) {
-        console.error('MinIO upload failed for', name, e);
+        logger.error('MinIO upload failed for', name, e);
       }
       const resolvedDescription =
         descriptionList[index] ??
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (fileBuffer) {
         try {
           const res = await syncProjectDocumentToOneDrive({
-            project,
+            project: { name: project.name, auftraggeber: project.auftraggeber, auftragsnummer: project.auftragsnummer },
             fileName: originalName,
             content: fileBuffer,
             contentType: (f as any).type,
@@ -125,17 +126,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       const docMeta: Record<string, unknown> = { id: idStr, name, description: resolvedDescription, url: `minio://${bucketName}/${key}` };
       if (oneDriveUrl) docMeta.oneDriveUrl = oneDriveUrl;
-      if (!(project as any).dokumente['all']) (project as any).dokumente['all'] = [];
-      (project as any).dokumente['all'].push(docMeta);
+      if (!project.dokumente['all']) project.dokumente['all'] = [];
+      project.dokumente['all'].push(docMeta);
       uploaded.push(docMeta);
     }
 
-    (project as any).markModified('dokumente');
-    await (project as any).save();
+    project.markModified('dokumente');
+    await project.save();
 
     return NextResponse.json({ success: true, uploaded });
   } catch (e) {
-    console.error('Dokument-Upload fehlgeschlagen:', e);
+    logger.error('Dokument-Upload fehlgeschlagen:', e);
     return NextResponse.json({ message: 'Upload fehlgeschlagen' }, { status: 500 });
   }
 }

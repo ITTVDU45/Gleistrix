@@ -1,4 +1,6 @@
 "use client";
+import { getErrorMessage } from '@/lib/errors'
+import { logger } from '@/lib/logger'
 import React, { useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -64,7 +66,7 @@ export default function AddEmployeeDialog({
     'SAS',
     'SIPO'
   ];
-  console.log('positionOptions:', positionOptions);
+  logger.debug('positionOptions:', positionOptions);
 
   const resolvedOpen = open ?? isDialogOpen;
   const resolvedDefaultTab = defaultTab ?? 'internal';
@@ -170,8 +172,8 @@ export default function AddEmployeeDialog({
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       window.dispatchEvent(new CustomEvent('subcompanyAdded', { detail: created }));
-    } catch (err: any) {
-      setError(err?.message || 'Fehler beim Hinzufuegen des Subunternehmens');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Fehler beim Hinzufuegen des Subunternehmens'));
     } finally {
       setIsSubmitting(false);
     }
@@ -184,7 +186,7 @@ export default function AddEmployeeDialog({
       setIsDialogOpen(nextOpen);
     }
     if (nextOpen) {
-      console.log('Aktuelle positionOptions:', positionOptions);
+      logger.debug('Aktuelle positionOptions:', positionOptions);
     }
   };
 
@@ -268,7 +270,7 @@ export default function AddEmployeeDialog({
                       >
                         <div className="flex flex-col gap-2">
                           {positionOptions.map((option) => {
-                            console.log('Render:', option);
+                            logger.debug('Render:', option);
                             return (
                               <label key={option} className="flex items-center gap-2 cursor-pointer">
                                 <Checkbox

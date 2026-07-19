@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { ArticleAssignment } from '@/lib/models/ArticleAssignment'
@@ -84,7 +85,7 @@ export async function PUT(
           }
         })
       } catch (logErr) {
-        console.error('ActivityLog Fehler:', logErr)
+        logger.error('ActivityLog Fehler:', logErr)
       }
     }
 
@@ -94,7 +95,7 @@ export async function PUT(
       .lean()
     return NextResponse.json({ success: true, data: updated })
   } catch (error) {
-    console.error('Fehler bei Rücknahme:', error)
+    logger.error('Fehler bei Rücknahme:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler bei Rücknahme' },
       { status: 500 }

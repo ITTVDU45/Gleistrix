@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import dbConnect from '@/lib/dbConnect'
 import mongoose from 'mongoose'
 import IntegrationConfig from '@/lib/models/IntegrationConfig'
@@ -158,7 +159,7 @@ export async function syncAssignmentToCalendar(assignmentId: string): Promise<vo
       await persistMsCalendar(assignmentId, ev)
     }
   } catch (err) {
-    console.error('[Plantafel→MS] Kalender-Sync fehlgeschlagen:', err)
+    logger.error('[Plantafel→MS] Kalender-Sync fehlgeschlagen:', err)
   }
 }
 
@@ -167,7 +168,7 @@ async function removeCalendarEvent(eventId: string): Promise<void> {
     await graphDelete(`/me/events/${eventId}`)
   } catch (err) {
     // Bereits gelöscht (404) o.ä. – nur protokollieren.
-    console.error('[Plantafel→MS] Kalendertermin löschen fehlgeschlagen:', err)
+    logger.error('[Plantafel→MS] Kalendertermin löschen fehlgeschlagen:', err)
   }
 }
 
@@ -182,6 +183,6 @@ export async function removeAssignmentFromCalendar(
     if (!settings.connected) return
     await removeCalendarEvent(eventId)
   } catch (err) {
-    console.error('[Plantafel→MS] Kalender-Entfernung fehlgeschlagen:', err)
+    logger.error('[Plantafel→MS] Kalender-Entfernung fehlgeschlagen:', err)
   }
 }

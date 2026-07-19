@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Inventory } from '@/lib/models/Inventory'
@@ -44,7 +45,7 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Fehler beim Erstellen des Inventurprotokoll-PDF:', error)
+    logger.error('Fehler beim Erstellen des Inventurprotokoll-PDF:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Erstellen des PDF' },
       { status: 500 }

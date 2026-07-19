@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AuthApi } from '@/lib/api/auth'
@@ -71,7 +72,7 @@ export default function Sidebar() {
           router.push('/login');
         }
       } catch (error) {
-        console.error('Fehler beim Laden der Benutzerdaten:', error);
+        logger.error('Fehler beim Laden der Benutzerdaten:', error);
         router.push('/login');
       } finally {
         setIsLoading(false);
@@ -111,7 +112,7 @@ export default function Sidebar() {
       // Ohne signOut bliebe die Session trotz Redirect gültig.
       await signOut({ redirect: false });
     } catch (error) {
-      console.error('Logout-Fehler:', error);
+      logger.error('Logout-Fehler:', error);
     } finally {
       // In jedem Fall zur Login-Seite – auch wenn signOut fehlschlägt.
       router.push('/login');

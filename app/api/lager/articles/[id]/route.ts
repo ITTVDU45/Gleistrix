@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
@@ -25,7 +26,7 @@ export async function GET(
     }
     return NextResponse.json({ success: true, data: article })
   } catch (error) {
-    console.error('Fehler beim Laden des Artikels:', error)
+    logger.error('Fehler beim Laden des Artikels:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden des Artikels' },
       { status: 500 }
@@ -114,13 +115,13 @@ export async function PUT(
           }
         })
       } catch (logErr) {
-        console.error('ActivityLog Fehler:', logErr)
+        logger.error('ActivityLog Fehler:', logErr)
       }
     }
 
     return NextResponse.json({ success: true, data: article })
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Artikels:', error)
+    logger.error('Fehler beim Aktualisieren des Artikels:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Aktualisieren des Artikels' },
       { status: 500 }
@@ -173,13 +174,13 @@ export async function DELETE(
           }
         })
       } catch (logErr) {
-        console.error('ActivityLog Fehler:', logErr)
+        logger.error('ActivityLog Fehler:', logErr)
       }
     }
 
     return NextResponse.json({ success: true, message: 'Artikel geloescht' })
   } catch (error) {
-    console.error('Fehler beim Loeschen des Artikels:', error)
+    logger.error('Fehler beim Loeschen des Artikels:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Loeschen des Artikels' },
       { status: 500 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 import dbConnect from '@/lib/dbConnect'
 import IntegrationConfig from '@/lib/models/IntegrationConfig'
@@ -109,7 +110,7 @@ export async function ensureEventsSubscription(): Promise<void> {
       resource: '/me/events',
     })
   } catch (err) {
-    console.error('[MS Subscription] ensure fehlgeschlagen:', err)
+    logger.error('[MS Subscription] ensure fehlgeschlagen:', err)
   }
 }
 
@@ -127,7 +128,7 @@ export async function deleteEventsSubscription(): Promise<void> {
     }
     await saveWebhookConfig(null)
   } catch (err) {
-    console.error('[MS Subscription] delete fehlgeschlagen:', err)
+    logger.error('[MS Subscription] delete fehlgeschlagen:', err)
   }
 }
 

@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -52,7 +53,7 @@ export default function VehicleActions({ vehicle }: VehicleActionsProps) {
       await acquireLock();
       setIsEditDialogOpen(true);
     } catch (e) {
-      console.error('Fehler beim Öffnen des Bearbeitungsdialogs:', e);
+      logger.error('Fehler beim Öffnen des Bearbeitungsdialogs:', e);
     }
   }, [checkLock, acquireLock]);
 
@@ -66,10 +67,10 @@ export default function VehicleActions({ vehicle }: VehicleActionsProps) {
         // Seite neu laden um die Änderung zu reflektieren
         window.location.reload();
       } else {
-        console.error('Fehler beim Löschen des Fahrzeugs');
+        logger.error('Fehler beim Löschen des Fahrzeugs');
       }
     } catch (error) {
-      console.error('Fehler beim Löschen des Fahrzeugs:', error);
+      logger.error('Fehler beim Löschen des Fahrzeugs:', error);
     } finally {
       setIsDeleting(false);
       setIsDeleteDialogOpen(false);
@@ -89,7 +90,7 @@ export default function VehicleActions({ vehicle }: VehicleActionsProps) {
       try {
         await releaseLock();
       } catch (e) {
-        console.warn('Konnte Sperre beim Schließen nicht freigeben:', e);
+        logger.warn('Konnte Sperre beim Schließen nicht freigeben:', e);
       }
     }
     setIsEditDialogOpen(open);

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import dbConnect from '@/lib/dbConnect'
@@ -55,7 +56,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, attachment })
   } catch (error) {
-    console.error('Commit-Artikelbild fehlgeschlagen:', error)
+    logger.error('Commit-Artikelbild fehlgeschlagen:', error)
     return NextResponse.json(
       { success: false, message: 'Bild konnte nicht gespeichert werden' },
       { status: 500 }

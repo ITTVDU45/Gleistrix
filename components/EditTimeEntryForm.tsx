@@ -1,4 +1,6 @@
 "use client";
+import { getErrorMessage, asHttpLikeError } from '@/lib/errors'
+import { logger } from '@/lib/logger'
 import React from 'react'
 import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
@@ -217,7 +219,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
           setDbHolidays(response.holidays.map(h => h.date))
         }
       } catch (error) {
-        console.error('Fehler beim Laden der Feiertage:', error)
+        logger.error('Fehler beim Laden der Feiertage:', error)
       }
     }
     loadHolidays()
@@ -579,9 +581,10 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
       await onEdit({ updates, newEntries });
       onClose();
-    } catch (err: any) {
-      if (err?.response?.status === 409 || err?.message?.includes('bereits im Projekt')) {
-        setApiError(err?.response?.data?.error || 'Mitarbeiter ist an einem der Tage bereits eingetragen.');
+    } catch (err: unknown) {
+      const httpErr = asHttpLikeError(err);
+      if (httpErr.response?.status === 409 || getErrorMessage(err).includes('bereits im Projekt')) {
+        setApiError(httpErr.response?.data?.error || 'Mitarbeiter ist an einem der Tage bereits eingetragen.');
       } else {
         setApiError('Fehler beim Speichern der Zeiteinträge.');
       }

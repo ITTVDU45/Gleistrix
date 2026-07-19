@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger'
+import { NextRequest, NextResponse } from 'next/server';
 import { Project } from '../../../../lib/models/Project';
 import { Employee } from '../../../../lib/models/Employee';
 import { Holiday } from '../../../../lib/models/Holiday';
@@ -14,6 +15,38 @@ import NotificationLog from '../../../../lib/models/NotificationLog';
 import { z } from 'zod';
 import { requireAuth } from '../../../../lib/security/requireAuth';
 import { computeTimeEntry, minutesToHours } from '../../../../lib/timeEntry';
+
+// Zod-Schemas für die untrusted PUT-Aktionen. Strukturfelder werden streng
+// validiert; die eigentlichen Entry-/Technik-/Fahrzeug-Payloads bleiben
+// bewusst permissiv (z.any), da sie downstream angereichert/verarbeitet werden.
+const timesActionSchema = z.object({
+  action: z.enum(['add', 'edit', 'delete']),
+  date: z.string().optional(),
+  dates: z.array(z.string()).optional(),
+  entries: z.array(z.object({ day: z.string(), entry: z.any() })).optional(),
+  entry: z.any().optional(),
+  entryId: z.string().optional(),
+  updatedEntry: z.any().optional(),
+}).passthrough();
+
+const technikActionSchema = z.object({
+  action: z.enum(['add', 'edit', 'remove']),
+  date: z.string().optional(),
+  dates: z.array(z.string()).optional(),
+  selectedDays: z.array(z.string()).optional(),
+  technik: z.any().optional(),
+  technikId: z.string().optional(),
+  updatedTechnik: z.any().optional(),
+}).passthrough();
+
+const vehiclesActionSchema = z.object({
+  action: z.enum(['assign', 'update', 'unassign']),
+  date: z.string().optional(),
+  dates: z.array(z.string()).optional(),
+  updatedFields: z.record(z.any()).optional(),
+  vehicle: z.any().optional(),
+  vehicleId: z.string().optional(),
+}).passthrough();
 
 /**
  * Validiert und bereichert einen Zeiteintrag mit berechneten Werten
@@ -86,15 +119,15 @@ async function validateAndEnrichTimeEntry(entry: any, day: string): Promise<any>
       sonntagsstunden: minutesToHours(result.premiums.sundayMinutes)
     };
   } catch (error) {
-    console.error('Fehler bei Backend-Validierung:', error);
+    logger.error('Fehler bei Backend-Validierung:', error);
     return entry; // Bei Fehler Original zurückgeben
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     await dbConnect();
-    const url = new URL((request as any).url);
+    const url = new URL(request.url);
     const parts = url.pathname.split('/').filter(Boolean);
     const projectsIdx = parts.indexOf('projects');
     const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
@@ -115,7 +148,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json(project);
   } catch (error) {
-    console.error('Fehler beim Laden des Projekts:', error);
+    logger.error('Fehler beim Laden des Projekts:', error);
     return NextResponse.json(
       { message: 'Fehler beim Laden des Projekts' },
       { status: 500 }
@@ -123,10 +156,10 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
     await dbConnect();
-    const url = new URL((request as any).url);
+    const url = new URL(request.url);
     const parts = url.pathname.split('/').filter(Boolean);
     const projectsIdx = parts.indexOf('projects');
     const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
@@ -134,7 +167,7 @@ export async function PUT(request: Request) {
     if (process.env.NODE_ENV === 'production' && csrf !== 'projects:update') {
       return NextResponse.json({ message: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request as any, ['user','admin','superadmin']);
+    const auth = await requireAuth(request, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
     const schema = z.object({}).passthrough();
     const parseResult = schema.safeParse(await request.json());
@@ -144,7 +177,7 @@ export async function PUT(request: Request) {
     const body = parseResult.data;
 
     // Einheitlich NextAuth verwenden
-    const currentUser = await getCurrentUser(request as any);
+    const currentUser = await getCurrentUser(request);
 
     if (!id) {
       return NextResponse.json(
@@ -163,16 +196,18 @@ export async function PUT(request: Request) {
     }
 
     // Spezialbehandlung: Zeiten-Aktionen (add/edit/delete) über PUT-Body
-    if (body && body.times && typeof body.times === 'object' && typeof (body.times as any).action === 'string') {
-      const action = (body.times as any).action as 'add' | 'edit' | 'delete';
+    const timesResult = body?.times ? timesActionSchema.safeParse(body.times) : null;
+    if (timesResult?.success) {
+      const times = timesResult.data;
+      const action = times.action;
       try {
         // Für 'add' verwenden wir atomare Updates um Race Conditions zu vermeiden
         if (action === 'add') {
           // Neues Format: entries Array mit {day, entry} pro Tag (korrekte Werte pro Tag)
           // Altes Format: dates Array + entry (gleicher Entry für alle Tage) - für Kompatibilität
-          const entriesArray = (body.times as any).entries as Array<{day: string, entry: any}> | undefined;
-          const dates = Array.isArray((body.times as any).dates) ? (body.times as any).dates as string[] : [];
-          const singleEntry = (body.times as any).entry as any;
+          const entriesArray = times.entries;
+          const dates = times.dates ?? [];
+          const singleEntry = times.entry;
 
           // Validierung: Entweder neues Format (entries) oder altes Format (dates + entry)
           const hasNewFormat = Array.isArray(entriesArray) && entriesArray.length > 0;
@@ -239,14 +274,14 @@ export async function PUT(request: Request) {
                   }
                 }}
               ).catch((err) => {
-                console.warn(`Mitarbeiter-Sync fehlgeschlagen für ${entry.name}:`, err.message);
+                logger.warn(`Mitarbeiter-Sync fehlgeschlagen für ${entry.name}:`, err.message);
               })
           );
           // Parallel ausführen, aber nicht auf Ergebnis warten
           Promise.all(employeeSyncPromises).catch(() => {});
 
           // ActivityLog für jeden Tag erstellen (asynchron, blockiert nicht)
-          const currentUser = await getCurrentUser(request as any);
+          const currentUser = await getCurrentUser(request);
           if (currentUser) {
             const logPromises = logEntries.map(({day, entry}) => 
               ActivityLog.create({
@@ -254,12 +289,12 @@ export async function PUT(request: Request) {
                 actionType: 'project_time_entry_added',
                 module: 'project',
                 performedBy: {
-                  userId: (currentUser as any)._id,
-                  name: (currentUser as any).name,
-                  role: (currentUser as any).role
+                  userId: currentUser._id,
+                  name: currentUser.name,
+                  role: currentUser.role
                 },
                 details: {
-                  entityId: (updatedProject as any)._id,
+                  entityId: updatedProject._id,
                   description: `Zeiteintrag hinzugefügt: ${entry.name} am ${day} (${entry.start ?? ''}-${entry.ende ?? ''}, ${entry.stunden ?? ''}h)`,
                   after: { date: day, entry }
                 }
@@ -280,12 +315,12 @@ export async function PUT(request: Request) {
 
         // Stelle sicher, dass das Zeiten-Objekt existiert
         if (!project.mitarbeiterZeiten || typeof project.mitarbeiterZeiten !== 'object') {
-          (project as any).mitarbeiterZeiten = {};
+          project.mitarbeiterZeiten = {};
         }
 
         if (action === 'edit') {
-          const date = (body.times as any).date as string;
-          const updatedEntry = (body.times as any).updatedEntry as any;
+          const date = times.date ?? '';
+          const updatedEntry = times.updatedEntry;
           if (!date || !updatedEntry || !updatedEntry.id) {
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (edit)' }, { status: 400 });
           }
@@ -293,12 +328,12 @@ export async function PUT(request: Request) {
           // Backend-Validierung und Anreicherung des Zeiteintrags
           const enrichedEntry = await validateAndEnrichTimeEntry(updatedEntry, date);
           
-          const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
+          const arr = (project.mitarbeiterZeiten[date] || []) as any[];
           const idx = arr.findIndex(e => e && e.id === enrichedEntry.id);
           if (idx !== -1) {
             const before = { ...arr[idx] };
             arr[idx] = { ...arr[idx], ...enrichedEntry };
-            (project as any).mitarbeiterZeiten[date] = arr;
+            project.mitarbeiterZeiten[date] = arr;
             
             // Mitarbeiter-Einsatz synchronisieren
             if (!enrichedEntry?.isExternal) {
@@ -312,24 +347,24 @@ export async function PUT(request: Request) {
                   }}
                 );
               } catch (syncErr) {
-                console.warn('Mitarbeiter-Sync bei edit fehlgeschlagen:', syncErr);
+                logger.warn('Mitarbeiter-Sync bei edit fehlgeschlagen:', syncErr);
               }
             }
             
             try {
-              const currentUser = await getCurrentUser(request as any);
+              const currentUser = await getCurrentUser(request);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
                   actionType: 'project_time_entry_updated',
                   module: 'project',
                   performedBy: {
-                    userId: (currentUser as any)._id,
-                    name: (currentUser as any).name,
-                    role: (currentUser as any).role
+                    userId: currentUser._id,
+                    name: currentUser.name,
+                    role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Zeiteintrag geändert am ${date}: ${before.name} (${before.start ?? ''}-${before.ende ?? ''}) → (${arr[idx].start ?? ''}-${arr[idx].ende ?? ''})`,
                     before,
                     after: arr[idx]
@@ -341,16 +376,16 @@ export async function PUT(request: Request) {
         }
 
         if (action === 'delete') {
-          const date = (body.times as any).date as string;
-          const entryId = (body.times as any).entryId as string;
+          const date = times.date ?? '';
+          const entryId = times.entryId ?? '';
           if (!date || !entryId) {
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (delete)' }, { status: 400 });
           }
-          const arr = ((project as any).mitarbeiterZeiten[date] || []) as any[];
+          const arr = (project.mitarbeiterZeiten[date] || []) as any[];
           const removed = arr.find(e => e && e.id === entryId);
-          (project as any).mitarbeiterZeiten[date] = arr.filter(e => e && e.id !== entryId);
-          if ((project as any).mitarbeiterZeiten[date].length === 0) {
-            delete (project as any).mitarbeiterZeiten[date];
+          project.mitarbeiterZeiten[date] = arr.filter(e => e && e.id !== entryId);
+          if (project.mitarbeiterZeiten[date].length === 0) {
+            delete project.mitarbeiterZeiten[date];
           }
           
           // Mitarbeiter-Einsatz entfernen
@@ -361,25 +396,25 @@ export async function PUT(request: Request) {
                 { $pull: { einsaetze: { entryId: entryId } }}
               );
             } catch (syncErr) {
-              console.warn('Mitarbeiter-Sync bei delete fehlgeschlagen:', syncErr);
+              logger.warn('Mitarbeiter-Sync bei delete fehlgeschlagen:', syncErr);
             }
           }
           
           try {
             if (removed) {
-              const currentUser = await getCurrentUser(request as any);
+              const currentUser = await getCurrentUser(request);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
                   actionType: 'project_time_entry_deleted',
                   module: 'project',
                   performedBy: {
-                    userId: (currentUser as any)._id,
-                    name: (currentUser as any).name,
-                    role: (currentUser as any).role
+                    userId: currentUser._id,
+                    name: currentUser.name,
+                    role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Zeiteintrag gelöscht am ${date}: ${removed.name} (${removed.start ?? ''}-${removed.ende ?? ''})`,
                     before: removed
                   }
@@ -389,19 +424,21 @@ export async function PUT(request: Request) {
           } catch (_) {}
         }
 
-        (project as any).markModified('mitarbeiterZeiten');
-        await (project as any).save();
+        project.markModified('mitarbeiterZeiten');
+        await project.save();
 
         return NextResponse.json(project);
       } catch (e) {
-        console.error('Fehler bei Zeiten-Aktion über PUT:', e);
+        logger.error('Fehler bei Zeiten-Aktion über PUT:', e);
         return NextResponse.json({ message: 'Fehler bei Zeiten-Aktion' }, { status: 500 });
       }
     }
 
     // Spezialbehandlung: Fahrzeuge-Aktionen (assign/update/unassign) über PUT-Body
-    if (body && body.vehicles && typeof body.vehicles === 'object' && typeof (body.vehicles as any).action === 'string') {
-      const action = (body.vehicles as any).action as 'assign' | 'update' | 'unassign';
+    const vehiclesResult = body?.vehicles ? vehiclesActionSchema.safeParse(body.vehicles) : null;
+    if (vehiclesResult?.success) {
+      const vehicles = vehiclesResult.data;
+      const action = vehicles.action;
       try {
         const project = await Project.findById(id);
         if (!project) {
@@ -409,18 +446,18 @@ export async function PUT(request: Request) {
         }
 
         if (!project.fahrzeuge || typeof project.fahrzeuge !== 'object') {
-          (project as any).fahrzeuge = {};
+          project.fahrzeuge = {};
         }
 
         if (action === 'assign') {
-          const dates = Array.isArray((body.vehicles as any).dates) ? (body.vehicles as any).dates as string[] : [];
-          const vehicle = (body.vehicles as any).vehicle as any;
+          const dates = vehicles.dates ?? [];
+          const vehicle = vehicles.vehicle;
           if (!vehicle || !vehicle.id || dates.length === 0) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (assign)' }, { status: 400 });
           }
           for (const d of dates) {
-            if (!(project as any).fahrzeuge[d]) (project as any).fahrzeuge[d] = [];
-            const arr = (project as any).fahrzeuge[d] as any[];
+            if (!project.fahrzeuge[d]) project.fahrzeuge[d] = [];
+            const arr = project.fahrzeuge[d] as any[];
             if (!arr.some(v => v && v.id === vehicle.id)) {
               arr.push({
                 id: vehicle.id,
@@ -430,21 +467,21 @@ export async function PUT(request: Request) {
                 mitarbeiterName: vehicle.mitarbeiterName || ''
               });
             }
-            (project as any).fahrzeuge[d] = arr;
+            project.fahrzeuge[d] = arr;
             try {
-              const currentUser = await getCurrentUser(request as any);
+              const currentUser = await getCurrentUser(request);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
                   actionType: 'project_vehicle_assigned',
                   module: 'project',
                   performedBy: {
-                    userId: (currentUser as any)._id,
-                    name: (currentUser as any).name,
-                    role: (currentUser as any).role
+                    userId: currentUser._id,
+                    name: currentUser.name,
+                    role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Fahrzeug zugewiesen am ${d}: ${vehicle.type} ${vehicle.licensePlate}`,
                     after: { date: d, vehicle }
                   }
@@ -455,32 +492,32 @@ export async function PUT(request: Request) {
         }
 
         if (action === 'update') {
-          const date = (body.vehicles as any).date as string;
-          const vehicleId = (body.vehicles as any).vehicleId as string;
-          const updatedFields = (body.vehicles as any).updatedFields as Record<string, any>;
+          const date = vehicles.date ?? '';
+          const vehicleId = vehicles.vehicleId ?? '';
+          const updatedFields = vehicles.updatedFields ?? {};
           if (!date || !vehicleId || !updatedFields) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (update)' }, { status: 400 });
           }
-          const arr = ((project as any).fahrzeuge[date] || []) as any[];
+          const arr = (project.fahrzeuge[date] || []) as any[];
           const idx = arr.findIndex(v => v && v.id === vehicleId);
           if (idx !== -1) {
             const before = { ...arr[idx] };
             arr[idx] = { ...arr[idx], ...updatedFields };
-            (project as any).fahrzeuge[date] = arr;
+            project.fahrzeuge[date] = arr;
             try {
-              const currentUser = await getCurrentUser(request as any);
+              const currentUser = await getCurrentUser(request);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
                   actionType: 'project_vehicle_updated',
                   module: 'project',
                   performedBy: {
-                    userId: (currentUser as any)._id,
-                    name: (currentUser as any).name,
-                    role: (currentUser as any).role
+                    userId: currentUser._id,
+                    name: currentUser.name,
+                    role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Fahrzeug aktualisiert am ${date}: ${before.type} ${before.licensePlate}`,
                     before,
                     after: arr[idx]
@@ -492,32 +529,32 @@ export async function PUT(request: Request) {
         }
 
         if (action === 'unassign') {
-          const date = (body.vehicles as any).date as string;
-          const vehicleId = (body.vehicles as any).vehicleId as string;
+          const date = vehicles.date ?? '';
+          const vehicleId = vehicles.vehicleId ?? '';
           if (!date || !vehicleId) {
             return NextResponse.json({ message: 'Ungültige Fahrzeug-Daten (unassign)' }, { status: 400 });
           }
-          const arr = ((project as any).fahrzeuge[date] || []) as any[];
+          const arr = (project.fahrzeuge[date] || []) as any[];
           const removed = arr.find(v => v && v.id === vehicleId);
-          (project as any).fahrzeuge[date] = arr.filter(v => v && v.id !== vehicleId);
-          if ((project as any).fahrzeuge[date].length === 0) {
-            delete (project as any).fahrzeuge[date];
+          project.fahrzeuge[date] = arr.filter(v => v && v.id !== vehicleId);
+          if (project.fahrzeuge[date].length === 0) {
+            delete project.fahrzeuge[date];
           }
           try {
             if (removed) {
-              const currentUser = await getCurrentUser(request as any);
+              const currentUser = await getCurrentUser(request);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
                   actionType: 'project_vehicle_unassigned',
                   module: 'project',
                   performedBy: {
-                    userId: (currentUser as any)._id,
-                    name: (currentUser as any).name,
-                    role: (currentUser as any).role
+                    userId: currentUser._id,
+                    name: currentUser.name,
+                    role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Fahrzeug entfernt am ${date}: ${removed.type} ${removed.licensePlate}`,
                     before: removed
                   }
@@ -527,18 +564,20 @@ export async function PUT(request: Request) {
           } catch (_) {}
         }
 
-        (project as any).markModified('fahrzeuge');
-        await (project as any).save();
+        project.markModified('fahrzeuge');
+        await project.save();
         return NextResponse.json(project);
       } catch (e) {
-        console.error('Fehler bei Fahrzeuge-Aktion über PUT:', e);
+        logger.error('Fehler bei Fahrzeuge-Aktion über PUT:', e);
         return NextResponse.json({ message: 'Fehler bei Fahrzeuge-Aktion' }, { status: 500 });
       }
     }
 
     // Spezialbehandlung: Technik-Aktionen (add/edit/remove) über PUT-Body
-    if (body && body.technik && typeof body.technik === 'object' && typeof (body.technik as any).action === 'string') {
-      const action = (body.technik as any).action as 'add' | 'edit' | 'remove';
+    const technikResult = body?.technik ? technikActionSchema.safeParse(body.technik) : null;
+    if (technikResult?.success) {
+      const technikAction = technikResult.data;
+      const action = technikAction.action;
       try {
         const project = await Project.findById(id);
         if (!project) {
@@ -547,13 +586,13 @@ export async function PUT(request: Request) {
 
         // Stelle sicher, dass das Technik-Objekt existiert
         if (!project.technik || typeof project.technik !== 'object') {
-          (project as any).technik = {};
+          project.technik = {};
         }
 
         if (action === 'add') {
-          const date = (body.technik as any).date as string | undefined;
-          const dates = (body.technik as any).dates as string[] | undefined;
-          const technik = (body.technik as any).technik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
+          const date = technikAction.date;
+          const dates = technikAction.dates;
+          const technik = technikAction.technik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
           if ((!date && (!Array.isArray(dates) || dates.length === 0)) || !technik || !technik.name) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (add)' }, { status: 400 });
           }
@@ -567,28 +606,28 @@ export async function PUT(request: Request) {
           };
 
           for (const d of targetDays) {
-            if (!(project as any).technik[d]) {
-              (project as any).technik[d] = [];
+            if (!project.technik[d]) {
+              project.technik[d] = [];
             }
             const newTechnik = {
               id: Date.now().toString() + Math.random().toString(36).slice(2),
               ...newEntryBase,
             };
-            (project as any).technik[d].push(newTechnik);
+            project.technik[d].push(newTechnik);
             try {
-              const currentUser = await getCurrentUser(request as any);
+              const currentUser = await getCurrentUser(request);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
                   actionType: 'project_technology_added',
                   module: 'project',
                   performedBy: {
-                    userId: (currentUser as any)._id,
-                    name: (currentUser as any).name,
-                    role: (currentUser as any).role
+                    userId: currentUser._id,
+                    name: currentUser.name,
+                    role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Technikeintrag hinzugefügt am ${d}: ${newEntryBase.name} (Anzahl ${newEntryBase.anzahl}, ${newEntryBase.meterlaenge} m)`,
                     after: { date: d, technik: newTechnik }
                   }
@@ -599,36 +638,36 @@ export async function PUT(request: Request) {
         }
 
         if (action === 'edit') {
-          const date = (body.technik as any).date as string | undefined;
-          const technikId = (body.technik as any).technikId as string;
-          const updatedTechnik = (body.technik as any).updatedTechnik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
-          const selectedDays = (body.technik as any).selectedDays as string[] | undefined;
+          const date = technikAction.date;
+          const technikId = technikAction.technikId ?? '';
+          const updatedTechnik = technikAction.updatedTechnik as { name: string; anzahl: number; meterlaenge: number; bemerkung?: string };
+          const selectedDays = technikAction.selectedDays;
           if (!technikId || !updatedTechnik) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (edit)' }, { status: 400 });
           }
           const applyUpdate = async (d: string) => {
-            if (!(project as any).technik[d]) {
-              (project as any).technik[d] = [];
+            if (!project.technik[d]) {
+              project.technik[d] = [];
             }
-            const arr = (project as any).technik[d] as any[];
+            const arr = project.technik[d] as any[];
             const idx = arr.findIndex(t => t && t.id === technikId);
             if (idx !== -1) {
               const before = { ...arr[idx] };
               arr[idx] = { ...arr[idx], ...updatedTechnik };
               try {
-                const currentUser = await getCurrentUser(request as any);
+                const currentUser = await getCurrentUser(request);
                 if (currentUser) {
                   await ActivityLog.create({
                     timestamp: new Date(),
                     actionType: 'project_technology_updated',
                     module: 'project',
                     performedBy: {
-                      userId: (currentUser as any)._id,
-                      name: (currentUser as any).name,
-                      role: (currentUser as any).role
+                      userId: currentUser._id,
+                      name: currentUser.name,
+                      role: currentUser.role
                     },
                     details: {
-                      entityId: (project as any)._id,
+                      entityId: project._id,
                       description: `Technikeintrag geändert am ${d}: ${before.name}`,
                       before,
                       after: arr[idx]
@@ -640,19 +679,19 @@ export async function PUT(request: Request) {
               // Falls am Tag kein Eintrag existiert, neuen Eintrag mit gegebener ID anlegen
               arr.push({ id: technikId, ...updatedTechnik });
               try {
-                const currentUser = await getCurrentUser(request as any);
+                const currentUser = await getCurrentUser(request);
                 if (currentUser) {
                   await ActivityLog.create({
                     timestamp: new Date(),
                     actionType: 'project_technology_added',
                     module: 'project',
                     performedBy: {
-                      userId: (currentUser as any)._id,
-                      name: (currentUser as any).name,
-                      role: (currentUser as any).role
+                      userId: currentUser._id,
+                      name: currentUser.name,
+                      role: currentUser.role
                     },
                     details: {
-                      entityId: (project as any)._id,
+                      entityId: project._id,
                       description: `Technikeintrag hinzugefügt am ${d}: ${updatedTechnik.name}`,
                       after: { date: d, technik: { id: technikId, ...updatedTechnik } }
                     }
@@ -660,7 +699,7 @@ export async function PUT(request: Request) {
                 }
               } catch (_) {}
             }
-            (project as any).technik[d] = arr;
+            project.technik[d] = arr;
           };
           if (Array.isArray(selectedDays) && selectedDays.length > 0) {
             for (const d of selectedDays) {
@@ -674,32 +713,32 @@ export async function PUT(request: Request) {
         }
 
         if (action === 'remove') {
-          const date = (body.technik as any).date as string;
-          const technikId = (body.technik as any).technikId as string;
+          const date = technikAction.date ?? '';
+          const technikId = technikAction.technikId ?? '';
           if (!date || !technikId) {
             return NextResponse.json({ message: 'Ungültige Technik-Daten (remove)' }, { status: 400 });
           }
-          const currentArr = ((project as any).technik[date] || []) as any[];
+          const currentArr = (project.technik[date] || []) as any[];
           const removed = currentArr.find(t => t && t.id === technikId);
-          (project as any).technik[date] = currentArr.filter(t => t && t.id !== technikId);
-          if ((project as any).technik[date].length === 0) {
-            delete (project as any).technik[date];
+          project.technik[date] = currentArr.filter(t => t && t.id !== technikId);
+          if (project.technik[date].length === 0) {
+            delete project.technik[date];
           }
           try {
             if (removed) {
-              const currentUser = await getCurrentUser(request as any);
+              const currentUser = await getCurrentUser(request);
               if (currentUser) {
                 await ActivityLog.create({
                   timestamp: new Date(),
                   actionType: 'project_technology_removed',
                   module: 'project',
                   performedBy: {
-                    userId: (currentUser as any)._id,
-                    name: (currentUser as any).name,
-                    role: (currentUser as any).role
+                    userId: currentUser._id,
+                    name: currentUser.name,
+                    role: currentUser.role
                   },
                   details: {
-                    entityId: (project as any)._id,
+                    entityId: project._id,
                     description: `Technikeintrag entfernt am ${date}: ${removed.name}`,
                     before: removed
                   }
@@ -711,22 +750,22 @@ export async function PUT(request: Request) {
 
         // ATW-Status und Meterlänge aktualisieren (global)
         const allTechnik: any[] = [];
-        Object.values((project as any).technik).forEach((technikArray: any) => {
+        Object.values(project.technik).forEach((technikArray: any) => {
           if (Array.isArray(technikArray)) {
             allTechnik.push(...technikArray.filter(item => item && typeof item === 'object'));
           }
         });
-        (project as any).atwsImEinsatz = allTechnik.length > 0;
-        (project as any).anzahlAtws = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.anzahl) || 0), 0);
-        (project as any).gesamtMeterlaenge = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.meterlaenge) || 0), 0);
+        project.atwsImEinsatz = allTechnik.length > 0;
+        project.anzahlAtws = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.anzahl) || 0), 0);
+        project.gesamtMeterlaenge = allTechnik.reduce((sum: number, t: any) => sum + (Number(t?.meterlaenge) || 0), 0);
 
-        (project as any).markModified('technik');
-        await (project as any).save();
+        project.markModified('technik');
+        await project.save();
 
         // Optional: Activity Log könnte hier ergänzt werden
         return NextResponse.json(project);
       } catch (e) {
-        console.error('Fehler bei Technik-Aktion über PUT:', e);
+        logger.error('Fehler bei Technik-Aktion über PUT:', e);
         return NextResponse.json({ message: 'Fehler bei Technik-Aktion' }, { status: 500 });
       }
     }
@@ -775,16 +814,16 @@ export async function PUT(request: Request) {
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Projekt-Update');
+        logger.debug('Activity Log erstellt für Projekt-Update');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
 
     return NextResponse.json(project);
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Projekts:', error);
+    logger.error('Fehler beim Aktualisieren des Projekts:', error);
     return NextResponse.json(
       { message: 'Fehler beim Aktualisieren des Projekts' },
       { status: 500 }
@@ -792,10 +831,10 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
     await dbConnect();
-    const url = new URL((request as any).url);
+    const url = new URL(request.url);
     const parts = url.pathname.split('/').filter(Boolean);
     const projectsIdx = parts.indexOf('projects');
     const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
@@ -803,7 +842,7 @@ export async function PATCH(request: Request) {
     if (process.env.NODE_ENV === 'production' && csrf !== 'projects:patch') {
       return NextResponse.json({ message: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request as any, ['user','admin','superadmin']);
+    const auth = await requireAuth(request, ['user','admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
     const schema = z.object({}).passthrough();
     const parseResult = schema.safeParse(await request.json());
@@ -883,12 +922,12 @@ export async function PATCH(request: Request) {
         }
       }
     } catch (notifyErr) {
-      console.error('Benachrichtigung (geleistet, PATCH) fehlgeschlagen:', notifyErr);
+      logger.error('Benachrichtigung (geleistet, PATCH) fehlgeschlagen:', notifyErr);
     }
 
     return NextResponse.json(project);
   } catch (error) {
-    console.error('Fehler beim Aktualisieren des Projekts:', error);
+    logger.error('Fehler beim Aktualisieren des Projekts:', error);
     return NextResponse.json(
       { message: 'Fehler beim Aktualisieren des Projekts' },
       { status: 500 }
@@ -896,10 +935,10 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
     await dbConnect();
-    const url = new URL((request as any).url);
+    const url = new URL(request.url);
     const parts = url.pathname.split('/').filter(Boolean);
     const projectsIdx = parts.indexOf('projects');
     const id = projectsIdx >= 0 && parts.length > projectsIdx + 1 ? parts[projectsIdx + 1] : undefined;
@@ -907,7 +946,7 @@ export async function DELETE(request: Request) {
     if (process.env.NODE_ENV === 'production' && csrf !== 'projects:delete') {
       return NextResponse.json({ message: 'Ungültige Anforderung' }, { status: 400 });
     }
-    const auth = await requireAuth(request as any, ['admin','superadmin']);
+    const auth = await requireAuth(request, ['admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ message: auth.error }, { status: auth.status });
 
     if (!id) {
@@ -929,7 +968,7 @@ export async function DELETE(request: Request) {
     // Activity Log erstellen
     if (auth.ok) {
       try {
-        const currentUser = await getCurrentUser(request as any);
+        const currentUser = await getCurrentUser(request);
         const activityLog = new ActivityLog({
           timestamp: new Date(),
           actionType: 'project_deleted',
@@ -952,9 +991,9 @@ export async function DELETE(request: Request) {
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Projekt-Löschung');
+        logger.debug('Activity Log erstellt für Projekt-Löschung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -965,9 +1004,9 @@ export async function DELETE(request: Request) {
         { 'einsaetze.projektId': id },
         { $pull: { einsaetze: { projektId: id } }}
       );
-      console.log(`Mitarbeiter-Einsätze bereinigt: ${cleanupResult.modifiedCount} Mitarbeiter aktualisiert`);
+      logger.debug(`Mitarbeiter-Einsätze bereinigt: ${cleanupResult.modifiedCount} Mitarbeiter aktualisiert`);
     } catch (cleanupError) {
-      console.error('Fehler beim Bereinigen der Mitarbeiter-Einsätze:', cleanupError);
+      logger.error('Fehler beim Bereinigen der Mitarbeiter-Einsätze:', cleanupError);
       // Cleanup-Fehler sollte nicht die Hauptlöschung verhindern
     }
 
@@ -976,7 +1015,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ message: 'Projekt erfolgreich gelöscht' });
   } catch (error) {
-    console.error('Fehler beim Löschen des Projekts:', error);
+    logger.error('Fehler beim Löschen des Projekts:', error);
     return NextResponse.json(
       { message: 'Fehler beim Löschen des Projekts' },
       { status: 500 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import { Project } from '@/lib/models/Project';
 import ActivityLog from '@/lib/models/ActivityLog';
@@ -59,10 +60,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     //   );
     // }
     // Debug: Vor dem Speichern
-    console.log('--- ZEITEN DEBUG ---');
-    console.log('API empfängt Eintrag:', entry);
-    console.log('Vorher (mitarbeiterZeiten):', JSON.stringify(project.mitarbeiterZeiten));
-    console.log('Vorher (Keys):', Object.keys(project.mitarbeiterZeiten || {}));
+    logger.debug('--- ZEITEN DEBUG ---');
+    logger.debug('API empfängt Eintrag:', entry);
+    logger.debug('Vorher (mitarbeiterZeiten):', JSON.stringify(project.mitarbeiterZeiten));
+    logger.debug('Vorher (Keys):', Object.keys(project.mitarbeiterZeiten || {}));
     if (!project.mitarbeiterZeiten) project.mitarbeiterZeiten = {};
     if (!project.mitarbeiterZeiten[date]) project.mitarbeiterZeiten[date] = [];
     project.mitarbeiterZeiten[date].push(entry);
@@ -95,23 +96,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Zeiteintrag-Hinzufügung');
+        logger.debug('Activity Log erstellt für Zeiteintrag-Hinzufügung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
     
     // Debug: Nach dem Speichern
-    console.log('Nachher (mitarbeiterZeiten):', JSON.stringify(project.mitarbeiterZeiten, null, 2));
-    console.log('Nachher (Keys):', Object.keys(project.mitarbeiterZeiten));
+    logger.debug('Nachher (mitarbeiterZeiten):', JSON.stringify(project.mitarbeiterZeiten, null, 2));
+    logger.debug('Nachher (Keys):', Object.keys(project.mitarbeiterZeiten));
     const updatedProject = await Project.findById(id).lean();
     if (updatedProject) {
       (updatedProject as any).id = (updatedProject as any)._id?.toString();
     }
     const debugMZ = (updatedProject as any)?.mitarbeiterZeiten || {};
-    console.log('Response (mitarbeiterZeiten):', JSON.stringify(debugMZ));
-    console.log('Response (Keys):', Object.keys(debugMZ));
+    logger.debug('Response (mitarbeiterZeiten):', JSON.stringify(debugMZ));
+    logger.debug('Response (Keys):', Object.keys(debugMZ));
     return NextResponse.json({ success: true, project: updatedProject }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: 'Fehler beim Hinzufügen des Zeiteintrags.' }, { status: 500 });

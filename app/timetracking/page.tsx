@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import TimeTrackingWithFilter from '../../components/TimeTrackingWithFilter';
 import dbConnect from '../../lib/dbConnect';
 import { Project as ProjectModel } from '../../lib/models/Project';
@@ -55,7 +56,7 @@ async function getTimeTrackingData() {
       }))
     };
   } catch (error) {
-    console.error('Fehler beim Laden der Zeiterfassungsdaten:', error);
+    logger.error('Fehler beim Laden der Zeiterfassungsdaten:', error);
     return { projects: [], employees: [] };
   }
 }

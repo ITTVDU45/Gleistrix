@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
 
-    const all = (project as any).dokumente?.all || [];
+    const all = project.dokumente?.all || [];
     const doc = all.find((d: any) => d.id === docId);
     if (!doc) return NextResponse.json({ message: 'Dokument nicht gefunden' }, { status: 404 });
 
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       : await new Promise<string>((resolve, reject) => (minioClient as any).presignedGetObject(bucketName, key, expires, (err: any, url: string) => err ? reject(err) : resolve(url)));
     return NextResponse.json({ url: presigned });
   } catch (e) {
-    console.error('Presign failed', e);
+    logger.error('Presign failed', e);
     return NextResponse.json({ message: 'Presign fehlgeschlagen' }, { status: 500 });
   }
 }

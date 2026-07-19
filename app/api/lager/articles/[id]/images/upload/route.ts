@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { nanoid } from 'nanoid'
 import dbConnect from '@/lib/dbConnect'
@@ -67,7 +68,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, attachment }, { status: 201 })
   } catch (error) {
-    console.error('Artikelbild-Upload fehlgeschlagen:', error)
+    logger.error('Artikelbild-Upload fehlgeschlagen:', error)
     return NextResponse.json(
       { success: false, message: 'Bild-Upload fehlgeschlagen' },
       { status: 500 }

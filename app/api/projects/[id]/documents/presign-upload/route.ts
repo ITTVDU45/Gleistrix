@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
@@ -22,10 +23,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const hasAccessPair = !!(process.env.MINIO_ACCESS_KEY && process.env.MINIO_SECRET_KEY);
     const hasRootPair = !!(process.env.MINIO_ROOT_USER && process.env.MINIO_ROOT_PASSWORD);
     if (!hasAccessPair && !hasRootPair) {
-      console.error('MinIO credentials missing: neither MINIO_ACCESS_KEY/MINIO_SECRET_KEY nor MINIO_ROOT_USER/MINIO_ROOT_PASSWORD are set');
+      logger.error('MinIO credentials missing: neither MINIO_ACCESS_KEY/MINIO_SECRET_KEY nor MINIO_ROOT_USER/MINIO_ROOT_PASSWORD are set');
       return NextResponse.json({ message: 'Presign fehlgeschlagen', error: 'MinIO-Konfiguration fehlt (MINIO_ACCESS_KEY / MINIO_SECRET_KEY or MINIO_ROOT_USER / MINIO_ROOT_PASSWORD)' }, { status: 500 });
     }
-    console.info('Using MinIO credentials from', hasAccessPair ? 'MINIO_ACCESS_KEY/MINIO_SECRET_KEY' : 'MINIO_ROOT_USER/MINIO_ROOT_PASSWORD');
+    logger.info('Using MinIO credentials from', hasAccessPair ? 'MINIO_ACCESS_KEY/MINIO_SECRET_KEY' : 'MINIO_ROOT_USER/MINIO_ROOT_PASSWORD');
 
     const bucketName = process.env.MINIO_BUCKET || 'project-documents';
     // Bei gesetztem MINIO_BUCKET Bucket als bereits erstellt ansehen (z. B. Hostiteasy); sonst prüfen/erstellen
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           else await minioClient.makeBucket(bucketName);
         }
       } catch (e) {
-        console.warn('MinIO bucket check failed:', e);
+        logger.warn('MinIO bucket check failed:', e);
       }
     }
 
@@ -62,12 +63,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             presignedUrlObj.host = publicUrlObj.host;
             presigned = presignedUrlObj.toString();
           } catch (urlErr) {
-            console.warn('MINIO_PUBLIC_URL replace failed, using original presigned URL', urlErr);
+            logger.warn('MINIO_PUBLIC_URL replace failed, using original presigned URL', urlErr);
           }
         }
         results.push({ name: f.name, key, url: `minio://${bucketName}/${key}`, presignedUrl: presigned, contentType: f.contentType || 'application/octet-stream' });
       } catch (fileErr) {
-        console.error('Presign for file failed', { file: f, error: fileErr });
+        logger.error('Presign for file failed', { file: f, error: fileErr });
         // include per-file error info to help debugging
         return NextResponse.json({ message: 'Presign fehlgeschlagen', error: String(fileErr instanceof Error ? fileErr.message : fileErr) }, { status: 500 });
       }
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ success: true, uploads: results });
   } catch (e) {
-    console.error('Presign upload failed', e);
+    logger.error('Presign upload failed', e);
     return NextResponse.json({ message: 'Presign fehlgeschlagen' }, { status: 500 });
   }
 }

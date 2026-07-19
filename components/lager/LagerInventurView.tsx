@@ -153,8 +153,8 @@ export default function LagerInventurView({ articles, categories, onRefresh }: L
 
     let cancelled = false
     LagerApi.inventory.get(selectedId).then((res) => {
-      if (!cancelled && (res as any)?.success && (res as any).data) {
-        const d = (res as any).data as InventoryItem
+      if (!cancelled && res?.success && res.data) {
+        const d = res.data as unknown as InventoryItem
         setDetail(d)
         setMetaForm({
           name: d.name ?? '',
@@ -204,13 +204,13 @@ export default function LagerInventurView({ articles, categories, onRefresh }: L
         artikelIds: createForm.fokusTyp === 'artikel' ? createForm.artikelIds : undefined,
         unitIds: createForm.unitIds.length > 0 ? createForm.unitIds : undefined
       })
-      if ((res as any)?.success && (res as any).data) {
+      if (res?.success && res.data) {
         setCreateOpen(false)
         setCreateForm(emptyCreateForm())
         setCreateUnitsMap({})
         setScanMessage(null)
         await loadList()
-        setSelectedId((res as any).data._id)
+        setSelectedId(String(res.data._id ?? ''))
       }
     } finally {
       setSaving(false)
@@ -233,8 +233,8 @@ export default function LagerInventurView({ articles, categories, onRefresh }: L
         zeitraumBis: metaForm.zeitraumBis || null
       })
       const res = await LagerApi.inventory.get(selectedId)
-      if ((res as any)?.success && (res as any).data) {
-        setDetail((res as any).data as InventoryItem)
+      if (res?.success && res.data) {
+        setDetail(res.data as unknown as InventoryItem)
       }
       await loadList()
       onRefresh()
@@ -255,7 +255,7 @@ export default function LagerInventurView({ articles, categories, onRefresh }: L
     try {
       await LagerApi.inventory.update(selectedId, { positionen })
       const res = await LagerApi.inventory.get(selectedId)
-      if ((res as any)?.success && (res as any).data) setDetail((res as any).data)
+      if (res?.success && res.data) setDetail(res.data as unknown as InventoryItem)
       onRefresh()
       setScanMessage('Zaehlung gespeichert.')
     } finally {

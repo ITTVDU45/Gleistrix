@@ -1,4 +1,5 @@
 ﻿"use client"
+import { logger } from '@/lib/logger'
 import React from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog'
 import { Button } from '../../components/ui/button'
@@ -103,7 +104,7 @@ export default function AbrechnungDialog({ open, onOpenChange, projectId, onFini
       setSelectedRows(list.filter((p) => !p.isBilled).map((p) => p.rowKey))
       setStep(2)
     } catch (e) {
-      console.error(e)
+      logger.error(e)
     } finally {
       setIsLoadingPositions(false)
     }
@@ -158,7 +159,7 @@ export default function AbrechnungDialog({ open, onOpenChange, projectId, onFini
 
       if (onFinished) onFinished(true)
     } catch (e) {
-      console.error('Abrechnung fehlgeschlagen', e)
+      logger.error('Abrechnung fehlgeschlagen', e)
       if (onFinished) onFinished(false)
     } finally {
       setIsSubmitting(false)

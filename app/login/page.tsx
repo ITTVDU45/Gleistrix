@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSession, signIn } from 'next-auth/react';
@@ -36,12 +37,12 @@ export default function LoginPage() {
         const session = await getSession();
         const role = session?.user?.role;
         const targetRoute = role === 'lager' ? '/lager/app' : '/dashboard';
-        console.log('Login erfolgreich');
+        logger.debug('Login erfolgreich');
         router.push(targetRoute);
         router.refresh();
       }
     } catch (err) {
-      console.error('Login error:', err);
+      logger.error('Login error:', err);
       setError('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
     } finally {
       setIsLoading(false);

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '../../../../../lib/dbConnect';
 import { Project } from '../../../../../lib/models/Project';
@@ -122,9 +123,9 @@ export async function POST(
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Fahrzeug-Zuweisung');
+        logger.debug('Activity Log erstellt für Fahrzeug-Zuweisung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -143,7 +144,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Fehler beim Zuweisen des Fahrzeugs:', error);
+    logger.error('Fehler beim Zuweisen des Fahrzeugs:', error);
     return NextResponse.json(
       { error: 'Fehler beim Zuweisen des Fahrzeugs' },
       { status: 500 }
@@ -202,9 +203,9 @@ export async function DELETE(
     }
 
     // Entferne das Fahrzeug (robuster Vergleich)
-    console.log('Fahrzeuge vor:', project.fahrzeuge[date]);
+    logger.debug('Fahrzeuge vor:', project.fahrzeuge[date]);
     project.fahrzeuge[date] = project.fahrzeuge[date].filter((v: any) => v.id?.toString() !== vehicleId?.toString());
-    console.log('Fahrzeuge nach:', project.fahrzeuge[date]);
+    logger.debug('Fahrzeuge nach:', project.fahrzeuge[date]);
 
     // Wenn das Datum leer ist, entferne es komplett
     if (project.fahrzeuge[date].length === 0) {
@@ -230,7 +231,7 @@ export async function DELETE(
     });
 
   } catch (error) {
-    console.error('Fehler beim Entfernen des Fahrzeugs:', error);
+    logger.error('Fehler beim Entfernen des Fahrzeugs:', error);
     return NextResponse.json(
       { error: 'Fehler beim Entfernen des Fahrzeugs' },
       { status: 500 }
@@ -300,7 +301,7 @@ export async function PUT(
       project: responseProject
     });
   } catch (error) {
-    console.error('Fehler beim Bearbeiten der Fahrzeugzuweisung:', error);
+    logger.error('Fehler beim Bearbeiten der Fahrzeugzuweisung:', error);
     return NextResponse.json(
       { error: 'Fehler beim Bearbeiten der Fahrzeugzuweisung' },
       { status: 500 }

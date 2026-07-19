@@ -1,4 +1,5 @@
 'use client';
+import { logger } from '@/lib/logger'
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
@@ -159,6 +160,15 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     return pid ? { ...p, id: pid } : p
   }
 
+  // Die Projekt-API liefert entweder { project } oder das Projekt direkt.
+  // Extrahiert das Projekt aus beiden Formen (oder null, wenn keine ID vorhanden).
+  const extractFreshProject = (res: unknown): (Project & { _id?: string }) | null => {
+    if (!res || typeof res !== 'object') return null
+    const envelope = res as { project?: unknown }
+    const candidate = (envelope.project ?? res) as Project & { _id?: string }
+    return candidate && (candidate._id || candidate.id) ? candidate : null
+  }
+
   const getProjectId = (): string => {
     const pid = (project && ((project as any).id || (project as any)._id)) || id
     return typeof pid === 'string' ? pid : ''
@@ -182,7 +192,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     lazyLoad: false,
     userId,
     onLockAcquired: () => {
-      console.log('Lock acquired - showing snackbar');
+      logger.debug('Lock acquired - showing snackbar');
       setSnackbar({
         open: true,
         message: 'Sperre erfolgreich erworben - Sie können jetzt bearbeiten',
@@ -190,7 +200,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       });
     },
     onLockReleased: () => {
-      console.log('Lock released - showing snackbar');
+      logger.debug('Lock released - showing snackbar');
       setSnackbar({
         open: true,
         message: 'Sperre wurde freigegeben',
@@ -198,7 +208,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       });
     },
     onLockLost: () => {
-      console.log('Lock lost - showing snackbar');
+      logger.debug('Lock lost - showing snackbar');
       setSnackbar({
         open: true,
         message: 'Sperre verloren - Projekt wird von einem anderen Benutzer bearbeitet',
@@ -246,16 +256,16 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
   // Sperre bei Bedarf erwerben
   const acquireLockOnDemand = async () => {
-    console.log('=== SPERRE BEI BEDARF ERWERBEN ===');
-    console.log(`Aktueller Lock-Status: isOwnLock=${lockInfo.isOwnLock}, isLocked=${lockInfo.isLocked}`);
+    logger.debug('=== SPERRE BEI BEDARF ERWERBEN ===');
+    logger.debug(`Aktueller Lock-Status: isOwnLock=${lockInfo.isOwnLock}, isLocked=${lockInfo.isLocked}`);
     
     if (lockInfo.isOwnLock) {
-      console.log('Sperre bereits besessen');
+      logger.debug('Sperre bereits besessen');
       return true;
     }
     
     if (lockInfo.isLocked && !lockInfo.isOwnLock) {
-      console.log('Sperre von anderem Benutzer - kann nicht erwerben');
+      logger.debug('Sperre von anderem Benutzer - kann nicht erwerben');
       setSnackbar({
         open: true,
         message: 'Projekt wird von einem anderen Benutzer bearbeitet',
@@ -264,14 +274,14 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       return false;
     }
     
-    console.log('Versuche Sperre zu erwerben...');
+    logger.debug('Versuche Sperre zu erwerben...');
     const success = await acquireLock();
     
     if (success) {
-      console.log('Sperre erfolgreich erworben');
+      logger.debug('Sperre erfolgreich erworben');
       return true;
     } else {
-      console.log('Sperre konnte nicht erworben werden');
+      logger.debug('Sperre konnte nicht erworben werden');
       setSnackbar({
         open: true,
         message: 'Sperre konnte nicht erworben werden',
@@ -283,11 +293,11 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
   // Prüfen, ob Bearbeitung erlaubt ist
   const checkEditPermission = () => {
-    console.log('=== BEARBEITUNGSBERECHTIGUNG PRÜFEN ===');
-    console.log(`Lock-Status: isOwnLock=${lockInfo.isOwnLock}, isLocked=${lockInfo.isLocked}`);
+    logger.debug('=== BEARBEITUNGSBERECHTIGUNG PRÜFEN ===');
+    logger.debug(`Lock-Status: isOwnLock=${lockInfo.isOwnLock}, isLocked=${lockInfo.isLocked}`);
     
     if (!lockInfo.isOwnLock) {
-      console.log('Keine eigene Sperre - Bearbeitung nicht erlaubt');
+      logger.debug('Keine eigene Sperre - Bearbeitung nicht erlaubt');
       setSnackbar({
         open: true,
         message: 'Sie müssen zuerst die Sperre erwerben',
@@ -296,7 +306,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       return false;
     }
     
-    console.log('Bearbeitung erlaubt');
+    logger.debug('Bearbeitung erlaubt');
     return true;
   };
 
@@ -322,9 +332,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
   // Debug: Lock-Status anzeigen
   React.useEffect(() => {
-    console.log('=== DEBUG: LOCK STATUS UPDATE ===');
-    console.log('lockInfo:', lockInfo);
-    console.log('snackbar:', snackbar);
+    logger.debug('=== DEBUG: LOCK STATUS UPDATE ===');
+    logger.debug('lockInfo:', lockInfo);
+    logger.debug('snackbar:', snackbar);
   }, [lockInfo, snackbar]);
 
   // Dialog-States für Technik, Zeiten, Fahrzeuge
@@ -433,11 +443,10 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
 
       // Projekt neu laden
       try {
-        const fresh = await ProjectsApi.get(getProjectId());
-        if ((fresh as any).project) setProject(normalizeProject((fresh as any).project));
-        else if ((fresh as any)._id) setProject(normalizeProject(fresh));
+        const fresh = extractFreshProject(await ProjectsApi.get(getProjectId()));
+        if (fresh) setProject(normalizeProject(fresh));
       } catch (e) {
-        console.warn('ProjectsApi.get after bulk delete failed, relying on context fetch', e);
+        logger.warn('ProjectsApi.get after bulk delete failed, relying on context fetch', e);
       }
 
       setSelectedTimeEntries(new Set());
@@ -448,7 +457,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
         severity: 'success' 
       });
     } catch (err) {
-      console.error('Fehler beim Bulk-Delete:', err);
+      logger.error('Fehler beim Bulk-Delete:', err);
       setSnackbar({ 
         open: true, 
         message: 'Fehler beim Löschen der Zeiteinträge', 
@@ -462,13 +471,13 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   // Manuelle Sperre freigeben mit Benachrichtigung
   const handleReleaseLock = async () => {
     try {
-      console.log('=== SPERRE FREIGEBEN VERSUCH ===');
-      console.log(`Ressource: project/${id}`);
+      logger.debug('=== SPERRE FREIGEBEN VERSUCH ===');
+      logger.debug(`Ressource: project/${id}`);
       
       // Sperre freigeben
       const success = await releaseLock();
       
-      console.log('Release result:', success);
+      logger.debug('Release result:', success);
       
       if (success) {
         setSnackbar({
@@ -478,10 +487,10 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
         });
         
         // Längere Verzögerung für die Freigabe (3 Sekunden)
-        console.log('Waiting 3 seconds for lock release to propagate...');
+        logger.debug('Waiting 3 seconds for lock release to propagate...');
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        console.log('Navigating to project overview...');
+        logger.debug('Navigating to project overview...');
         // Nach Verzögerung zur Projektseite navigieren
         router.push('/projekte');
       } else {
@@ -492,7 +501,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
         });
       }
     } catch (error) {
-      console.error('Fehler beim Freigeben der Sperre:', error);
+      logger.error('Fehler beim Freigeben der Sperre:', error);
       setSnackbar({
         open: true,
         message: 'Fehler beim Freigeben der Sperre',
@@ -507,10 +516,9 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     const load = async () => {
       // 1) Versuche vollständiges Projekt direkt vom Server zu laden (inkl. mitarbeiterZeiten)
       try {
-        const res = await ProjectsApi.get(id as string);
-        const full = res && (res as any).project ? (res as any).project : (res as any);
-        if (!cancelled && full && (full as any)._id) {
-          setProject(normalizeProject(full) as any);
+        const full = extractFreshProject(await ProjectsApi.get(id as string));
+        if (!cancelled && full) {
+          setProject(normalizeProject(full));
           setError(null);
           return;
         }
@@ -599,7 +607,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
       const response = await ProjectsApi.update(pid, payload as any)
-      if ((response as any).success !== false) {
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
           open: true,
@@ -610,7 +618,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
         throw new Error('Fehler beim Hinzufügen der Technik');
       }
     } catch (error) {
-      console.error('Fehler beim Hinzufügen der Technik:', error);
+      logger.error('Fehler beim Hinzufügen der Technik:', error);
       setSnackbar({
         open: true,
         message: 'Fehler beim Hinzufügen der Technik',
@@ -635,7 +643,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
     }
 
     try {
-      console.log('handleEditTechnik called with:', { date, technik });
+      logger.debug('handleEditTechnik called with:', { date, technik });
       
       const requestBody: any = { 
         date, 
@@ -651,18 +659,19 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       // Wenn selectedDays vorhanden sind, füge sie zum Request hinzu
       if (technik.selectedDays && Array.isArray(technik.selectedDays)) {
         requestBody.selectedDays = technik.selectedDays;
-        console.log('Sending request with selectedDays:', technik.selectedDays);
+        logger.debug('Sending request with selectedDays:', technik.selectedDays);
       }
 
-      console.log('Sending request body:', requestBody);
+      logger.debug('Sending request body:', requestBody);
 
-      const result = await ProjectsApi.update(id, { technik: { action: 'edit', ...requestBody } } as any)
-      console.log('API Response:', result);
+      const result = await ProjectsApi.update(id, { technik: { action: 'edit', ...requestBody } })
+      logger.debug('API Response:', result);
       
-      if ((result as any).project) {
-        console.log('Updating project with:', (result as any).project);
-        setProject((result as any).project as any);
-        
+      const updatedProject = extractFreshProject(result);
+      if (updatedProject) {
+        logger.debug('Updating project with:', updatedProject);
+        setProject(updatedProject);
+
         setSnackbar({
           open: true,
           message: 'Technik erfolgreich bearbeitet',
@@ -680,7 +689,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       
       setTechnikDialogOpen(false);
     } catch (error) {
-      console.error('Fehler beim Bearbeiten der Technik:', error);
+      logger.error('Fehler beim Bearbeiten der Technik:', error);
       setSnackbar({
         open: true,
         message: 'Fehler beim Bearbeiten der Technik',
@@ -708,8 +717,8 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       if (!project) throw new Error('Projekt nicht geladen');
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
-      const response = await ProjectsApi.update(pid, { technik: { action: 'remove', date, technikId } } as any)
-      if ((response as any).success !== false) {
+      const response = await ProjectsApi.update(pid, { technik: { action: 'remove', date, technikId } })
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
           open: true,
@@ -720,7 +729,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
         throw new Error('Fehler beim Entfernen der Technik');
       }
     } catch (error) {
-      console.error('Fehler beim Entfernen der Technik:', error);
+      logger.error('Fehler beim Entfernen der Technik:', error);
       setSnackbar({
         open: true,
         message: 'Fehler beim Entfernen der Technik',
@@ -769,7 +778,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
         .filter(item => item && typeof item === 'object');
     }
     
-    console.log('Technik Stats Debug:', {
+    logger.debug('Technik Stats Debug:', {
       projectId: project.id,
       technikType: typeof project.technik,
       allTechnik,
@@ -831,17 +840,16 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
           times: { action: 'add', dates, entry } 
         } as any);
       }
-      if ((response as any).success !== false) {
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         // Projekt sofort gezielt neu laden und lokalen State aktualisieren
         try {
-          const res = await ProjectsApi.get(getProjectId());
-          const freshProject = res && (res as any).project ? (res as any).project : (res as any);
-          if (freshProject && (freshProject as any)._id) {
-            setProject(normalizeProject(freshProject) as any);
+          const freshProject = extractFreshProject(await ProjectsApi.get(getProjectId()));
+          if (freshProject) {
+            setProject(normalizeProject(freshProject));
           }
         } catch (e) {
-          console.warn('ProjectsApi.get after time add failed, relying on context fetch', e);
+          logger.warn('ProjectsApi.get after time add failed, relying on context fetch', e);
         }
         setSnackbar({
           open: true,
@@ -853,7 +861,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
         throw new Error('Fehler beim Hinzufügen des Zeiteintrags');
       }
     } catch (error) {
-      console.error('Fehler beim Hinzufügen des Zeiteintrags:', error);
+      logger.error('Fehler beim Hinzufügen des Zeiteintrags:', error);
       setSnackbar({
         open: true,
         message: 'Fehler beim Hinzufügen des Zeiteintrags',
@@ -881,8 +889,8 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       if (!project) throw new Error('Projekt nicht geladen');
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
-      const response = await ProjectsApi.update(pid, { vehicles: { action: 'assign', dates: Array.isArray(dateOrDays) ? dateOrDays : [dateOrDays], vehicle } } as any)
-      if ((response as any).success !== false) {
+      const response = await ProjectsApi.update(pid, { vehicles: { action: 'assign', dates: Array.isArray(dateOrDays) ? dateOrDays : [dateOrDays], vehicle } })
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
           open: true,
@@ -894,7 +902,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
         throw new Error('Fehler beim Hinzufügen des Fahrzeugs');
       }
     } catch (error) {
-      console.error('Fehler beim Hinzufügen des Fahrzeugs:', error);
+      logger.error('Fehler beim Hinzufügen des Fahrzeugs:', error);
       setSnackbar({
         open: true,
         message: 'Fehler beim Hinzufügen des Fahrzeugs',
@@ -924,7 +932,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       const pid = getProjectId()
       if (!pid) throw new Error('Projekt-ID unbekannt')
       const response = await ProjectsApi.updateStatus(pid, newStatus)
-      if ((response as any).success !== false) {
+      if ((response as { success?: boolean }).success !== false) {
         await fetchProjects();
         setSnackbar({
           open: true,
@@ -947,13 +955,13 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
             }
           } as any)
         } catch (e) {
-          console.warn('Aktivitätslog (Detailansicht) fehlgeschlagen:', e)
+          logger.warn('Aktivitätslog (Detailansicht) fehlgeschlagen:', e)
         }
       } else {
         throw new Error('Fehler beim Ändern des Status');
       }
     } catch (error) {
-      console.error('Fehler beim Ändern des Status:', error);
+      logger.error('Fehler beim Ändern des Status:', error);
       setSnackbar({
         open: true,
         message: 'Fehler beim Ändern des Status',
@@ -972,20 +980,19 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   const handleDeleteTimeEntry = async (date: string, entryId: string) => {
     try {
       if (!id) throw new Error('Projekt-ID unbekannt')
-      await ProjectsApi.update(id as string, { times: { action: 'delete', date, entryId } } as any)
+      await ProjectsApi.update(id as string, { times: { action: 'delete', date, entryId } })
       await fetchProjects();
       // Robust: Projekt frisch laden und lokalen State setzen
       try {
-        const res = await ProjectsApi.get(id as string);
-        const freshProject = res && (res as any).project ? (res as any).project : (res as any);
-        if (freshProject && (freshProject as any)._id) {
-          setProject(freshProject as any);
+        const freshProject = extractFreshProject(await ProjectsApi.get(id as string));
+        if (freshProject) {
+          setProject(freshProject);
         } else {
           const updated = projects.find((p) => p.id === id);
           if (updated) setProject(updated);
         }
       } catch (e) {
-        console.warn('ProjectsApi.get after delete failed, relying on context fetch', e);
+        logger.warn('ProjectsApi.get after delete failed, relying on context fetch', e);
       }
       setSnackbar({ open: true, message: 'Zeiteintrag erfolgreich gelöscht.', severity: 'success' });
     } catch (err) {
@@ -1029,16 +1036,15 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       // Projekt neu laden
       await fetchProjects();
       try {
-        const resFull = await ProjectsApi.get(pid);
-        const freshProject = resFull && (resFull as any).project ? (resFull as any).project : (resFull as any);
-        if (freshProject && (freshProject as any)._id) {
-          setProject(freshProject as any);
+        const freshProject = extractFreshProject(await ProjectsApi.get(pid));
+        if (freshProject) {
+          setProject(freshProject);
         } else {
           const updated = projects.find((p) => p.id === id);
           if (updated) setProject(updated);
         }
       } catch (e) {
-        console.warn('ProjectsApi.get after edit failed, relying on context fetch', e);
+        logger.warn('ProjectsApi.get after edit failed, relying on context fetch', e);
       }
 
       const totalCount = data.updates.length + data.newEntries.length;
@@ -1049,7 +1055,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
       setSnackbar({ open: true, message, severity: 'success' });
       setEditTimeEntry(null);
     } catch (err) {
-      console.error('Fehler beim Multi-Day Edit:', err);
+      logger.error('Fehler beim Multi-Day Edit:', err);
       setSnackbar({ open: true, message: 'Fehler beim Bearbeiten der Zeiteinträge.', severity: 'error' });
     }
   };
@@ -1316,19 +1322,19 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                   try {
                     const res = await ProjectsApi.get(project.id as string);
                     // API may return either the project directly or { project: project }
-                    const freshProject = res && (res as any).project ? (res as any).project : (res as any);
-                    if (freshProject && (freshProject as any)._id) {
-                      setProject(freshProject as any);
-                      console.log('ProjectDetailClient: fetched full project, dokumente count=', (freshProject as any).dokumente?.all?.length || 0);
+                    const freshProject = extractFreshProject(res);
+                    if (freshProject) {
+                      setProject(freshProject);
+                      logger.debug('ProjectDetailClient: fetched full project, dokumente count=', (freshProject as { dokumente?: { all?: unknown[] } }).dokumente?.all?.length || 0);
                     }
                   } catch (e) {
-                    console.warn('ProjectsApi.get failed, falling back to fetchProjects', e);
+                    logger.warn('ProjectsApi.get failed, falling back to fetchProjects', e);
                   }
                 }
                 // also refresh project list context
                 await fetchProjects();
               } catch (e) {
-                console.warn('Failed to refresh projects after upload', e);
+                logger.warn('Failed to refresh projects after upload', e);
               }
             }}
             onUpdateDescription={async (docId, desc) => {

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs'
 import dbConnect from '../../../../../lib/dbConnect';
@@ -47,7 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Benachrichtigung: Projekt auf "fertiggestellt" gesetzt
     if (status === 'fertiggestellt') {
-      console.log('[STATUS] Projekt auf "fertiggestellt" gesetzt → Benachrichtigung prüfen');
+      logger.debug('[STATUS] Projekt auf "fertiggestellt" gesetzt → Benachrichtigung prüfen');
       // Einstellungen laden und mit Defaults mergen
       const doc = await NotificationSettings.findOne({ scope: 'global' });
       const enabledByKey = new Map<string, boolean>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultEnabled]));
@@ -97,7 +98,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const rightX = docPdf.internal.pageSize.getWidth() / 2 + 4;
         const startY = y + 8;
 
-        const timesAny: any = (project as any).mitarbeiterZeiten || {};
+        const timesAny: any = project.mitarbeiterZeiten || {};
         let totalHours = 0, totalTravelHours = 0;
         const uniqueEmployees = new Set<string>();
         const uniqueFunctions = new Set<string>();
@@ -112,18 +113,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           });
         });
         exportedDays.sort();
-        const gesamtLaenge = (project as any).gesamtMeterlaenge || 0;
+        const gesamtLaenge = project.gesamtMeterlaenge || 0;
 
         // Linke Tabelle (Labels/Werte)
-        autoTable(docPdf as any, {
+        autoTable(docPdf, {
           startY,
           margin: { left: leftX },
           tableWidth: docPdf.internal.pageSize.getWidth() / 2 - leftX - 6,
           theme: 'plain',
           styles: { fontSize: 10, cellPadding: 1.5 },
           body: [
-            ['Projektname:', String((project as any).name || '-')],
-            ['Status:', String((project as any).status || '-')],
+            ['Projektname:', String(project.name || '-')],
+            ['Status:', String(project.status || '-')],
             ['Gesamtarbeitsstunden:', totalHours.toFixed(2)],
             ['Technik Gesamtlänge:', `${gesamtLaenge} m`],
             ['Eingesetzte Funktionen:', String(uniqueFunctions.size)],
@@ -132,15 +133,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         });
 
         // Rechte Tabelle
-        const zeitraum = `${(project as any).datumBeginn || '-'} - ${(project as any).datumEnde || '-'}`;
-        autoTable(docPdf as any, {
+        const zeitraum = `${project.datumBeginn || '-'} - ${project.datumEnde || '-'}`;
+        autoTable(docPdf, {
           startY,
           margin: { left: rightX },
           tableWidth: docPdf.internal.pageSize.getWidth() - rightX - 12,
           theme: 'plain',
           styles: { fontSize: 10, cellPadding: 1.5 },
           body: [
-            ['Auftraggeber:', String((project as any).auftraggeber || '-')],
+            ['Auftraggeber:', String(project.auftraggeber || '-')],
             ['Zeitraum:', zeitraum],
             ['Gesamtfahrstunden:', totalTravelHours.toFixed(2)],
             ['Eingesetzte Mitarbeiter:', String(uniqueEmployees.size)],
@@ -148,25 +149,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           columnStyles: { 0: { fontStyle: 'bold' } },
         });
 
-        const afterSummaryY = (docPdf as any).lastAutoTable.finalY + 8;
+        const afterSummaryY = (docPdf.lastAutoTable?.finalY ?? 0) + 8;
         // Exportierte Tage + Zeitpunkt als Block unter den Tabellen
         const ts = new Date().toLocaleString('de-DE');
         docPdf.setFontSize(12);
-        try { (docPdf as any).setFont('helvetica', 'bold'); } catch {}
+        try { docPdf.setFont('helvetica', 'bold'); } catch {}
         docPdf.text('Exportierte Tage:', leftX, afterSummaryY);
-        try { (docPdf as any).setFont('helvetica', 'normal'); } catch {}
+        try { docPdf.setFont('helvetica', 'normal'); } catch {}
         const daysWrapped = docPdf.splitTextToSize(exportedDays.join(', '), docPdf.internal.pageSize.getWidth() - leftX - 12);
         docPdf.text(daysWrapped, leftX, afterSummaryY + 6);
-        try { (docPdf as any).setFont('helvetica', 'bold'); } catch {}
+        try { docPdf.setFont('helvetica', 'bold'); } catch {}
         docPdf.text('Exportzeitpunkt:', rightX, afterSummaryY);
-        try { (docPdf as any).setFont('helvetica', 'normal'); } catch {}
+        try { docPdf.setFont('helvetica', 'normal'); } catch {}
         docPdf.text(ts, rightX + 40, afterSummaryY);
         y = afterSummaryY + 12 + daysWrapped.length * 6;
 
         // Tabelle: Alle Projekttage aus mitarbeiterZeiten
         try {
           const entries: Array<{ datum: string; name: string; funktion?: string; stunden?: number; fahrtstunden?: number }> = [];
-          const times: any = (project as any).mitarbeiterZeiten || {};
+          const times: any = project.mitarbeiterZeiten || {};
           Object.entries(times).forEach(([datum, arr]: any) => {
             (arr as any[]).forEach((e: any) => {
               entries.push({ datum, name: e.name, funktion: e.funktion, stunden: e.stunden, fahrtstunden: e.fahrtstunden });
@@ -174,7 +175,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           });
           entries.sort((a, b) => a.datum.localeCompare(b.datum));
           if (entries.length > 0) {
-            autoTable(docPdf as any, {
+            autoTable(docPdf, {
               startY: y + 4,
               head: [[ 'Datum', 'Mitarbeiter', 'Funktion', 'Stunden', 'Fahrstunden' ]],
               body: entries.map(e => [
@@ -189,12 +190,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             });
           }
         } catch (e) {
-          console.log('PDF-Tabelle (Projekttage) konnte nicht erzeugt werden:', e);
+          logger.debug('PDF-Tabelle (Projekttage) konnte nicht erzeugt werden:', e);
         }
 
         // Technik-Tabelle
         try {
-          const technik: any = (project as any).technik || {};
+          const technik: any = project.technik || {};
           const technikRows: any[] = [];
           const pushRow = (t: any, tag: string) => {
             technikRows.push([
@@ -213,8 +214,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             });
           }
           if (technikRows.length > 0) {
-            autoTable(docPdf as any, {
-              startY: (docPdf as any).lastAutoTable ? (docPdf as any).lastAutoTable.finalY + 12 : y + 10,
+            autoTable(docPdf, {
+              startY: docPdf.lastAutoTable ? docPdf.lastAutoTable.finalY + 12 : y + 10,
               head: [[ 'Name', 'Anzahl', 'Meterlänge', 'Bemerkung', 'Tag' ]],
               body: technikRows,
               styles: { fontSize: 8, cellPadding: 2 },
@@ -233,7 +234,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           Auftragsnummer: ${project.auftragsnummer}</p>
           <p>Die Projektdetails finden Sie im Anhang (PDF).</p>
         `;
-        console.log(`[MAIL] Sende E-Mail an ${to} ...`);
+        logger.debug(`[MAIL] Sende E-Mail an ${to} ...`);
         const result = await sendEmailResult({
           to,
           subject,
@@ -246,10 +247,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             },
           ],
         });
-        console.log(`[MAIL] Ergebnis: ${result.ok ? 'OK' : 'FEHLER'}${result.error ? ' - ' + result.error : ''}`);
+        logger.debug(`[MAIL] Ergebnis: ${result.ok ? 'OK' : 'FEHLER'}${result.error ? ' - ' + result.error : ''}`);
 
         try {
-          const performerName = (auth as any)?.token?.name || (auth as any)?.token?.email || 'Unbekannt';
+          const performerName = auth?.token?.name || auth?.token?.email || 'Unbekannt';
           await NotificationLog.create({
             key: activeKey,
             to,
@@ -262,14 +263,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             meta: { status: project.status, performedBy: performerName },
           });
         } catch (logErr) {
-          console.error('NotificationLog create error:', logErr);
+          logger.error('NotificationLog create error:', logErr);
         }
       }
     }
 
     return NextResponse.json({ success: true, project });
   } catch (e) {
-    console.error('PUT /api/projects/[id]/status error', e);
+    logger.error('PUT /api/projects/[id]/status error', e);
     return NextResponse.json({ error: 'Fehler beim Aktualisieren des Status' }, { status: 500 });
   }
 }

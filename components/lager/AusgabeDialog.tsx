@@ -42,9 +42,9 @@ export default function AusgabeDialog({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const selectedArticle = articles.find((a) => ((a as any)._id?.toString?.() ?? a.id) === artikelId)
+  const selectedArticle = articles.find((a) => (a._id?.toString?.() ?? a.id) === artikelId)
   const maxMenge = selectedArticle ? (selectedArticle.bestand ?? 0) : 0
-  const activeEmployees = employees.filter((e) => (e as any).status !== 'nicht aktiv')
+  const activeEmployees = employees.filter((e) => e.status !== 'nicht aktiv')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,7 +68,7 @@ export default function AusgabeDialog({
         bemerkung: bemerkung || undefined,
         createDeliveryNote
       })
-      if ((res as any)?.success !== false) {
+      if (res?.success !== false) {
         setArtikelId('')
         setPersonId('')
         setMenge(1)
@@ -77,7 +77,7 @@ export default function AusgabeDialog({
         onOpenChange(false)
         onSuccess()
       } else {
-        setError((res as any)?.message ?? 'Fehler bei der Ausgabe')
+        setError(res?.message ?? 'Fehler bei der Ausgabe')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Fehler bei der Ausgabe')
@@ -106,7 +106,7 @@ export default function AusgabeDialog({
               </SelectTrigger>
               <SelectContent>
                 {articles.map((a) => (
-                  <SelectItem key={a.id ?? (a as any)._id} value={(a as any)._id?.toString?.() ?? a.id ?? ''}>
+                  <SelectItem key={a.id ?? a._id} value={a._id?.toString?.() ?? a.id ?? ''}>
                     {a.artikelnummer} – {a.bezeichnung} (Bestand: {a.bestand ?? 0})
                   </SelectItem>
                 ))}

@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader } from './ui/card';
@@ -119,7 +120,7 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
       // Seite nach kurzer Verzögerung neu laden
       setTimeout(() => window.location.reload(), 1500);
     } catch (error) {
-      console.error('Fehler beim Bulk-Delete:', error);
+      logger.error('Fehler beim Bulk-Delete:', error);
       setSnackbar({ 
         open: true, 
         message: 'Fehler beim Löschen der Projekte', 
@@ -174,7 +175,7 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
         } as any)
       } catch (e) {
         // Fehler beim Loggen nicht blockierend
-        console.warn('Aktivitätslog fehlgeschlagen:', e)
+        logger.warn('Aktivitätslog fehlgeschlagen:', e)
       }
 
       // Erfolg Snackbar anzeigen
@@ -183,7 +184,7 @@ export default function ProjectTableClient({ projects }: { projects: Project[] }
       // Optional: Seite neu laden um alle Änderungen zu reflektieren
       // window.location.reload();
     } catch (error) {
-      console.error('Fehler beim Aktualisieren des Status:', error);
+      logger.error('Fehler beim Aktualisieren des Status:', error);
       // Fehler Snackbar anzeigen
       setSnackbar({ open: true, message: 'Fehler beim Aktualisieren des Status', severity: 'error' });
       throw error;

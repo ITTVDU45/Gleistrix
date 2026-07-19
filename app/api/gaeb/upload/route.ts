@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import stream from 'stream'
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       const exists = await minioClient.bucketExists(bucket)
       if (!exists) await minioClient.makeBucket(bucket)
     } catch (e) {
-      console.warn('MinIO GAEB bucket check failed:', e)
+      logger.warn('MinIO GAEB bucket check failed:', e)
     }
   }
 
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
     readable.push(null)
     await promisify(minioClient.putObject.bind(minioClient))(bucket, key, readable, buffer.byteLength)
   } catch (e) {
-    console.error('GAEB MinIO upload failed:', e)
+    logger.error('GAEB MinIO upload failed:', e)
     await GaebImportJob.findByIdAndUpdate(jobId, { status: 'fehler', error: 'Speicherung fehlgeschlagen' })
     return NextResponse.json({ success: false, error: 'Datei konnte nicht gespeichert werden' }, { status: 500 })
   }

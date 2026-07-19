@@ -92,4 +92,29 @@ if (process.env.NODE_ENV !== 'production' && mongoose.models.Inventory) {
   delete mongoose.models.Inventory
 }
 
-export const Inventory = mongoose.models.Inventory || mongoose.model('Inventory', inventorySchema)
+/**
+ * Getyptes Inventur-Dokument. Verschachtelte Sub-Dokumente (Scans/Sessions/
+ * Positionen) sind pragmatisch als any[] typisiert; die Index-Signatur bewahrt
+ * das flexible Verhalten und vermeidet Ripple in bestehenden Routen.
+ */
+export interface InventoryDoc extends mongoose.Document {
+  name?: string
+  status?: string
+  stichtag?: Date | string
+  zeitraumVon?: Date | string | null
+  zeitraumBis?: Date | string | null
+  activeScanSessionId?: string | null
+  lastScanAt?: Date | string | null
+  scanSessions?: any[]
+  scanEvents?: any[]
+  positionen?: any[]
+  kategorien?: string[]
+  artikelIds?: any[]
+  markModified(path: string): void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any
+}
+
+export const Inventory: mongoose.Model<InventoryDoc> =
+  (mongoose.models.Inventory as mongoose.Model<InventoryDoc>) ||
+  mongoose.model<InventoryDoc>('Inventory', inventorySchema as mongoose.Schema<InventoryDoc>)

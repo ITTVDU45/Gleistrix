@@ -1,3 +1,5 @@
+import { asHttpLikeError } from '@/lib/errors'
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
@@ -31,7 +33,7 @@ export async function GET(
     const units = await ArticleUnit.find(filter).sort({ seriennummer: 1 }).lean()
     return NextResponse.json({ success: true, units })
   } catch (error) {
-    console.error('Fehler beim Laden der Units:', error)
+    logger.error('Fehler beim Laden der Units:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Laden der Units' }, { status: 500 })
   }
 }
@@ -91,14 +93,14 @@ export async function POST(
     await recalculateArticleStock(id)
 
     return NextResponse.json({ success: true, data: unit }, { status: 201 })
-  } catch (error: any) {
-    if (error?.code === 11000) {
+  } catch (error: unknown) {
+    if (asHttpLikeError(error).code === 11000) {
       return NextResponse.json(
         { success: false, message: 'Eine Unit mit dieser Seriennummer existiert bereits für diesen Artikel' },
         { status: 409 }
       )
     }
-    console.error('Fehler beim Anlegen der Unit:', error)
+    logger.error('Fehler beim Anlegen der Unit:', error)
     return NextResponse.json({ success: false, message: 'Fehler beim Anlegen der Unit' }, { status: 500 })
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
@@ -24,11 +25,11 @@ export async function GET(req: Request){
 
     return NextResponse.json({ 
       success: true, 
-      oldStatus: (project as any).status,
+      oldStatus: project.status,
       newStatus: 'geleistet'
     })
   } catch(e){
-    console.error('Status-Update fehlgeschlagen', e)
+    logger.error('Status-Update fehlgeschlagen', e)
     return NextResponse.json({ message: 'Fehler beim Aktualisieren des Status' }, { status: 500 })
   }
 }

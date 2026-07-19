@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import IntegrationConfig from '@/lib/models/IntegrationConfig'
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (error) {
     // Vollständige Microsoft-Begründung (AADSTS-Code) serverseitig protokollieren –
     // das ist der eigentliche Diagnose-Schlüssel bei `invalid_request`.
-    console.error('[Microsoft OAuth] Authorization error:', { error, errorDescription })
+    logger.error('[Microsoft OAuth] Authorization error:', { error, errorDescription })
     const detail = errorDescription ? `${error}: ${errorDescription}` : error
     const msg = encodeURIComponent(detail)
     return NextResponse.redirect(new URL(`${settingsUrl}&error=${msg}`, req.url))
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.redirect(new URL(`${settingsUrl}&success=true`, req.url))
   } catch (err) {
-    console.error('[Microsoft OAuth] Token exchange failed:', err)
+    logger.error('[Microsoft OAuth] Token exchange failed:', err)
     const msg = encodeURIComponent(err instanceof Error ? err.message : 'Unbekannter Fehler')
     return NextResponse.redirect(new URL(`${settingsUrl}&error=${msg}`, req.url))
   }

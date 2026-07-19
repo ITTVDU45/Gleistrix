@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { Button } from '../../components/ui/button';
@@ -23,7 +24,7 @@ async function getProjectsData() {
       datumEnde: project.datumEnde instanceof Date ? project.datumEnde.toISOString() : project.datumEnde
     }));
   } catch (error) {
-    console.error('Fehler beim Laden der Projekte:', error);
+    logger.error('Fehler beim Laden der Projekte:', error);
     return [];
   }
 }

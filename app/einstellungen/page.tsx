@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useEffect } from 'react';
 import { AuthApi } from '@/lib/api/auth'
 import { NotificationsApi } from '@/lib/api/notifications'
@@ -85,7 +86,7 @@ export default function EinstellungenPage() {
       setEnabledByKey(data.enabledByKey || {});
       setConfigByKey(data.configByKey || {});
     } catch (e) {
-      console.error('Fehler beim Laden der Benachrichtigungseinstellungen', e);
+      logger.error('Fehler beim Laden der Benachrichtigungseinstellungen', e);
     }
   };
 
@@ -94,7 +95,7 @@ export default function EinstellungenPage() {
       const data = await NotificationsApi.listLogs();
       setNotificationLogs(data.logs || []);
     } catch (e) {
-      console.error('Fehler beim Laden der Benachrichtigungs-Logs', e);
+      logger.error('Fehler beim Laden der Benachrichtigungs-Logs', e);
     }
   };
 
@@ -120,7 +121,7 @@ export default function EinstellungenPage() {
           router.push('/login');
         }
       } catch (error) {
-        console.error('Fehler beim Laden der Benutzerdaten:', error);
+        logger.error('Fehler beim Laden der Benutzerdaten:', error);
         router.push('/login');
       } finally {
         setIsLoading(false);
@@ -144,12 +145,12 @@ export default function EinstellungenPage() {
       phone: formData.phone
     };
 
-    console.log('=== PROFIL UPDATE SENDEN ===');
-    console.log('Zu sendende Daten:', requestData);
+    logger.debug('=== PROFIL UPDATE SENDEN ===');
+    logger.debug('Zu sendende Daten:', requestData);
     
     try {
       const data = await AuthApi.updateProfile(requestData)
-      console.log('API Response:', data);
+      logger.debug('API Response:', data);
 
       if (!data?.error) {
         setShowSuccess(true);
@@ -160,12 +161,12 @@ export default function EinstellungenPage() {
           setUser(prev => prev ? { ...prev, ...(data as any).user } : null);
         }
         
-        console.log('Profil erfolgreich aktualisiert:', data);
+        logger.debug('Profil erfolgreich aktualisiert:', data);
       } else {
         setError((data as any).error || 'Fehler beim Speichern der Änderungen');
       }
     } catch (err) {
-      console.error('Fehler beim Speichern:', err);
+      logger.error('Fehler beim Speichern:', err);
       setError('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
     } finally {
       setIsSaving(false);
@@ -637,7 +638,7 @@ export default function EinstellungenPage() {
                                 setEnabledByKey(next);
                                 await NotificationsApi.updateSettings({ enabledByKey: next, configByKey })
                               } catch (e) {
-                                console.error('Fehler beim Speichern der Benachrichtigungen', e);
+                                logger.error('Fehler beim Speichern der Benachrichtigungen', e);
                               }
                             }}
                           />
@@ -661,7 +662,7 @@ export default function EinstellungenPage() {
                                     const value = e.target.value.trim();
                                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                                     if (!emailRegex.test(value)) {
-                                      console.warn('Ungültige E-Mail-Adresse für Benachrichtigung');
+                                      logger.warn('Ungültige E-Mail-Adresse für Benachrichtigung');
                                       return;
                                     }
                                     try {
@@ -669,7 +670,7 @@ export default function EinstellungenPage() {
                                       setConfigByKey(nextConfig);
                                       await NotificationsApi.updateSettings({ enabledByKey, configByKey: nextConfig })
                                     } catch (err) {
-                                      console.error('Fehler beim Speichern der Empfänger-E-Mail', err);
+                                      logger.error('Fehler beim Speichern der Empfänger-E-Mail', err);
                                     }
                                   }}
                                   className="h-14 pl-14 pr-4 rounded-2xl w-full text-base border-slate-200 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-700 dark:text-white"

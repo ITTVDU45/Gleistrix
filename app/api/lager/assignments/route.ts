@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { ArticleAssignment } from '@/lib/models/ArticleAssignment'
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
       .lean()
     return NextResponse.json({ success: true, assignments })
   } catch (error) {
-    console.error('Fehler beim Laden der Zuweisungen:', error)
+    logger.error('Fehler beim Laden der Zuweisungen:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Zuweisungen' },
       { status: 500 }
@@ -179,7 +180,7 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (logErr) {
-        console.error('ActivityLog Fehler:', logErr)
+        logger.error('ActivityLog Fehler:', logErr)
       }
     }
 
@@ -189,7 +190,7 @@ export async function POST(request: NextRequest) {
       .lean()
     return NextResponse.json({ success: true, data: populated ?? assignment }, { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Anlegen der Ausgabe:', error)
+    logger.error('Fehler beim Anlegen der Ausgabe:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Anlegen der Ausgabe' },
       { status: 500 }

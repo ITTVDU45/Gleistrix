@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Project } from '@/lib/models/Project';
@@ -22,8 +23,8 @@ export async function POST(request: NextRequest) {
     const project = await Project.findById(id);
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 });
 
-    if (!project.dokumente || typeof project.dokumente !== 'object') (project as any).dokumente = {};
-    if (!(project as any).dokumente['all']) (project as any).dokumente['all'] = [];
+    if (!project.dokumente || typeof project.dokumente !== 'object') project.dokumente = {};
+    if (!project.dokumente['all']) project.dokumente['all'] = [];
 
     const added: any[] = [];
     const bucketName = process.env.MINIO_BUCKET || 'project-documents';
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
         try {
           const buffer = await getObjectBufferAsync(bucketName, key);
           const res = await syncProjectDocumentToOneDrive({
-            project,
+            project: { name: project.name, auftraggeber: project.auftraggeber, auftragsnummer: project.auftragsnummer },
             fileName: d.name || key.split('/').pop() || 'dokument',
             content: buffer as Buffer,
           });
@@ -70,17 +71,17 @@ export async function POST(request: NextRequest) {
 
       const doc: Record<string, unknown> = { id: docId, name: d.name, url: d.url, description: d.description || '', size, lastModified };
       if (oneDriveUrl) doc.oneDriveUrl = oneDriveUrl;
-      (project as any).dokumente['all'].push(doc);
+      project.dokumente['all'].push(doc);
       added.push(doc);
     }
 
-    (project as any).markModified('dokumente');
-    await (project as any).save();
+    project.markModified('dokumente');
+    await project.save();
 
     // Return the actual stored documents (with IDs)
     return NextResponse.json({ success: true, added });
   } catch (e) {
-    console.error('Commit documents failed', e);
+    logger.error('Commit documents failed', e);
     return NextResponse.json({ message: 'Commit fehlgeschlagen' }, { status: 500 });
   }
 }

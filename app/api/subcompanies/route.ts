@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import dbConnect from '../../../lib/dbConnect'
@@ -10,7 +11,7 @@ export async function GET() {
     const subcompanies = await Subcompany.find({}).sort({ name: 1 })
     return NextResponse.json({ success: true, subcompanies })
   } catch (error) {
-    console.error('Fehler beim Laden der Subunternehmen:', error)
+    logger.error('Fehler beim Laden der Subunternehmen:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Subunternehmen' },
       { status: 500 }
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, subcompany }, { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Erstellen des Subunternehmens:', error)
+    logger.error('Fehler beim Erstellen des Subunternehmens:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Erstellen des Subunternehmens' },
       { status: 500 }

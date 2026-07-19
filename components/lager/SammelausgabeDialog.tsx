@@ -48,7 +48,7 @@ export default function SammelausgabeDialog({
   const [error, setError] = useState('')
 
   const activeArticles = articles.filter((a) => (a.status ?? 'aktiv') === 'aktiv' && (a.bestand ?? 0) > 0)
-  const activeEmployees = employees.filter((e) => (e as any).status !== 'nicht aktiv')
+  const activeEmployees = employees.filter((e) => e.status !== 'nicht aktiv')
 
   const addRow = () => setPositionen((prev) => [...prev, { artikelId: '', menge: 1 }])
   const removeRow = (idx: number) =>
@@ -72,7 +72,7 @@ export default function SammelausgabeDialog({
       return
     }
     for (const p of valid) {
-      const art = activeArticles.find((a) => ((a as any)._id?.toString?.() ?? a.id) === p.artikelId)
+      const art = activeArticles.find((a) => (a._id?.toString?.() ?? a.id) === p.artikelId)
       if (!art || (art.bestand ?? 0) < p.menge) {
         setError(`Bestand reicht nicht aus für ${art?.bezeichnung ?? p.artikelId} (max. ${art?.bestand ?? 0}).`)
         return
@@ -89,7 +89,7 @@ export default function SammelausgabeDialog({
         createDeliveryNote,
         positionen: valid.map((p) => ({ artikelId: p.artikelId, menge: p.menge }))
       })
-      if ((res as any)?.success !== false) {
+      if (res?.success !== false) {
         setPositionen([{ artikelId: '', menge: 1 }])
         setPersonId('')
         setGeplanteRueckgabe('')
@@ -97,7 +97,7 @@ export default function SammelausgabeDialog({
         onOpenChange(false)
         onSuccess()
       } else {
-        setError((res as any)?.message ?? 'Fehler bei der Sammelausgabe')
+        setError(res?.message ?? 'Fehler bei der Sammelausgabe')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Fehler bei der Sammelausgabe')
@@ -176,7 +176,7 @@ export default function SammelausgabeDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {activeArticles.map((a) => (
-                        <SelectItem key={(a as any)._id ?? a.id} value={(a as any)._id?.toString?.() ?? a.id ?? ''}>
+                        <SelectItem key={a._id ?? a.id} value={a._id?.toString?.() ?? a.id ?? ''}>
                           {a.artikelnummer} – {a.bezeichnung} (Bestand: {a.bestand ?? 0})
                         </SelectItem>
                       ))}

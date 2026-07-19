@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from './ui/button';
@@ -55,10 +56,10 @@ export default function ProjectActions({ project, onEdit }: ProjectActionsProps)
         // Seite neu laden um die Änderung zu reflektieren
         window.location.reload();
       } else {
-        console.error('Fehler beim Löschen des Projekts');
+        logger.error('Fehler beim Löschen des Projekts');
       }
     } catch (error) {
-      console.error('Fehler beim Löschen des Projekts:', error);
+      logger.error('Fehler beim Löschen des Projekts:', error);
     } finally {
       setIsDeleting(false);
       setIsDialogOpen(false);
@@ -181,7 +182,7 @@ export default function ProjectActions({ project, onEdit }: ProjectActionsProps)
         onRetry={async () => {
           // Aktiven Status neu laden mit force=true
           const currentStatus = await checkLock(true);
-          console.log('Lock retry check result:', currentStatus);
+          logger.debug('Lock retry check result:', currentStatus);
           
           // Wenn die Sperre nicht mehr existiert oder es die eigene ist
           if (!currentStatus.isLocked || currentStatus.isOwnLock) {
@@ -194,7 +195,7 @@ export default function ProjectActions({ project, onEdit }: ProjectActionsProps)
             }
           } else {
             // Sperre existiert noch - Benutzer informieren
-            console.log('Lock still exists after retry');
+            logger.debug('Lock still exists after retry');
           }
         }}
         lockInfo={lockInfo}

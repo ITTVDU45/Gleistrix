@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import { z } from 'zod'
@@ -68,15 +69,15 @@ export async function POST(
     let sessionId = (inv as { activeScanSessionId?: string | null }).activeScanSessionId ?? null
     if (!sessionId) {
       sessionId = new mongoose.Types.ObjectId().toString()
-      ;(inv as any).scanSessions = (inv as any).scanSessions ?? []
-      ;(inv as any).scanSessions.push({
+      ;inv.scanSessions = inv.scanSessions ?? []
+      ;inv.scanSessions.push({
         sessionId,
         startedAt: now,
         endedAt: null,
         startedBy: currentUser?._id,
         scans: 0
       })
-      ;(inv as any).activeScanSessionId = sessionId
+      ;inv.activeScanSessionId = sessionId
     }
 
     pos.istMenge = (pos.istMenge ?? 0) + 1
@@ -91,8 +92,8 @@ export async function POST(
       }
     }
 
-    (inv as any).scanEvents = (inv as any).scanEvents ?? []
-    ;(inv as any).scanEvents.push({
+    inv.scanEvents = inv.scanEvents ?? []
+    ;inv.scanEvents.push({
       artikelId: articleId,
       unitId: body.unitId && mongoose.Types.ObjectId.isValid(body.unitId) ? new mongoose.Types.ObjectId(body.unitId) : undefined,
       code: body.code,
@@ -101,12 +102,12 @@ export async function POST(
       sessionId
     })
 
-    const session = ((inv as any).scanSessions ?? []).find((s: { sessionId?: string }) => s.sessionId === sessionId)
+    const session = (inv.scanSessions ?? []).find((s: { sessionId?: string }) => s.sessionId === sessionId)
     if (session) {
       session.scans = (session.scans ?? 0) + 1
     }
 
-    (inv as any).lastScanAt = now
+    inv.lastScanAt = now
     if (inv.status === 'offen') {
       inv.status = 'in_bearbeitung'
     }
@@ -119,7 +120,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: doc })
   } catch (error) {
-    console.error('Fehler beim Inventur-Scan:', error)
+    logger.error('Fehler beim Inventur-Scan:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Verarbeiten des Inventur-Scans' },
       { status: 500 }

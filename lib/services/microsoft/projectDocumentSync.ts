@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import dbConnect from '@/lib/dbConnect'
 import IntegrationConfig from '@/lib/models/IntegrationConfig'
 import { ensureFolder, uploadSmallFile } from './onedrive-sync'
@@ -78,7 +79,7 @@ export async function syncProjectDocumentToOneDrive(params: {
     )
     return { uploaded: true, webUrl: item.webUrl }
   } catch (err) {
-    console.error('[Projekt→OneDrive] Dokument-Sync fehlgeschlagen:', err)
+    logger.error('[Projekt→OneDrive] Dokument-Sync fehlgeschlagen:', err)
     return { uploaded: false, reason: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
 }

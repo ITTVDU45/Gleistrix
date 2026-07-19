@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { ArticleAssignment } from '@/lib/models/ArticleAssignment'
@@ -155,13 +156,13 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (logErr) {
-        console.error('ActivityLog Fehler:', logErr)
+        logger.error('ActivityLog Fehler:', logErr)
       }
     }
 
     return NextResponse.json({ success: true, data: created }, { status: 201 })
   } catch (error) {
-    console.error('Fehler bei der Sammelausgabe:', error)
+    logger.error('Fehler bei der Sammelausgabe:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler bei der Sammelausgabe' },
       { status: 500 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 export interface ActivityLogData {
   actionType: string;
   module: string;
@@ -16,12 +17,12 @@ export async function logActivity(data: ActivityLogData): Promise<void> {
   try {
     const res = await ActivityLogApi.create(data)
     if (!res.success) {
-      console.error('Error logging activity:', res.error)
+      logger.error('Error logging activity:', res.error)
     } else {
-      console.log(`Activity logged: ${data.actionType} - ${data.details.description}`)
+      logger.debug(`Activity logged: ${data.actionType} - ${data.details.description}`)
     }
   } catch (error) {
-    console.error('Error logging activity:', error)
+    logger.error('Error logging activity:', error)
   }
 }
 

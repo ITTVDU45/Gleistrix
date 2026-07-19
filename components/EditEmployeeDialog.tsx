@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from '@/lib/errors'
 import React, { useEffect, useState } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -54,13 +55,13 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
       setEditedEmployee({
         name: employee.name || '',
         position: employee.position || '',
-        email: (employee as any).email || '',
-        phone: (employee as any).phone || '',
+        email: employee.email || '',
+        phone: employee.phone || '',
         status: (employee.status as EmployeeStatus) || 'aktiv',
-        elbaId: (employee as any).elbaId || '',
-        address: (employee as any).address || '',
-        postalCode: (employee as any).postalCode || '',
-        city: (employee as any).city || ''
+        elbaId: employee.elbaId || '',
+        address: employee.address || '',
+        postalCode: employee.postalCode || '',
+        city: employee.city || ''
       })
       setSelectedPositions(employee.position ? employee.position.split(',').map(p => p.trim()).filter(Boolean) : [])
       setError('')
@@ -92,10 +93,10 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
         address: editedEmployee.address,
         postalCode: editedEmployee.postalCode,
         city: editedEmployee.city,
-      } as any
+      }
 
-      const id = (employee as any).id || (employee as any)._id
-      const data: any = await EmployeesApi.update(id, payload)
+      const id = employee.id || (employee as { _id?: string })._id || ''
+      const data = await EmployeesApi.update(id, payload)
       if (data?.success === false) {
         throw new Error(data?.message || data?.error || 'Fehler beim Bearbeiten des Mitarbeiters')
       }
@@ -105,8 +106,8 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
         setShowSuccess(false)
         onOpenChange(false)
       }, 1200)
-    } catch (err: any) {
-      setError(err?.message || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.'))
     } finally {
       setIsSubmitting(false)
     }

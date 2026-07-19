@@ -13,6 +13,7 @@ export type ActivityLogResponse = {
   success: boolean
   logs: ActivityLog[]
   pagination: { page: number; limit: number; total: number; pages: number }
+  error?: string
 }
 
 export const ActivityLogApi = {

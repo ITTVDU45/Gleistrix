@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '../../../lib/dbConnect';
 import { Vehicle } from '../../../lib/models/Vehicle';
@@ -15,7 +16,7 @@ export async function GET() {
       vehicles: vehicles 
     });
   } catch (error) {
-    console.error('Fehler beim Laden der Fahrzeuge:', error);
+    logger.error('Fehler beim Laden der Fahrzeuge:', error);
     return NextResponse.json(
       { 
         success: false,
@@ -80,9 +81,9 @@ export async function POST(request: NextRequest) {
         });
         
         await activityLog.save();
-        console.log('Activity Log erstellt für Fahrzeug-Erstellung');
+        logger.debug('Activity Log erstellt für Fahrzeug-Erstellung');
       } catch (logError) {
-        console.error('Fehler beim Erstellen des Activity Logs:', logError);
+        logger.error('Fehler beim Erstellen des Activity Logs:', logError);
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
       data: vehicle 
     }, { status: 201 });
   } catch (error) {
-    console.error('Fehler beim Erstellen des Fahrzeugs:', error);
+    logger.error('Fehler beim Erstellen des Fahrzeugs:', error);
     return NextResponse.json(
       { 
         success: false,

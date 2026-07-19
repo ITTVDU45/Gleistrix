@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Maintenance } from '@/lib/models/Maintenance'
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Fehler beim Erstellen des Wartungsbericht-PDF:', error)
+    logger.error('Fehler beim Erstellen des Wartungsbericht-PDF:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Erstellen des PDF' },
       { status: 500 }

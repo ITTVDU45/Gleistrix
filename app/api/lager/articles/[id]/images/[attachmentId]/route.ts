@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
@@ -34,7 +35,7 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Artikelbild laden fehlgeschlagen:', error)
+    logger.error('Artikelbild laden fehlgeschlagen:', error)
     return NextResponse.json(
       { success: false, message: 'Bild konnte nicht geladen werden' },
       { status: 500 }
@@ -71,13 +72,13 @@ export async function DELETE(
     try {
       await removeObject(found.bucket, found.objectKey)
     } catch (storageError) {
-      console.warn('MinIO removeObject fehlgeschlagen:', storageError)
+      logger.warn('MinIO removeObject fehlgeschlagen:', storageError)
     }
 
     await Article.findByIdAndUpdate(id, { $pull: { images: { attachmentId } } })
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Löschen Artikelbild fehlgeschlagen:', error)
+    logger.error('Löschen Artikelbild fehlgeschlagen:', error)
     return NextResponse.json(
       { success: false, message: 'Bild konnte nicht gelöscht werden' },
       { status: 500 }

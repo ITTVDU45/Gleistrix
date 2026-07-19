@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import mongoose from 'mongoose'
 import dbConnect from '@/lib/dbConnect'
@@ -58,7 +59,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     try {
       await removeObject(String(file.bucket), String(file.storageKey))
     } catch (e) {
-      console.warn('GAEB MinIO removeObject failed:', e)
+      logger.warn('GAEB MinIO removeObject failed:', e)
     }
   }
   if (file) await GaebFile.findByIdAndDelete(String(file._id))
@@ -69,7 +70,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     try {
       await unlinkGaebProjectDocument(projectId, id)
     } catch (e) {
-      console.warn('GAEB unlink project document failed:', e)
+      logger.warn('GAEB unlink project document failed:', e)
     }
   }
 

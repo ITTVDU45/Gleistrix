@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     const project = await Project.findById(id).lean()
     if (!project) return NextResponse.json({ message: 'Projekt nicht gefunden' }, { status: 404 })
 
-    const allDocs = ((project as any)?.dokumente?.all || []) as any[]
+    const allDocs = (project?.dokumente?.all || []) as any[]
     const doc = allDocs.find((d) => String(d?.id) === String(docId))
     if (!doc) return NextResponse.json({ message: 'Dokument nicht gefunden' }, { status: 404 })
 
@@ -82,7 +83,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Document content proxy failed:', error)
+    logger.error('Document content proxy failed:', error)
     return NextResponse.json({ message: 'Dokument kann nicht angezeigt werden' }, { status: 500 })
   }
 }

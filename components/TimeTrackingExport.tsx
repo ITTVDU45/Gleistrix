@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Download } from 'lucide-react';
@@ -101,7 +102,7 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
           titleY = logoY + logoH + 6;
         }
       } catch (e) {
-        console.warn('Logo konnte nicht geladen werden:', e);
+        logger.warn('Logo konnte nicht geladen werden:', e);
       }
 
       // Titel
@@ -148,7 +149,7 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
           : parseFloat(String(sonntagWert).replace(',', '.'));
         
         // Debug-Log für jeden Eintrag
-        console.log('Sonntagsstunden in TimeTrackingExport:', {
+        logger.debug('Sonntagsstunden in TimeTrackingExport:', {
           mitarbeiter: entry.name || entry.mitarbeiter,
           datum: entry.date,
           sonntag: entry.sonntag,
@@ -277,7 +278,7 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       
       doc.save(`Zeiterfassung_${timestamp.replace(/[:.]/g, '-')}.pdf`);
     } catch (error) {
-      console.error('Fehler beim PDF-Export:', error);
+      logger.error('Fehler beim PDF-Export:', error);
     } finally {
       setIsExporting(false);
     }

@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
@@ -104,7 +105,7 @@ export default function DocumentsUploadDialog({ open, onOpenChange, onUpload, pr
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        console.error('Proxy upload failed', res.status, json);
+        logger.error('Proxy upload failed', res.status, json);
         const msg = json.message || (res.status === 413 ? 'Datei(en) zu groß.' : 'Upload fehlgeschlagen. Bitte später erneut versuchen.');
         alert(msg);
         return;
@@ -115,14 +116,14 @@ export default function DocumentsUploadDialog({ open, onOpenChange, onUpload, pr
           files.forEach(f => dt.items.add(f));
           await onUpload(dt.files);
         } catch (err) {
-          console.warn('onUpload callback error', err);
+          logger.warn('onUpload callback error', err);
         }
       }
       setFiles([]);
       setDescriptions({});
       onOpenChange(false);
     } catch (err) {
-      console.error('Upload error', err);
+      logger.error('Upload error', err);
       alert('Upload fehlgeschlagen. Bitte später erneut versuchen oder Administrator kontaktieren.');
     } finally {
       setIsUploading(false);

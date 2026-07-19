@@ -160,5 +160,27 @@ const projectSchema = new mongoose.Schema({
   strict: false
 })
 
+/**
+ * Getyptes Project-Dokument. Die dynamischen Felder (Mixed-Schema,
+ * datums-keyed) sind bewusst als Record<string, any> typisiert; die
+ * Index-Signatur bewahrt das `strict: false`-Verhalten, sodass bestehende
+ * Zugriffe auf weitere Felder nicht brechen.
+ */
+export interface ProjectDoc extends mongoose.Document {
+  technik: Record<string, any>
+  fahrzeuge: Record<string, any>
+  mitarbeiterZeiten: Record<string, any>
+  dokumente?: Record<string, any>
+  gesamtMeterlaenge?: number
+  atwsImEinsatz?: boolean
+  anzahlAtws?: number
+  abgerechneteTage?: string[]
+  markModified(path: string): void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any
+}
+
 // Prüfe, ob das Model bereits existiert, bevor es erstellt wird
-export const Project = mongoose.models.Project || mongoose.model('Project', projectSchema) 
+export const Project: mongoose.Model<ProjectDoc> =
+  (mongoose.models.Project as mongoose.Model<ProjectDoc>) ||
+  mongoose.model<ProjectDoc>('Project', projectSchema as mongoose.Schema<ProjectDoc>) 

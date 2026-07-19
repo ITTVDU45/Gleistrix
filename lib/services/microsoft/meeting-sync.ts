@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import dbConnect from '@/lib/dbConnect'
 import IntegrationConfig from '@/lib/models/IntegrationConfig'
 import PlantafelMeeting from '@/lib/models/PlantafelMeeting'
@@ -122,7 +123,7 @@ export async function syncMeetingToCalendar(meetingId: string): Promise<MeetingS
     })
     return { created: true, joinUrl, eventId: ev.id }
   } catch (err) {
-    console.error('[Meeting→MS] Sync fehlgeschlagen:', err)
+    logger.error('[Meeting→MS] Sync fehlgeschlagen:', err)
     return { created: false, reason: err instanceof Error ? err.message : 'Unbekannter Fehler' }
   }
 }
@@ -138,6 +139,6 @@ export async function removeMeetingFromCalendar(
     if (!state.connected) return
     await graphDelete(`/me/events/${eventId}`)
   } catch (err) {
-    console.error('[Meeting→MS] Entfernen fehlgeschlagen:', err)
+    logger.error('[Meeting→MS] Entfernen fehlgeschlagen:', err)
   }
 }

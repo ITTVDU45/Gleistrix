@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import React, { useState, useEffect } from 'react';
 import { UsersApi } from '@/lib/api/users'
 import { InvitesApi } from '@/lib/api/invites'
@@ -141,7 +142,7 @@ export default function UserManagement() {
       const data = await UsersApi.list()
       setExistingUsers(data.users)
     } catch (err) {
-      console.error('Fehler beim Laden der Benutzer:', err);
+      logger.error('Fehler beim Laden der Benutzer:', err);
       setError('Fehler beim Laden der Benutzer: Netzwerkfehler');
     } finally {
       setIsLoadingUsers(false);
@@ -167,7 +168,7 @@ export default function UserManagement() {
         }))
       )
     } catch (err) {
-      console.error('Fehler beim Laden der Einladungen:', err);
+      logger.error('Fehler beim Laden der Einladungen:', err);
       setError('Fehler beim Laden der Einladungen: Netzwerkfehler');
     } finally {
       setIsLoadingInvites(false);
@@ -204,13 +205,13 @@ export default function UserManagement() {
   const handleDeleteExpiredInvite = async (email: string) => {
     try {
       const resp = await InvitesApi.deleteAllForEmail(email)
-      if ((resp as any).error) {
-        console.error('Fehler beim Löschen der Einladungen')
+      if (resp.error) {
+        logger.error('Fehler beim Löschen der Einladungen')
         return false
       }
       return true;
     } catch (err) {
-      console.error('Fehler beim Löschen der Einladungen:', err);
+      logger.error('Fehler beim Löschen der Einladungen:', err);
       return false;
     }
   };
@@ -222,14 +223,14 @@ export default function UserManagement() {
 
     try {
       const resp = await InvitesApi.deleteAllForEmail(email)
-      if ((resp as any).error) {
-        console.error('Fehler beim Löschen der Einladung')
+      if (resp.error) {
+        logger.error('Fehler beim Löschen der Einladung')
         setError('Fehler beim Löschen der Einladung')
       } else {
         fetchInvitedUsers()
       }
     } catch (err) {
-      console.error('Fehler beim Löschen der Einladung:', err);
+      logger.error('Fehler beim Löschen der Einladung:', err);
       setError('Ein Fehler ist aufgetreten');
     }
   };
@@ -264,8 +265,8 @@ export default function UserManagement() {
         });
         fetchInvitedUsers();
       } else {
-        const errorData = response as any
-        
+        const errorData = response
+
         // Wenn eine gültige Einladung existiert, versuche sie zu löschen und neu zu senden
         if (errorData.error && errorData.error.includes('gültige Einladung')) {
           const deleted = await handleDeleteExpiredInvite(formData.email);
@@ -278,7 +279,7 @@ export default function UserManagement() {
                   lastName: formData.lastName,
                   email: formData.email,
                   phone: formData.phone,
-                  role: formData.role as any,
+                  role: formData.role,
                 })
 
                 const retry = retryResponse as { message?: string; error?: string; emailSent?: boolean; emailError?: string }
@@ -296,11 +297,11 @@ export default function UserManagement() {
                   });
                   fetchInvitedUsers();
                 } else {
-                  const retryErrorData = retryResponse as any
+                  const retryErrorData = retryResponse
                   setError(retryErrorData.message || retryErrorData.error || 'Fehler beim erneuten Senden der Einladung');
                 }
               } catch (err) {
-                console.error('Fehler beim erneuten Senden:', err);
+                logger.error('Fehler beim erneuten Senden:', err);
                 setError('Fehler beim erneuten Senden der Einladung');
               }
             }, 1000);
@@ -312,7 +313,7 @@ export default function UserManagement() {
         }
       }
     } catch (err) {
-      console.error('Fehler beim Senden der Einladung:', err);
+      logger.error('Fehler beim Senden der Einladung:', err);
       setError('Ein Fehler ist aufgetreten');
     } finally {
       setIsLoading(false);
@@ -322,13 +323,13 @@ export default function UserManagement() {
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const resp = await UsersApi.toggleStatus(userId, !currentStatus)
-      if (!(resp as any).error) {
+      if (!resp.error) {
         fetchUsers();
       } else {
         setError('Fehler beim Ändern des Benutzer-Status');
       }
     } catch (err) {
-      console.error('Fehler beim Ändern des Benutzer-Status:', err);
+      logger.error('Fehler beim Ändern des Benutzer-Status:', err);
       setError('Ein Fehler ist aufgetreten');
     }
   };
@@ -362,8 +363,8 @@ export default function UserManagement() {
         modules: editForm.modules,
         isActive: editForm.isActive,
       });
-      if ((resp as any).error) {
-        setEditError((resp as any).error);
+      if (resp.error) {
+        setEditError(resp.error);
         return;
       }
       setEditUser(null);
@@ -393,13 +394,13 @@ export default function UserManagement() {
   const handleDeleteUser = async (userId: string) => {
     try {
       const resp = await UsersApi.remove(userId)
-      if (!(resp as any).error) {
+      if (!resp.error) {
         fetchUsers();
       } else {
         setError('Fehler beim Löschen des Benutzers');
       }
     } catch (err) {
-      console.error('Fehler beim Löschen des Benutzers:', err);
+      logger.error('Fehler beim Löschen des Benutzers:', err);
       setError('Ein Fehler ist aufgetreten');
     }
   };

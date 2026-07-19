@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Category } from '@/lib/models/Category'
@@ -22,7 +23,7 @@ export async function GET(
     }
     return NextResponse.json({ success: true, data: category })
   } catch (error) {
-    console.error('Fehler beim Laden der Kategorie:', error)
+    logger.error('Fehler beim Laden der Kategorie:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Kategorie' },
       { status: 500 }
@@ -118,7 +119,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: category })
   } catch (error) {
-    console.error('Fehler beim Aktualisieren der Kategorie:', error)
+    logger.error('Fehler beim Aktualisieren der Kategorie:', error)
     if ((error as { code?: number }).code === 11000) {
       return NextResponse.json({ success: false, message: 'Kategorie existiert bereits' }, { status: 409 })
     }
@@ -169,7 +170,7 @@ export async function DELETE(
     await Category.findByIdAndDelete(id)
     return NextResponse.json({ success: true, message: 'Kategorie geloescht' })
   } catch (error) {
-    console.error('Fehler beim Loeschen der Kategorie:', error)
+    logger.error('Fehler beim Loeschen der Kategorie:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Loeschen der Kategorie' },
       { status: 500 }

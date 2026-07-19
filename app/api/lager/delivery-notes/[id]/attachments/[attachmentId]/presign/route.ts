@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { DeliveryNote } from '@/lib/models/DeliveryNote'
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ success: true, url })
   } catch (error) {
-    console.error('Presign-Download Lieferscheinanhang fehlgeschlagen:', error)
+    logger.error('Presign-Download Lieferscheinanhang fehlgeschlagen:', error)
     return NextResponse.json({ success: false, message: 'Download konnte nicht vorbereitet werden' }, { status: 500 })
   }
 }

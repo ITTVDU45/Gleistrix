@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Category } from '@/lib/models/Category'
@@ -11,7 +12,7 @@ export async function GET() {
     const categories = await Category.find({}).sort({ name: 1 }).lean()
     return NextResponse.json({ success: true, categories })
   } catch (error) {
-    console.error('Fehler beim Laden der Kategorien:', error)
+    logger.error('Fehler beim Laden der Kategorien:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Laden der Kategorien' },
       { status: 500 }
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: category }, { status: 201 })
   } catch (error) {
-    console.error('Fehler beim Anlegen der Kategorie:', error)
+    logger.error('Fehler beim Anlegen der Kategorie:', error)
     if ((error as { code?: number }).code === 11000) {
       return NextResponse.json({ success: false, message: 'Kategorie existiert bereits' }, { status: 409 })
     }

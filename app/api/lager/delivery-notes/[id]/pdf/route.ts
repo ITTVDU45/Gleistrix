@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { DeliveryNote } from '@/lib/models/DeliveryNote'
@@ -38,7 +39,7 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Fehler beim Erstellen des Lieferschein-PDF:', error)
+    logger.error('Fehler beim Erstellen des Lieferschein-PDF:', error)
     return NextResponse.json(
       { success: false, message: 'Fehler beim Erstellen des PDF' },
       { status: 500 }

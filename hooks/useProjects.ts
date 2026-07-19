@@ -1,4 +1,5 @@
 "use client";
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { ProjectsApi } from '@/lib/api/projects'
 import type { Project } from '../types'
@@ -12,7 +13,7 @@ export function useProjects(options?: { includeTimes?: boolean; includeVehicles?
   const fetchProjects = async () => {
     try {
       setError(null)
-      console.log('Lade Projekte...')
+      logger.debug('Lade Projekte...')
 
       // default page=0 limit=50
       const data = await ProjectsApi.list(0, 50, '', {
@@ -24,11 +25,11 @@ export function useProjects(options?: { includeTimes?: boolean; includeVehicles?
         const mappedProjects = data.projects.map((p: any) => ({ ...p, id: p.id || p._id }))
         
         // Debug-Logs für Projekte und mitarbeiterZeiten
-        console.log(`useProjects: ${mappedProjects.length} Projekte geladen`)
+        logger.debug(`useProjects: ${mappedProjects.length} Projekte geladen`)
         
         // Prüfe die ersten 3 Projekte auf mitarbeiterZeiten
         mappedProjects.slice(0, 3).forEach(project => {
-          console.log(`Projekt ${project.name} mitarbeiterZeiten:`,
+          logger.debug(`Projekt ${project.name} mitarbeiterZeiten:`,
             project.mitarbeiterZeiten ?
             Object.keys(project.mitarbeiterZeiten).length + ' Tage' :
             'keine')
@@ -36,11 +37,11 @@ export function useProjects(options?: { includeTimes?: boolean; includeVehicles?
         
         setProjects(mappedProjects)
       } else {
-        const errorMsg = (data as any).message || 'Unbekannter Fehler'
+        const errorMsg = data.message || 'Unbekannter Fehler'
         setError(errorMsg)
       }
     } catch (error) {
-      console.error('Fehler beim Laden der Projekte:', error)
+      logger.error('Fehler beim Laden der Projekte:', error)
       setError(error instanceof Error ? error.message : 'Unbekannter Fehler')
     } finally {
       setIsLoaded(true)
@@ -66,7 +67,7 @@ export function useProjects(options?: { includeTimes?: boolean; includeVehicles?
       }
       return undefined
     } catch (error) {
-      console.error('Fehler beim Anlegen des Projekts:', error)
+      logger.error('Fehler beim Anlegen des Projekts:', error)
       return undefined
     }
   }
@@ -77,7 +78,7 @@ export function useProjects(options?: { includeTimes?: boolean; includeVehicles?
       await ProjectsApi.update(id, updatedData)
       await fetchProjects()
     } catch (error) {
-      console.error('Fehler beim Aktualisieren des Projekts:', error)
+      logger.error('Fehler beim Aktualisieren des Projekts:', error)
     }
   }
 
@@ -87,7 +88,7 @@ export function useProjects(options?: { includeTimes?: boolean; includeVehicles?
       await ProjectsApi.remove(id)
       await fetchProjects()
     } catch (error) {
-      console.error('Fehler beim Löschen des Projekts:', error)
+      logger.error('Fehler beim Löschen des Projekts:', error)
     }
   }
 

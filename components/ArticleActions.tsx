@@ -1,4 +1,5 @@
 'use client'
+import { logger } from '@/lib/logger'
 
 import React, { useState } from 'react'
 import { Button } from './ui/button'
@@ -32,7 +33,7 @@ export default function ArticleActions({ article, onRefresh, categories = [] }: 
       setPopoverOpen(false)
       onRefresh()
     } catch (err) {
-      console.error('Archivieren fehlgeschlagen:', err)
+      logger.error('Archivieren fehlgeschlagen:', err)
     } finally {
       setArchiving(false)
     }
@@ -51,7 +52,7 @@ export default function ArticleActions({ article, onRefresh, categories = [] }: 
       setConfirmDelete(false)
       onRefresh()
     } catch (err) {
-      console.error('Löschen fehlgeschlagen:', err)
+      logger.error('Löschen fehlgeschlagen:', err)
     } finally {
       setDeleting(false)
     }

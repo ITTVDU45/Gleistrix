@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 ﻿import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "../../../../lib/dbConnect"
 import ActivityLog from "../../../../lib/models/ActivityLog"
@@ -57,11 +58,11 @@ export async function POST(req: NextRequest) {
 
     await activityLog.save()
 
-    console.log(`Activity logged: ${actionType} - ${details.description}`)
+    logger.debug(`Activity logged: ${actionType} - ${details.description}`)
 
     return NextResponse.json({ success: true, message: "Activity Log erstellt" })
   } catch (error) {
-    console.error("Error creating activity log:", error)
+    logger.error("Error creating activity log:", error)
     return NextResponse.json({ error: "Fehler beim Erstellen des Activity Logs" }, { status: 500 })
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       bucket
     })
   } catch (error) {
-    console.error('Presign-Lieferscheinupload fehlgeschlagen:', error)
+    logger.error('Presign-Lieferscheinupload fehlgeschlagen:', error)
     return NextResponse.json({ success: false, message: 'Upload-Vorbereitung fehlgeschlagen' }, { status: 500 })
   }
 }

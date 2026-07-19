@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import AbrechnungClient from './AbrechnungClient'
 import dbConnect from '@/lib/dbConnect'
 import { Project as ProjectModel } from '@/lib/models/Project'
@@ -20,7 +21,7 @@ async function getProjectsData() {
       datumEnde: p.datumEnde instanceof Date ? p.datumEnde.toISOString() : p.datumEnde,
     }))
   } catch (e) {
-    console.error('Failed to load projects for abrechnung', e)
+    logger.error('Failed to load projects for abrechnung', e)
     return []
   }
 }
