@@ -1,0 +1,75 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "preserve",
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    /* Path Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/components/ui/*": ["../../packages/shared/src/components/ui/*", "components/ui/*"],
+      "@/components/*": ["components/*"],
+      "@/pages/*": ["pages/*"],
+      "@/lib/models/*": ["../../packages/shared/src/models/*"],
+      "@/lib/subunternehmen/*": ["../../packages/shared/src/subunternehmen/*"],
+      "@/lib/timeEntry/*": ["../../packages/shared/src/timeEntry/*"],
+      "@/lib/timeEntry": ["../../packages/shared/src/timeEntry/index"],
+      "@/lib/storage/*": ["../../packages/shared/src/storage/*"],
+      "@/lib/http/*": ["../../packages/shared/src/http/*"],
+      "@/lib/security/*": ["../../packages/shared/src/security/*"],
+      "@/lib/company/*": ["../../packages/shared/src/company/*"],
+      "@/lib/mailer": ["../../packages/shared/src/mailer"],
+      "@/lib/dbConnect": ["../../packages/shared/src/dbConnect"],
+      "@/lib/logger": ["../../packages/shared/src/logger"],
+      "@/lib/errors": ["../../packages/shared/src/errors"],
+      "@/lib/featureFlags": ["../../packages/shared/src/featureFlags"],
+      "@/lib/notificationDefs": ["../../packages/shared/src/notificationDefs"],
+      "@/lib/rateLimit": ["../../packages/shared/src/rateLimit"],
+      "@/lib/utils": ["../../packages/shared/src/utils"],
+      "@/lib/utils/*": ["lib/utils/*"],
+      "@/lib/*": ["lib/*"],
+      "@/utils/*": ["utils/*"],
+      "@/hooks/*": ["hooks/*"],
+      "@/types/main": ["../../packages/shared/src/types/main"],
+      "@/types/subunternehmen": ["../../packages/shared/src/types/subunternehmen"],
+      "@/types/*": ["types/*"],
+      "@/styles/*": ["styles/*"]
+    },
+    "allowJs": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "app",
+    "lib",
+    "components",
+    "types",
+    "../../packages/shared/src",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
