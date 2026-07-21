@@ -43,7 +43,9 @@ export default function SammelausgabeDialog({
   const [ausgabedatum, setAusgabedatum] = useState(new Date().toISOString().slice(0, 10))
   const [geplanteRueckgabe, setGeplanteRueckgabe] = useState('')
   const [bemerkung, setBemerkung] = useState('')
-  const [createDeliveryNote, setCreateDeliveryNote] = useState(false)
+  // Lieferschein wird bei jeder Ausgabe standardmäßig angelegt (Betriebs-Vorgabe);
+  // Häkchen kann in Ausnahmefällen (z. B. interne Umbuchung) deaktiviert werden.
+  const [createDeliveryNote, setCreateDeliveryNote] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -220,7 +222,7 @@ export default function SammelausgabeDialog({
               onCheckedChange={(checked) => setCreateDeliveryNote(checked === true)}
             />
             <Label htmlFor="sammel-lieferschein" className="text-sm font-normal cursor-pointer">
-              Lieferschein anlegen
+              Lieferschein automatisch anlegen
             </Label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
