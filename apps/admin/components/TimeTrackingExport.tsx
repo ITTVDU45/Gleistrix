@@ -2,11 +2,23 @@
 import { logger } from '@/lib/logger'
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, Download, FileSpreadsheet, FileText, Table2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { fetchWithIntent } from '@/lib/http/fetchWithIntent';
 import autoTable from 'jspdf-autotable';
 import type { TimeTrackingExportData, TimeEntry } from '../types';
+import {
+  TIME_TRACKING_EXPORT_HEADERS,
+  createTimeTrackingCsv,
+  createTimeTrackingExportFilename,
+  createTimeTrackingExportRows,
+} from '@/lib/timeTrackingExport';
 
 interface TimeTrackingExportProps {
   // Accept either fully shaped export data or TimeEntry objects (mapping handled in code)
@@ -21,38 +33,6 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
     return `${wholeHours}:${minutes.toString().padStart(2, '0')}`;
   };
 
-  const formatHoursDot = (value: any): string => {
-    const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
-    if (Number.isNaN(num)) return '-'
-    const whole = Math.floor(num)
-    const minutes = Math.round((num - whole) * 60)
-    return `${whole}.${String(minutes).padStart(2, '0')}`
-  }
-
-  const formatZeit = (start: string, ende: string): string => {
-    if (!start || !ende) return start || ende || '-'
-    const sIso = String(start)
-    const eIso = String(ende)
-    const hasIso = sIso.includes('T') && eIso.includes('T')
-    const sDay = hasIso ? sIso.slice(0,10) : ''
-    const eDay = hasIso ? eIso.slice(0,10) : ''
-    if (hasIso && sDay !== eDay) {
-      const d = (iso: string) => {
-        const dt = new Date(iso)
-        const dd = String(dt.getDate()).padStart(2,'0')
-        const mm = String(dt.getMonth()+1).padStart(2,'0')
-        const yyyy = dt.getFullYear()
-        const hh = String(dt.getHours()).padStart(2,'0')
-        const mi = String(dt.getMinutes()).padStart(2,'0')
-        return `${dd}.${mm}.${yyyy} ${hh}:${mi}`
-      }
-      return `${d(sIso)} - ${d(eIso)}`
-    }
-    const s = sIso.includes('T') ? sIso.slice(11,16) : sIso
-    const e = eIso.includes('T') ? eIso.slice(11,16) : eIso
-    return `${s} - ${e}`
-  }
-
   // helper to robustly parse numeric values (accepts number or string with comma)
   const parseNumber = (val: any): number => {
     if (typeof val === 'number') return val
@@ -66,16 +46,28 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
     return Number.isFinite(count) && count > 0 ? count : 1
   }
 
-  const getEntryDisplayName = (entry: any): string => {
-    const base = String(entry.externalCompanyName || entry.name || entry.mitarbeiter || '-')
-    const multiplier = getEntryMultiplier(entry)
-    return entry?.isExternal ? `${base} (x${multiplier})` : base
-  }
-
   const [isExporting, setIsExporting] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<'PDF' | 'Excel' | 'CSV' | null>(null);
+
+  const exportRows = React.useMemo(
+    () => createTimeTrackingExportRows(timeEntries as unknown as Array<Record<string, unknown>>),
+    [timeEntries]
+  );
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const handleExportPDF = async () => {
     setIsExporting(true);
+    setExportingFormat('PDF');
     try {
       // Landscape für mehr Tabellen-Breite
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -198,48 +190,8 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
       doc.setFontSize(14);
       doc.text('Zeiteinträge', 14, tableTitleY);
       
-      // Tabellen-Header (wie auf Zeiterfassung)
-      const headers = [
-        'Datum', 'Projektname', 'Ort', 'Mitarbeiter', 'Funktion', 'Zeit', 'Gesamtstunden', 'Pause', 'Nachtstunden', 'Sonntagsstunden', 'Feiertagsstunden', 'Fahrtstunden', 'Extra', 'Projektstatus'
-      ];
-
-      const data = timeEntries.map(rawEntry => {
-        const entry: any = rawEntry as any;
-        const date = entry.date ? new Date(entry.date).toLocaleDateString('de-DE') : '-'
-        const projekt = entry.projectName || entry.project || '-'
-        const ort = entry.ort || entry.location || '-' 
-        const name = getEntryDisplayName(entry)
-        const funktion = entry.funktion || entry.role || entry.position || '-'
-        const start = entry.start || entry.beginn || '-'
-        const ende = entry.ende || entry.end || '-'
-        const zeit = (start && ende && start !== '-' && ende !== '-') ? formatZeit(start, ende) : start || ende || '-'
-        const multiplier = getEntryMultiplier(entry)
-        const stundenNum = typeof entry.stunden === 'number' ? entry.stunden : parseNumber(entry.stunden)
-        const gesamt = Number.isFinite(stundenNum) ? formatHours(stundenNum * multiplier) : (entry.stunden ? String(entry.stunden) : '-')
-        const pauseNum = typeof entry.pause === 'number' ? entry.pause : parseNumber(entry.pause)
-        const pause = Number.isFinite(pauseNum) && pauseNum > 0 ? `${formatHoursDot(pauseNum)}h` : '-'
-        const nacht = entry.nachtzulage !== undefined && entry.nachtzulage !== null && entry.nachtzulage !== '' ? `${formatHoursDot(parseNumber(entry.nachtzulage) * multiplier)}h` : '-'
-        const sonntagVal = entry.sonntagsstunden ?? entry.sonntag
-        const sonntag = sonntagVal !== undefined && sonntagVal !== null && sonntagVal !== '' ? `${formatHoursDot(parseNumber(sonntagVal) * multiplier) }h` : '-'
-        const feiertag = entry.feiertag !== undefined && entry.feiertag !== null && entry.feiertag !== '' ? `${formatHoursDot(parseNumber(entry.feiertag) * multiplier)}h` : '-'
-        const fahrtNum = entry.fahrtstunden ?? entry.fahrt
-        const fahrt = fahrtNum !== undefined && fahrtNum !== null && fahrtNum !== '' ? `${formatHoursDot(parseNumber(fahrtNum) * multiplier)}h` : '-'
-        const extraRaw = entry.extra
-        let extra = extraRaw || '-'
-        if (typeof extraRaw === 'number') {
-          extra = `${formatHoursDot(extraRaw * multiplier)}h`
-        } else if (typeof extraRaw === 'string') {
-          const numMatch = extraRaw.match(/[\d,.]+/)
-          if (numMatch) {
-            const num = parseFloat(numMatch[0].replace(',', '.'))
-            if (Number.isFinite(num)) {
-              extra = `${formatHoursDot(num * multiplier)}h`
-            }
-          }
-        }
-        const status = entry.status || entry.projectStatus || '-'
-        return [date, projekt, ort, name, funktion, zeit, gesamt, pause, nacht, sonntag, feiertag, fahrt, extra, status]
-      })
+      const headers = Array.from(TIME_TRACKING_EXPORT_HEADERS);
+      const data = exportRows.map((row) => row.display);
 
       // Spaltenbreiten proportional auf Landscape A4 verteilen, damit nichts abgeschnitten wird
       const pageWidth = doc.internal.pageSize.getWidth()
@@ -276,22 +228,79 @@ export default function TimeTrackingExport({ timeEntries }: TimeTrackingExportPr
         pageBreak: 'auto'
       });
       
-      doc.save(`Zeiterfassung_${timestamp.replace(/[:.]/g, '-')}.pdf`);
+      doc.save(createTimeTrackingExportFilename('pdf'));
     } catch (error) {
       logger.error('Fehler beim PDF-Export:', error);
     } finally {
       setIsExporting(false);
+      setExportingFormat(null);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    setExportingFormat('Excel');
+    try {
+      const {
+        createTimeTrackingExcelBuffer,
+        TIME_TRACKING_EXCEL_MIME,
+      } = await import('@/lib/timeTrackingExcel');
+      const buffer = await createTimeTrackingExcelBuffer(exportRows);
+      downloadBlob(
+        new Blob([buffer], { type: TIME_TRACKING_EXCEL_MIME }),
+        createTimeTrackingExportFilename('xlsx')
+      );
+    } catch (error) {
+      logger.error('Fehler beim Excel-Export:', error);
+    } finally {
+      setIsExporting(false);
+      setExportingFormat(null);
+    }
+  };
+
+  const handleExportCSV = () => {
+    setIsExporting(true);
+    setExportingFormat('CSV');
+    try {
+      const csv = createTimeTrackingCsv(exportRows);
+      downloadBlob(
+        new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+        createTimeTrackingExportFilename('csv')
+      );
+    } catch (error) {
+      logger.error('Fehler beim CSV-Export:', error);
+    } finally {
+      setIsExporting(false);
+      setExportingFormat(null);
     }
   };
 
   return (
-    <Button 
-      onClick={handleExportPDF}
-      disabled={isExporting}
-      className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-    >
-      <Download className="h-4 w-4" />
-      {isExporting ? 'Exportiere...' : 'PDF Export'}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          disabled={isExporting}
+          className="flex items-center gap-2 rounded-xl bg-orange-600 text-white shadow-lg transition-all duration-200 hover:bg-orange-700 hover:shadow-xl"
+        >
+          <Download className="h-4 w-4" />
+          {isExporting ? `Exportiere ${exportingFormat}...` : 'Exportieren'}
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onSelect={() => void handleExportPDF()}>
+          <FileText className="h-4 w-4" />
+          PDF
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void handleExportExcel()}>
+          <FileSpreadsheet className="h-4 w-4" />
+          Excel (.xlsx)
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleExportCSV}>
+          <Table2 className="h-4 w-4" />
+          CSV
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 } 

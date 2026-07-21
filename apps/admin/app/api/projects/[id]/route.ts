@@ -16,6 +16,11 @@ import { z } from 'zod';
 import { requireAuth } from '@/lib/security/requireAuth';
 import { computeTimeEntry, minutesToHours } from '@/lib/timeEntry';
 import { syncProjectExternalCompanyIds } from '@/lib/subunternehmen/syncExternalCompanyIds';
+import {
+  findEmployeeAbsenceDuringPeriod,
+  formatEmployeeAbsenceConflict,
+} from '@/lib/employeeAbsence';
+import type { VacationDay } from '@/types/main';
 
 // Zod-Schemas für die untrusted PUT-Aktionen. Strukturfelder werden streng
 // validiert; die eigentlichen Entry-/Technik-/Fahrzeug-Payloads bleiben
@@ -125,6 +130,37 @@ async function validateAndEnrichTimeEntry(entry: any, day: string): Promise<any>
   }
 }
 
+async function findTimeEntryAbsenceConflict(
+  items: Array<{ day: string; entry: any }>
+): Promise<{ employeeName: string; absence: VacationDay } | null> {
+  const internalItems = items.filter(({ entry }) => entry?.name && !entry?.isExternal)
+  const names = Array.from(new Set(internalItems.map(({ entry }) => String(entry.name))))
+  if (names.length === 0) return null
+
+  const employees = await Employee.find({ name: { $in: names } })
+    .select('name vacationDays')
+    .lean()
+  const employeeByName = new Map(employees.map((employee: any) => [String(employee.name), employee]))
+
+  for (const { day, entry } of internalItems) {
+    const employee: any = employeeByName.get(String(entry.name))
+    if (!employee) continue
+    const start = typeof entry.start === 'string' && /^\d{4}-\d{2}-\d{2}/.test(entry.start)
+      ? entry.start
+      : day
+    const end = typeof entry.ende === 'string' && /^\d{4}-\d{2}-\d{2}/.test(entry.ende)
+      ? entry.ende
+      : day
+    const absence = findEmployeeAbsenceDuringPeriod(
+      employee.vacationDays as VacationDay[] | undefined,
+      start,
+      end
+    )
+    if (absence) return { employeeName: String(entry.name), absence }
+  }
+  return null
+}
+
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
@@ -216,6 +252,17 @@ export async function PUT(request: NextRequest) {
 
           if (!hasNewFormat && !hasOldFormat) {
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (add): entries oder dates+entry erforderlich' }, { status: 400 });
+          }
+
+          const availabilityItems: Array<{ day: string; entry: any }> = hasNewFormat
+            ? entriesArray!.map(({ day, entry }) => ({ day, entry }))
+            : dates.map((day) => ({ day, entry: singleEntry! }));
+          const absenceConflict = await findTimeEntryAbsenceConflict(availabilityItems);
+          if (absenceConflict) {
+            return NextResponse.json(
+              { message: formatEmployeeAbsenceConflict(absenceConflict.employeeName, absenceConflict.absence) },
+              { status: 409 }
+            );
           }
 
           // Atomare Updates für jeden Tag mit $push - verhindert Race Conditions
@@ -327,6 +374,14 @@ export async function PUT(request: NextRequest) {
           const updatedEntry = times.updatedEntry;
           if (!date || !updatedEntry || !updatedEntry.id) {
             return NextResponse.json({ message: 'Ungültige Zeit-Daten (edit)' }, { status: 400 });
+          }
+
+          const absenceConflict = await findTimeEntryAbsenceConflict([{ day: date, entry: updatedEntry }]);
+          if (absenceConflict) {
+            return NextResponse.json(
+              { message: formatEmployeeAbsenceConflict(absenceConflict.employeeName, absenceConflict.absence) },
+              { status: 409 }
+            );
           }
           
           // Backend-Validierung und Anreicherung des Zeiteintrags
@@ -1036,4 +1091,3 @@ export async function DELETE(request: NextRequest) {
     );
   }
 } 
-

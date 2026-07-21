@@ -20,6 +20,7 @@ import FeatureFlagsAdmin from '../../components/subunternehmen/FeatureFlagsAdmin
 import CompanyProfileSettings from '../../components/CompanyProfileSettings';
 import ActivityLogTable from '../../components/ActivityLogTable';
 import IntegrationOverview from '@/components/integrations/IntegrationOverview';
+import ReturnReminderSettingsEditor from '@/components/ReturnReminderSettingsEditor';
 import {
   User,
   Mail,
@@ -598,6 +599,7 @@ export default function EinstellungenPage() {
             </Card>
 
             {/* Benachrichtigungen */}
+            {(user.role === 'superadmin' || user.role === 'admin') && (
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
               <CardHeader>
                 <div className="flex items-center gap-3">
@@ -635,6 +637,16 @@ export default function EinstellungenPage() {
                             }}
                           />
                         </div>
+                        {def?.kind === 'return-reminder-schedule' && (
+                          <ReturnReminderSettingsEditor
+                            value={configByKey?.[key] ?? def?.defaultConfig}
+                            onChange={async (ruleConfig) => {
+                              const nextConfig = { ...configByKey, [key]: ruleConfig };
+                              setConfigByKey(nextConfig);
+                              await NotificationsApi.updateSettings({ enabledByKey, configByKey: nextConfig });
+                            }}
+                          />
+                        )}
                         {/* Optionale Ziel-E-Mail konfigurieren */}
                         {(def?.defaultConfig?.to !== undefined || (configByKey?.[key] && configByKey[key].to !== undefined)) && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 pl-0">
@@ -677,6 +689,7 @@ export default function EinstellungenPage() {
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
         </div>
       )}
@@ -697,4 +710,4 @@ export default function EinstellungenPage() {
       )}
     </div>
   );
-} 
+}

@@ -2,7 +2,6 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Article } from '@/lib/models/Article'
-import ActivityLog from '@/lib/models/ActivityLog'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 import { requireAuth } from '@/lib/security/requireAuth'
 import { z } from 'zod'
@@ -68,7 +67,9 @@ export async function POST(request: NextRequest) {
       wartungsintervallMonate: z.number().optional().nullable(),
       naechsteWartung: z.union([z.string(), z.date(), z.null()]).optional(),
       status: z.enum(statusEnum).optional().default('aktiv'),
-      serialTracking: z.enum(['none', 'individual']).optional().default('none')
+      serialTracking: z.enum(['none', 'individual'], {
+        required_error: 'Bitte geben Sie an, ob der Artikel über Seriennummern verfügt.'
+      })
     }).passthrough()
 
     const parseResult = schema.safeParse(await request.json())

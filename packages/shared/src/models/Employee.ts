@@ -53,6 +53,10 @@ const employeeSchema = new mongoose.Schema({
         type: Date,
         required: true
       },
+      type: {
+        type: String,
+        enum: ['urlaub', 'arbeitsunfaehigkeit', 'unbezahlte_freistellung', 'fortbildung']
+      },
       reason: {
         type: String,
         default: ''
@@ -84,4 +88,4 @@ const employeeSchema = new mongoose.Schema({
 });
 
 // Prüfe, ob das Model bereits existiert, bevor es erstellt wird
-export const Employee = mongoose.models.Employee || mongoose.model('Employee', employeeSchema); 
+export const Employee = mongoose.models.Employee || mongoose.model('Employee', employeeSchema);

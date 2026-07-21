@@ -5,6 +5,7 @@ import { StockMovement } from '@/lib/models/StockMovement'
 import { Article } from '@/lib/models/Article'
 import { ArticleUnit } from '@/lib/models/ArticleUnit'
 import { DeliveryNote } from '@/lib/models/DeliveryNote'
+import { ArticleAssignment } from '@/lib/models/ArticleAssignment'
 import { recalculateArticleStock } from '@/lib/utils/recalculateStock'
 import '@/lib/models/User'
 import '@/lib/models/Employee'
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       menge: z.number().positive(),
       datum: z.union([z.string(), z.date()]),
       empfaenger: z.string().optional().nullable(),
+      geplanteRueckgabe: z.union([z.string(), z.date(), z.null()]).optional(),
       lieferscheinId: z.string().optional().nullable(),
       bemerkung: z.string().optional().or(z.literal('')),
       evidencePhotos: z.array(z.object({
@@ -107,6 +109,12 @@ export async function POST(request: NextRequest) {
       ? new mongoose.Types.ObjectId(String(currentUser._id))
       : undefined
     const datum = typeof body.datum === 'string' ? new Date(body.datum) : body.datum
+    const geplanteRueckgabe = body.geplanteRueckgabe
+      ? (typeof body.geplanteRueckgabe === 'string' ? new Date(body.geplanteRueckgabe) : body.geplanteRueckgabe)
+      : null
+    if (Number.isNaN(datum.getTime()) || (geplanteRueckgabe && Number.isNaN(geplanteRueckgabe.getTime()))) {
+      return NextResponse.json({ success: false, message: 'Ungültiges Bewegungs- oder Rückgabedatum' }, { status: 400 })
+    }
 
     const movementPayload: Record<string, unknown> = {
       artikelId: new mongoose.Types.ObjectId(artikelId),
@@ -186,6 +194,42 @@ export async function POST(request: NextRequest) {
     }
 
     const movement = await StockMovement.create(movementPayload)
+
+    // Mobile Warenausgänge an Mitarbeiter mit Rückgabedatum werden ebenfalls
+    // als offene Ausgabe geführt, damit Rücknahme und Erinnerungen identisch
+    // zum Desktop-Workflow funktionieren.
+    if (
+      body.bewegungstyp === 'ausgang'
+      && geplanteRueckgabe
+      && body.empfaenger
+      && mongoose.Types.ObjectId.isValid(body.empfaenger)
+    ) {
+      const commonAssignment = {
+        artikelId: new mongoose.Types.ObjectId(artikelId),
+        personId: new mongoose.Types.ObjectId(body.empfaenger),
+        ausgabedatum: datum,
+        geplanteRueckgabe,
+        status: 'ausgegeben',
+        bemerkung: body.bemerkung ?? '',
+        lieferscheinId: movementPayload.lieferscheinId,
+        ...(currentUser && {
+          ausgegebenVon: {
+            userId: currentUser.id,
+            name: currentUser.name ?? '',
+            email: currentUser.email?.trim().toLowerCase() ?? ''
+          }
+        })
+      }
+      if (isIndividualTracking && unitIds.length > 0) {
+        await ArticleAssignment.insertMany(unitIds.map((unitId: string) => ({
+          ...commonAssignment,
+          menge: 1,
+          unitId: new mongoose.Types.ObjectId(unitId)
+        })))
+      } else {
+        await ArticleAssignment.create({ ...commonAssignment, menge: body.menge })
+      }
+    }
 
     if (currentUser) {
       try {

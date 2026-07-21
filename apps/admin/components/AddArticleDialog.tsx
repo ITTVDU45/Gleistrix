@@ -73,7 +73,7 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
   const [selectedTopCategoryId, setSelectedTopCategoryId] = useState('')
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState('')
-  const [serialTracking, setSerialTracking] = useState<'none' | 'individual'>('none')
+  const [serialTracking, setSerialTracking] = useState<'none' | 'individual' | null>(null)
   const [unitSerials, setUnitSerials] = useState<string[]>([])
   const [csvImporting, setCsvImporting] = useState(false)
   const [form, setForm] = useState<Partial<Article>>({
@@ -186,6 +186,10 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
       setError('Bezeichnung und Kategorie sind Pflichtfelder.')
       return
     }
+    if (!serialTracking) {
+      setError('Bitte geben Sie an, ob der Artikel über Seriennummern verfügt.')
+      return
+    }
 
     setIsSubmitting(true)
     setError('')
@@ -230,7 +234,7 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
         }
         setPendingImages([])
         setUnitSerials([])
-        setSerialTracking('none')
+        setSerialTracking(null)
         setSelectedCategoryId('')
         setSelectedTopCategoryId('')
         setSelectedSubCategoryId('')
@@ -581,7 +585,7 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
             })()}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="lagerort">Lagerort</Label>
               <Input
@@ -592,18 +596,57 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
                 className="rounded-xl h-10"
               />
             </div>
-            {serialTracking !== 'individual' && (
-              <div className="space-y-2">
-                <Label htmlFor="seriennummer">Seriennummer</Label>
-                <Input
-                  id="seriennummer"
-                  value={form.seriennummer ?? ''}
-                  onChange={(e) => update('seriennummer', e.target.value)}
-                  placeholder="optional"
-                  className="rounded-xl h-10"
-                />
-              </div>
-            )}
+          </div>
+
+          <div
+            className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-600"
+            role="radiogroup"
+            aria-required="true"
+            aria-labelledby="serial-tracking-label"
+            aria-describedby="serial-tracking-hint"
+          >
+            <Label id="serial-tracking-label" className="text-sm font-medium">
+              Verfügt der Artikel über Seriennummern? *
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={serialTracking === 'individual' ? 'default' : 'outline'}
+                className="rounded-lg"
+                role="radio"
+                aria-checked={serialTracking === 'individual'}
+                onClick={() => {
+                  setSerialTracking('individual')
+                  setForm((prev) => ({ ...prev, seriennummer: '' }))
+                  setUnitSerials((prev) => {
+                    const targetLength = form.bestand ?? 0
+                    if (targetLength > prev.length) {
+                      return [...prev, ...Array.from({ length: targetLength - prev.length }, () => '')]
+                    }
+                    return prev.slice(0, targetLength)
+                  })
+                }}
+              >
+                Ja
+              </Button>
+              <Button
+                type="button"
+                variant={serialTracking === 'none' ? 'default' : 'outline'}
+                className="rounded-lg"
+                role="radio"
+                aria-checked={serialTracking === 'none'}
+                onClick={() => {
+                  setSerialTracking('none')
+                  setUnitSerials([])
+                  setForm((prev) => ({ ...prev, seriennummer: '' }))
+                }}
+              >
+                Nein
+              </Button>
+            </div>
+            <p id="serial-tracking-hint" className="text-xs text-slate-500 dark:text-slate-400">
+              Pflichtfeld. Bei „Ja“ können Sie für jede Bestandseinheit eine Seriennummer hinterlegen.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -643,41 +686,19 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
                   }
                 }}
                 className="rounded-xl h-10"
-                readOnly={serialTracking === 'individual'}
               />
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {serialTracking === 'individual' ? 'Wird aus Seriennummern berechnet' : 'Anfangsbestand (wird in der Tabelle angezeigt)'}
+                {serialTracking === 'individual'
+                  ? 'Legt die Anzahl der Seriennummernfelder fest; der tatsächliche Bestand wird aus den angelegten Seriennummern berechnet.'
+                  : 'Anfangsbestand (wird in der Tabelle angezeigt)'}
               </p>
             </div>
           </div>
 
-          {(form.bestand ?? 0) >= 1 && (
+          {serialTracking === 'individual' && (
             <div className="space-y-3 rounded-xl border border-slate-200 dark:border-slate-600 p-3">
-              <Label className="text-sm font-medium">Seriennummern-Tracking</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={serialTracking === 'none' ? 'default' : 'outline'}
-                  className="rounded-lg text-xs"
-                  onClick={() => { setSerialTracking('none'); setUnitSerials([]) }}
-                >
-                  Einzelne Seriennummer
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={serialTracking === 'individual' ? 'default' : 'outline'}
-                  className="rounded-lg text-xs"
-                  onClick={() => {
-                    setSerialTracking('individual')
-                    setUnitSerials(Array.from({ length: form.bestand ?? 0 }, () => ''))
-                  }}
-                >
-                  Separate Seriennummern pro Gerät
-                </Button>
-              </div>
-              {serialTracking === 'individual' && (
+              <Label className="text-sm font-medium">Seriennummern</Label>
+              {(form.bestand ?? 0) >= 1 ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -729,6 +750,10 @@ export default function AddArticleDialog({ categories, onSuccess, onCategoriesCh
                     ))}
                   </div>
                 </div>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Tragen Sie einen Bestand größer als 0 ein, um Seriennummern hinzuzufügen.
+                </p>
               )}
             </div>
           )}

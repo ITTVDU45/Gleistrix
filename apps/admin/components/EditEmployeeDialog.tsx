@@ -167,7 +167,7 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
               <select id="emp-status" className="w-full rounded-xl min-h-[48px] border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white" value={editedEmployee.status} onChange={(e) => handleInputChange('status', e.target.value as EmployeeStatus)}>
                 <option value="aktiv">Aktiv</option>
                 <option value="nicht aktiv">Nicht aktiv</option>
-                <option value="urlaub">Urlaub</option>
+                <option value="urlaub">Abwesend</option>
               </select>
             </div>
 
@@ -217,5 +217,4 @@ export default function EditEmployeeDialog({ employee, open, onOpenChange, onEmp
     </Dialog>
   )
 }
-
 

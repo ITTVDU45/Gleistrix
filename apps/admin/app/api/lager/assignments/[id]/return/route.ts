@@ -47,6 +47,17 @@ export async function PUT(
       status: 'zurueckgegeben'
     })
 
+    // Bereits erzeugte Hinweise werden bei erfolgter Rücknahme automatisch erledigt.
+    try {
+      const ReturnReminderNotification = (await import('@/lib/models/ReturnReminderNotification')).default
+      await ReturnReminderNotification.updateMany(
+        { assignmentId: assignment._id, resolvedAt: null },
+        { $set: { resolvedAt: rueckgabedatum, readAt: rueckgabedatum } }
+      )
+    } catch (reminderError) {
+      logger.error('Rückgabe-Erinnerungen konnten nicht abgeschlossen werden:', reminderError)
+    }
+
     if (assignment.unitId) {
       await ArticleUnit.findByIdAndUpdate(assignment.unitId, { status: 'verfuegbar' })
       await recalculateArticleStock(String(assignment.artikelId))

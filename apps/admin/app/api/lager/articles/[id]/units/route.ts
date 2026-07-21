@@ -60,6 +60,12 @@ export async function POST(
     if (!article) {
       return NextResponse.json({ success: false, message: 'Artikel nicht gefunden' }, { status: 404 })
     }
+    if (article.serialTracking !== 'individual') {
+      return NextResponse.json(
+        { success: false, message: 'Für diesen Artikel sind keine Seriennummern aktiviert' },
+        { status: 409 }
+      )
+    }
 
     const schema = z.object({
       seriennummer: z.string().min(1, 'Seriennummer ist erforderlich'),

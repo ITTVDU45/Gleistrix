@@ -36,7 +36,8 @@ import {
   Plus,
   Tag,
   X,
-  Check
+  Check,
+  RotateCcw
 } from 'lucide-react'
 import { LagerApi } from '@/lib/api/lager'
 import { parseLagerScanUrl } from '@/lib/lager/scanUrl'
@@ -51,6 +52,7 @@ import PerformMaintenanceDialog from '@/components/lager/PerformMaintenanceDialo
 import AddPartnerDialog from '@/components/lager/AddPartnerDialog'
 import PartnerSelect, { type PartnerOption } from '@/components/lager/PartnerSelect'
 import LagerPartnerView from '@/components/lager/LagerPartnerView'
+import ReturnReminderInbox from '@/components/lager/ReturnReminderInbox'
 import QrScannerSheet from './QrScannerSheet'
 import { ArticleThumbnail } from '@/components/lager/ArticleThumbnail'
 import ArticleDetailsDialog from '@/components/lager/ArticleDetailsDialog'
@@ -89,6 +91,7 @@ export default function LagerMobileApp() {
     home: 'Startseite',
     eingang: 'Wareneingang',
     ausgang: 'Warenausgang',
+    ruecknahme: 'Rücknahme',
     lieferschein: 'Lieferscheine ansehen',
     bestand: 'Bestand',
     bewegungen: 'Bewegungen (Historie)',
@@ -109,6 +112,15 @@ export default function LagerMobileApp() {
   const [scanAction, setScanAction] = useState<{ articleId: string; unitId?: string } | null>(null)
   const scanActionHandledRef = useRef(false)
   const [movements, setMovements] = useState<StockMovement[]>([])
+  const [openAssignments, setOpenAssignments] = useState<Array<{
+    _id: string
+    artikelId: { bezeichnung?: string; artikelnummer?: string } | string
+    personId: { name?: string } | string
+    unitId?: { seriennummer?: string } | string | null
+    menge: number
+    ausgabedatum: string
+    geplanteRueckgabe?: string | null
+  }>>([])
   const [maintenanceList, setMaintenanceList] = useState<MaintenanceRow[]>([])
   const [inventoryList, setInventoryList] = useState<InventoryRow[]>([])
   const [selectedInventoryId, setSelectedInventoryId] = useState('')
@@ -172,6 +184,7 @@ export default function LagerMobileApp() {
   const [incomingEntryMode, setIncomingEntryMode] = useState<MovementEntryMode>('select')
   const [outgoingEntryMode, setOutgoingEntryMode] = useState<MovementEntryMode>('select')
   const [empfaenger, setEmpfaenger] = useState('')
+  const [geplanteRueckgabe, setGeplanteRueckgabe] = useState('')
   const [lieferant, setLieferant] = useState('')
   const [partnerEmployees, setPartnerEmployees] = useState<PartnerOption[]>([])
   const [partnerSuppliers, setPartnerSuppliers] = useState<PartnerOption[]>([])
@@ -323,6 +336,27 @@ export default function LagerMobileApp() {
       (a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime()
     )
     setMovements(sorted)
+  }
+
+  async function loadOpenAssignments() {
+    const response = await LagerApi.assignments.list({ status: 'ausgegeben' })
+    if (!response?.success) throw new Error('Offene Ausgaben konnten nicht geladen werden')
+    setOpenAssignments((response.assignments ?? []) as typeof openAssignments)
+  }
+
+  async function returnAssignment(id: string) {
+    setIsSaving(true)
+    setError('')
+    try {
+      const response = await LagerApi.assignments.return(id)
+      if (!response.success) throw new Error(response.message || 'Rücknahme fehlgeschlagen')
+      setStatusMessage('Rücknahme gebucht')
+      await Promise.all([loadOpenAssignments(), loadArticles()])
+    } catch (returnError) {
+      setErrorMessage(returnError instanceof Error ? returnError.message : 'Rücknahme fehlgeschlagen')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   async function loadMaintenance() {
@@ -783,11 +817,12 @@ export default function LagerMobileApp() {
     let cancelled = false
 
     async function loadViewData() {
-      if (!['bewegungen', 'wartung', 'inventur', 'lieferschein'].includes(view)) return
+      if (!['bewegungen', 'wartung', 'inventur', 'lieferschein', 'ruecknahme'].includes(view)) return
 
       setIsDetailLoading(true)
       try {
         if (view === 'bewegungen') await loadMovements()
+        if (view === 'ruecknahme') await loadOpenAssignments()
         if (view === 'wartung') await loadMaintenance()
         if (view === 'inventur') await loadInventory()
         if (view === 'lieferschein') await loadDeliveryNotes()
@@ -932,6 +967,7 @@ export default function LagerMobileApp() {
     setIncomingItemPhotos({})
     setOutgoingPhoto(null)
     setEmpfaenger('')
+    setGeplanteRueckgabe('')
     setLieferant('')
     setProjekt('')
     setNotiz('')
@@ -1364,6 +1400,9 @@ export default function LagerMobileApp() {
           menge: effectiveMenge,
           datum: new Date().toISOString(),
           empfaenger: outgoingEmployeeId,
+          geplanteRueckgabe: outgoingEmployeeId && geplanteRueckgabe
+            ? new Date(geplanteRueckgabe).toISOString()
+            : null,
           lieferscheinId: generatedDeliveryId,
           bemerkung: metaPieces.join(' | '),
           evidencePhotos: outgoingPhoto ? [outgoingPhoto] : undefined,
@@ -1721,6 +1760,8 @@ export default function LagerMobileApp() {
         </Card>
       )}
 
+      {view === 'home' && <ReturnReminderInbox compact onOpenAssignments={() => setView('ruecknahme')} />}
+
       {view === 'home' && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-2">
@@ -1738,6 +1779,10 @@ export default function LagerMobileApp() {
             <Button variant="secondary" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={openOutgoingView}>
               <ArrowUpFromLine className="h-5 w-5" />
               Warenausgang
+            </Button>
+            <Button variant="secondary" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={() => setView('ruecknahme')}>
+              <RotateCcw className="h-5 w-5" />
+              Rücknahme
             </Button>
             <Button variant="outline" className="h-28 w-full justify-start gap-3 whitespace-normal rounded-xl p-4 text-left text-base" onClick={() => setView('lieferschein')}>
               <FileText className="h-5 w-5" />
@@ -2128,6 +2173,23 @@ export default function LagerMobileApp() {
                     </SelectContent>
                   </Select>
                 </div>
+                {selectedOutgoingPartner?.partnerType === 'employee' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="mobile-geplante-rueckgabe">Geplante Rückgabe (optional)</Label>
+                    <Input
+                      id="mobile-geplante-rueckgabe"
+                      type="date"
+                      className="h-12 rounded-xl text-base"
+                      min={new Date().toISOString().slice(0, 10)}
+                      value={geplanteRueckgabe}
+                      disabled={isSaving || isLoading}
+                      onChange={(event) => setGeplanteRueckgabe(event.target.value)}
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Bei gesetztem Datum erhält der ausgebende Lager-Account die konfigurierten Erinnerungen.
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-1">
                   <Label className="text-xs">Produktfoto *</Label>
                   <Input
@@ -2155,6 +2217,61 @@ export default function LagerMobileApp() {
             )}
 
               </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {view === 'ruecknahme' && (
+        <Card className="rounded-2xl">
+          <CardContent className="space-y-4 pt-4">
+            <BackButton />
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Offene Ausgaben zurücknehmen</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Wählen Sie das zurückgegebene Produkt aus.</p>
+            </div>
+            {isDetailLoading ? (
+              <p className="text-sm text-slate-500">Lade offene Ausgaben...</p>
+            ) : openAssignments.length === 0 ? (
+              <p className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-700">
+                Keine offenen Ausgaben vorhanden.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {openAssignments.map((assignment) => {
+                  const article = typeof assignment.artikelId === 'object' ? assignment.artikelId : null
+                  const employee = typeof assignment.personId === 'object' ? assignment.personId : null
+                  const unit = assignment.unitId && typeof assignment.unitId === 'object' ? assignment.unitId : null
+                  return (
+                    <div key={assignment._id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900 dark:text-white">
+                            {article?.bezeichnung || article?.artikelnummer || 'Produkt'}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                            {employee?.name || 'Mitarbeiter'} · Menge {assignment.menge}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Ausgabe {formatDate(assignment.ausgabedatum)}
+                            {assignment.geplanteRueckgabe ? ` · geplant ${formatDate(assignment.geplanteRueckgabe)}` : ''}
+                            {unit?.seriennummer ? ` · ${unit.seriennummer}` : ''}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          className="shrink-0"
+                          disabled={isSaving}
+                          onClick={() => returnAssignment(assignment._id)}
+                        >
+                          <RotateCcw className="mr-1 h-4 w-4" />
+                          Rücknahme
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -3127,10 +3244,6 @@ export default function LagerMobileApp() {
     </div>
   )
 }
-
-
-
-
 
 
 

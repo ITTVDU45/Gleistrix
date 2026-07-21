@@ -6,6 +6,11 @@ import { fetchWithIntent } from '@/lib/http/fetchWithIntent'
 import { EmployeesApi } from '@/lib/api/employees'
 import type { Employee, VacationDay, EmployeeStatus } from '@/types/main'
 import { logEmployeeAction } from '../lib/clientActivityLogger'
+import {
+  findEmployeeAbsenceDuringPeriod,
+  findEmployeeAbsenceOnDay,
+  getEmployeeAbsenceMeta,
+} from '@/lib/employeeAbsence'
 
 export function useEmployees() {
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -58,20 +63,20 @@ export function useEmployees() {
     if (!employeeData.status) {
       employeeData.status = 'aktiv';
     }
-    
+
     logger.debug('Sende Mitarbeiterdaten an API:', employeeData);
-    
+
     const data = await EmployeesApi.create(employeeData)
     if (data.success && data.data) {
       // Stelle sicher, dass der Status im lokalen State korrekt gesetzt ist
-      const newEmployee = { 
-        ...data.data, 
+      const newEmployee = {
+        ...data.data,
         id: data.data._id || data.data.id,
         status: data.data.status || employeeData.status || 'aktiv',
         vacationDays: data.data.vacationDays || []
       };
       setEmployees(prev => [...prev, newEmployee]);
-      
+
       // Activity Log
       try {
         await logEmployeeAction(
@@ -84,7 +89,7 @@ export function useEmployees() {
       } catch (error) {
         logger.error('Error logging employee creation:', error);
       }
-      
+
       return newEmployee;
     } else {
       throw new Error((data.message) || 'Fehler beim Anlegen des Mitarbeiters')
@@ -120,9 +125,9 @@ export function useEmployees() {
     if (data.success) {
       const employee = employees.find(emp => emp.id === id);
       const oldStatus = employee?.status || 'unbekannt';
-      
+
       setEmployees(prev => prev.map(emp => emp.id === id ? { ...emp, status } : emp));
-      
+
       // Activity Log
       try {
         await logEmployeeAction(
@@ -140,32 +145,32 @@ export function useEmployees() {
     }
   };
 
-  // Neue Funktion zum Hinzufügen von Urlaubszeiten
+  // Abwesenheit hinzufügen (der bestehende Funktionsname bleibt API-kompatibel)
   const addVacationDay = async (employeeId: string, vacation: VacationDay) => {
     try {
       const employee = employees.find(emp => emp.id === employeeId);
       if (!employee) throw new Error('Mitarbeiter nicht gefunden');
-      
+
       // Stelle sicher, dass die Datums-Strings vollständig sind
       const processedVacation = {
         ...vacation,
         startDate: new Date(vacation.startDate).toISOString(),
         endDate: new Date(vacation.endDate).toISOString()
       };
-      
-      logger.debug('Hinzufügen von Urlaub:', processedVacation);
-      
+
+      logger.debug('Hinzufügen einer Abwesenheit:', processedVacation);
+
       const updatedVacationDays = [...(employee.vacationDays || []), processedVacation];
-      
-      // Prüfe, ob der neue Urlaub aktiv ist
+
+      // Prüfe, ob die neue Abwesenheit aktiv ist
       const isNewVacationActive = isCurrentlyOnVacation(processedVacation);
       const hasActiveVacations = isNewVacationActive || isEmployeeOnVacation(employee, updatedVacationDays);
-      
+
       // Bestimme den neuen Status basierend auf aktiven Urlaubszeiten
       const newStatus: EmployeeStatus = hasActiveVacations ? 'urlaub' : 'aktiv';
-      
+
       logger.debug(`Neuer Status für ${employee.name}: ${newStatus}`);
-      
+
       const data = await EmployeesApi.update(employeeId, { vacationDays: updatedVacationDays, status: newStatus })
       if (data.success && data.employee) {
         // Verwende die aktualisierten Daten von der API
@@ -174,16 +179,16 @@ export function useEmployees() {
           id: data.employee._id || data.employee.id,
           vacationDays: data.employee.vacationDays || []
         };
-        
-        setEmployees(prev => prev.map(emp => 
+
+        setEmployees(prev => prev.map(emp =>
           emp.id === employeeId ? updatedEmployee : emp
         ));
-        
+
         // Activity Log
         try {
           await logEmployeeAction(
             'employee_vacation_added',
-            `Urlaubszeit für "${employee.name}" hinzugefügt: ${new Date(vacation.startDate).toLocaleDateString('de-DE')} - ${new Date(vacation.endDate).toLocaleDateString('de-DE')}`,
+            `${getEmployeeAbsenceMeta(vacation).label} für "${employee.name}" hinzugefügt: ${new Date(vacation.startDate).toLocaleDateString('de-DE')} - ${new Date(vacation.endDate).toLocaleDateString('de-DE')}`,
             employeeId,
             employee.vacationDays,
             updatedVacationDays
@@ -191,31 +196,31 @@ export function useEmployees() {
         } catch (error) {
           logger.error('Error logging vacation addition:', error);
         }
-        
+
         return true;
       } else {
-        throw new Error((data.message) || 'Fehler beim Speichern der Urlaubszeiten');
+        throw new Error((data.message) || 'Fehler beim Speichern der Abwesenheit');
       }
     } catch (error: unknown) {
-      logger.error('Fehler beim Hinzufügen von Urlaub:', error);
+      logger.error('Fehler beim Hinzufügen der Abwesenheit:', error);
       throw error;
     }
   };
 
-  // Funktion zum Löschen von Urlaubszeiten
+  // Abwesenheit löschen
   const deleteVacationDay = async (employeeId: string, vacationId: string) => {
     try {
       const employee = employees.find(emp => emp.id === employeeId);
-      if (!employee || !employee.vacationDays) throw new Error('Mitarbeiter oder Urlaub nicht gefunden');
-      
+      if (!employee || !employee.vacationDays) throw new Error('Mitarbeiter oder Abwesenheit nicht gefunden');
+
       const updatedVacationDays = employee.vacationDays.filter(vac => vac.id !== vacationId);
-      
+
       // Prüfe, ob noch aktive Urlaubszeiten vorhanden sind
       const hasActiveVacations = isEmployeeOnVacation(employee, updatedVacationDays);
-      
+
       // Bestimme den neuen Status basierend auf aktiven Urlaubszeiten
       const newStatus: EmployeeStatus = hasActiveVacations ? 'urlaub' : 'aktiv';
-      
+
       const data = await EmployeesApi.update(employeeId, { vacationDays: updatedVacationDays, status: newStatus })
       if (data.success && data.employee) {
         // Verwende die aktualisierten Daten von der API
@@ -224,16 +229,16 @@ export function useEmployees() {
           id: data.employee._id || data.employee.id,
           vacationDays: data.employee.vacationDays || []
         };
-        
-        setEmployees(prev => prev.map(emp => 
+
+        setEmployees(prev => prev.map(emp =>
           emp.id === employeeId ? updatedEmployee : emp
         ));
         return true;
       } else {
-        throw new Error((data.message) || 'Fehler beim Löschen der Urlaubszeiten');
+        throw new Error((data.message) || 'Fehler beim Löschen der Abwesenheit');
       }
     } catch (error: unknown) {
-      logger.error('Fehler beim Löschen von Urlaub:', error);
+      logger.error('Fehler beim Löschen der Abwesenheit:', error);
       throw error;
     }
   };
@@ -243,15 +248,15 @@ export function useEmployees() {
     try {
       const employee = employees.find(emp => emp.id === employeeId);
       if (!employee) throw new Error('Mitarbeiter nicht gefunden');
-      
+
       const hasActiveVacations = isEmployeeOnVacation(employee);
       const newStatus: EmployeeStatus = hasActiveVacations ? 'urlaub' : 'aktiv';
-      
+
       // Nur aktualisieren, wenn sich der Status ändert
       if (employee.status !== newStatus) {
         const data = await EmployeesApi.update(employeeId, { status: newStatus })
         if (data.success) {
-          setEmployees(prev => prev.map(emp => 
+          setEmployees(prev => prev.map(emp =>
             emp.id === employeeId ? { ...emp, status: newStatus } : emp
           ));
           return true;
@@ -259,7 +264,7 @@ export function useEmployees() {
       }
       return false;
     } catch (error: unknown) {
-      logger.error('Fehler beim Aktualisieren des Status basierend auf Urlaub:', error);
+      logger.error('Fehler beim Aktualisieren des Status basierend auf Abwesenheiten:', error);
       throw error;
     }
   };
@@ -277,23 +282,23 @@ export function useEmployees() {
       for (const employee of employees) {
         logger.debug(`\nPrüfe Mitarbeiter: ${employee.name}`);
         logger.debug(`Aktueller Status: ${employee.status}`);
-        logger.debug(`Urlaubszeiten:`, employee.vacationDays);
-        
+        logger.debug(`Abwesenheiten:`, employee.vacationDays);
+
         const isOnVacation = isEmployeeOnVacation(employee, employee.vacationDays || [], today);
         const shouldBeOnVacation = isOnVacation && employee.status !== 'urlaub';
         const shouldBeActive = !isOnVacation && employee.status === 'urlaub';
 
-        logger.debug(`Ist im Urlaub: ${isOnVacation}`);
-        logger.debug(`Sollte auf Urlaub gesetzt werden: ${shouldBeOnVacation}`);
+        logger.debug(`Ist abwesend: ${isOnVacation}`);
+        logger.debug(`Sollte auf abwesend gesetzt werden: ${shouldBeOnVacation}`);
         logger.debug(`Sollte auf Aktiv gesetzt werden: ${shouldBeActive}`);
 
         if (shouldBeOnVacation || shouldBeActive) {
           const newStatus: EmployeeStatus = isOnVacation ? 'urlaub' : 'aktiv';
           logger.debug(`Setze Status auf: ${newStatus}`);
-          
+
           const data = await EmployeesApi.update(employee.id, { status: newStatus })
           if (data.success !== false) {
-            setEmployees(prev => prev.map(emp => 
+            setEmployees(prev => prev.map(emp =>
               emp.id === employee.id ? { ...emp, status: newStatus } : emp
             ));
             updatedCount++;
@@ -306,7 +311,7 @@ export function useEmployees() {
         }
       }
 
-      logger.debug(`\n${updatedCount} Mitarbeiter-Status basierend auf Urlaubszeiten aktualisiert`);
+      logger.debug(`\n${updatedCount} Mitarbeiter-Status basierend auf Abwesenheiten aktualisiert`);
       logger.debug('=== AUTOMATISCHE STATUS-ANPASSUNG BEENDET ===');
       return updatedCount;
     } catch (error: unknown) {
@@ -315,74 +320,35 @@ export function useEmployees() {
     }
   };
 
-  // Hilfsfunktion: Prüft, ob ein Mitarbeiter aktuell im Urlaub ist
+  // Hilfsfunktion: Prüft, ob ein Mitarbeiter aktuell abwesend ist
   const isCurrentlyOnVacation = (vacation: VacationDay) => {
     const today = new Date();
-    const startDate = new Date(vacation.startDate);
-    const endDate = new Date(vacation.endDate);
-    
-    logger.debug('isCurrentlyOnVacation Check:');
-    logger.debug('  Heute:', today.toISOString());
-    logger.debug('  Start:', startDate.toISOString());
-    logger.debug('  Ende:', endDate.toISOString());
-    logger.debug('  Ist im Urlaub:', today >= startDate && today <= endDate);
-    
-    return today >= startDate && today <= endDate;
+    return Boolean(findEmployeeAbsenceOnDay([vacation], today));
   };
 
-  // Hilfsfunktion: Prüft, ob ein Mitarbeiter mit seinen Urlaubszeiten aktuell im Urlaub ist
+  // Hilfsfunktion: Prüft, ob ein Mitarbeiter aktuell abwesend ist
   const isEmployeeOnVacation = (employee: Employee, vacationDays = employee.vacationDays || [], checkDate?: Date) => {
     const dateToCheck = checkDate || new Date();
-    logger.debug(`isEmployeeOnVacation Check für ${employee.name}:`);
-    logger.debug('  Datum zu prüfen:', dateToCheck.toISOString());
-    logger.debug('  Anzahl Urlaubszeiten:', vacationDays.length);
-    
-    const isOnVacation = vacationDays.some(vacation => {
-      const startDate = new Date(vacation.startDate);
-      const endDate = new Date(vacation.endDate);
-      const isCurrentlyOnVacation = dateToCheck >= startDate && dateToCheck <= endDate;
-      
-      logger.debug(`  Urlaub: ${startDate.toISOString()} - ${endDate.toISOString()}`);
-      logger.debug(`  Ist im Urlaub: ${isCurrentlyOnVacation}`);
-      
-      return isCurrentlyOnVacation;
-    });
-    
-    logger.debug(`  Gesamtergebnis für ${employee.name}: ${isOnVacation}`);
-    return isOnVacation;
+    return Boolean(findEmployeeAbsenceOnDay(vacationDays, dateToCheck));
   };
 
-  // Hilfsfunktion: Prüft, ob ein Mitarbeiter an einem bestimmten Datum im Urlaub ist
+  // Hilfsfunktion: Prüft, ob ein Mitarbeiter an einem bestimmten Datum abwesend ist
   const isEmployeeOnVacationOnDate = (employee: Employee, date: Date) => {
-    if (!employee.vacationDays || employee.vacationDays.length === 0) return false;
-    
-    return employee.vacationDays.some(vacation => {
-      const startDate = new Date(vacation.startDate);
-      const endDate = new Date(vacation.endDate);
-      return date >= startDate && date <= endDate;
-    });
+    return Boolean(findEmployeeAbsenceOnDay(employee.vacationDays, date));
   };
 
-  // Neue Funktion: Prüft, ob ein Mitarbeiter während eines Zeitraums im Urlaub ist
+  // Hilfsfunktion: Prüft, ob ein Mitarbeiter während eines Zeitraums abwesend ist
   const isEmployeeOnVacationDuringPeriod = (employee: Employee, startDate: Date, endDate: Date) => {
-    if (!employee.vacationDays || employee.vacationDays.length === 0) return false;
-    
-    return employee.vacationDays.some(vacation => {
-      const vacationStart = new Date(vacation.startDate);
-      const vacationEnd = new Date(vacation.endDate);
-      
-      // Prüfe, ob sich die Zeiträume überschneiden
-      return vacationStart <= endDate && vacationEnd >= startDate;
-    });
+    return Boolean(findEmployeeAbsenceDuringPeriod(employee.vacationDays, startDate, endDate));
   };
 
-  return { 
-    employees, 
-    loading, 
-    error, 
-    addEmployee, 
-    updateEmployee, 
-    deleteEmployee, 
+  return {
+    employees,
+    loading,
+    error,
+    addEmployee,
+    updateEmployee,
+    deleteEmployee,
     setEmployeeStatus,
     addVacationDay,
     deleteVacationDay,
@@ -392,4 +358,4 @@ export function useEmployees() {
     isEmployeeOnVacationOnDate,
     isEmployeeOnVacationDuringPeriod
   }
-} 
+}

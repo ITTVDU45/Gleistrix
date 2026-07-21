@@ -9,6 +9,7 @@ export type MobileView =
   | 'home'
   | 'eingang'
   | 'ausgang'
+  | 'ruecknahme'
   | 'lieferschein'
   | 'bestand'
   | 'bewegungen'

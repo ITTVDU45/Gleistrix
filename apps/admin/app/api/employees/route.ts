@@ -7,11 +7,21 @@ import { getCurrentUser } from '../../../lib/auth/getCurrentUser';
 import { requireAuth } from '@/lib/security/requireAuth';
 import { z } from 'zod';
 
+const absenceSchema = z.object({
+  id: z.string().optional(),
+  startDate: z.string(),
+  endDate: z.string(),
+  type: z.enum(['urlaub', 'arbeitsunfaehigkeit', 'unbezahlte_freistellung', 'fortbildung']).optional(),
+  reason: z.string().optional(),
+  approved: z.boolean().optional(),
+  durationInDays: z.number().optional(),
+});
+
 export async function GET() {
   try {
     await dbConnect();
     const employees = await Employee.find({});
-    
+
     // Stelle sicher, dass vacationDays in der Antwort enthalten sind
     const employeesWithVacationDays = employees.map(emp => {
       const employeeData = emp.toObject();
@@ -20,17 +30,17 @@ export async function GET() {
         vacationDays: employeeData.vacationDays || []
       };
     });
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
-      employees: employeesWithVacationDays 
+      employees: employeesWithVacationDays
     });
   } catch (error) {
     logger.error('Fehler beim Laden der Mitarbeiter:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
-        message: 'Fehler beim Laden der Mitarbeiter' 
+        message: 'Fehler beim Laden der Mitarbeiter'
       },
       { status: 500 }
     );
@@ -59,31 +69,27 @@ export async function POST(request: NextRequest) {
       address: z.string().optional().or(z.literal('')),
       postalCode: z.string().optional().or(z.literal('')),
       city: z.string().optional().or(z.literal('')),
-      vacationDays: z.array(z.object({
-        startDate: z.string(),
-        endDate: z.string(),
-        durationInDays: z.number().optional(),
-      })).optional(),
+      vacationDays: z.array(absenceSchema).optional(),
     });
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ success: false, message: 'Validierungsfehler', issues: parsed.error.flatten() }, { status: 400 });
     }
     const data = parsed.data;
-    
+
     const currentUser = await getCurrentUser(request);
-    
+
     // Validiere und setze das status-Feld
     if (!data.status) {
       data.status = 'aktiv';
     }
-    
+
     // Logging für Debugging
     logger.debug('Neuer Mitarbeiter wird angelegt:', { name: data.name, position: data.position, status: data.status });
-    
+
     const lastEmployee = await Employee.findOne({}, {}, { sort: { miNumber: -1 } });
     const nextMiNumber = lastEmployee && lastEmployee.miNumber ? lastEmployee.miNumber + 1 : 1;
-    
+
     // Explizite Felder setzen statt spread operator
     const newEmployeeData = {
       name: data.name,
@@ -98,9 +104,9 @@ export async function POST(request: NextRequest) {
       miNumber: nextMiNumber,
       vacationDays: data.vacationDays || []
     };
-    
+
     const employee = await Employee.create(newEmployeeData);
-    
+
     // Prüfen, ob der Status tatsächlich gespeichert wurde
     if (employee && employee.status !== data.status) {
       logger.warn('Status wurde nicht korrekt gespeichert:', {
@@ -108,7 +114,7 @@ export async function POST(request: NextRequest) {
         saved: employee.status
       });
     }
-    
+
     // Activity Log erstellen
     if (currentUser) {
       try {
@@ -132,7 +138,7 @@ export async function POST(request: NextRequest) {
             }
           }
         });
-        
+
         await activityLog.save();
         logger.debug('Activity Log erstellt für Mitarbeiter-Erstellung');
       } catch (logError) {
@@ -140,22 +146,22 @@ export async function POST(request: NextRequest) {
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
-    
+
     // Konvertiere zu einem einfachen Objekt für JSON-Serialisierung
     const employeeResponse = employee.toObject();
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
-      data: employeeResponse 
+      data: employeeResponse
     }, { status: 201 });
   } catch (error) {
     logger.error('Fehler beim Erstellen des Mitarbeiters:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
-        message: 'Fehler beim Erstellen des Mitarbeiters' 
+        message: 'Fehler beim Erstellen des Mitarbeiters'
       },
       { status: 500 }
     );
   }
-} 
+}

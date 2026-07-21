@@ -4,6 +4,11 @@ import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
 import { syncAssignmentToCalendar, removeAssignmentFromCalendar } from '@/lib/services/microsoft/plantafel-sync'
 import mongoose from 'mongoose'
+import {
+  findEmployeeAbsenceDuringPeriod,
+  formatEmployeeAbsenceConflict,
+} from '@/lib/employeeAbsence'
+import type { VacationDay } from '@/types/main'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth(req)
@@ -15,6 +20,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   await dbConnect()
 
   const body = await req.json()
+  const existing = await PlantafelAssignment.findById(id).lean()
+  if (!existing) {
+    return NextResponse.json({ success: false, error: 'Einsatz nicht gefunden' }, { status: 404 })
+  }
+  const existingAssignment = existing as unknown as {
+    mitarbeiterId?: string | null
+    von: Date | string
+    bis: Date | string
+  }
   const updateFields: Record<string, unknown> = {}
 
   if (body.mitarbeiterId !== undefined) updateFields.mitarbeiterId = body.mitarbeiterId
@@ -30,6 +44,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const db = mongoose.connection.db
   if (db) {
+    const effectiveEmployeeId = body.mitarbeiterId !== undefined
+      ? body.mitarbeiterId
+      : existingAssignment.mitarbeiterId
+    const effectiveStart = body.von !== undefined ? new Date(body.von) : new Date(existingAssignment.von)
+    const effectiveEnd = body.bis !== undefined ? new Date(body.bis) : new Date(existingAssignment.bis)
+
+    if (effectiveEmployeeId) {
+      try {
+        const employee = await db.collection('employees').findOne({
+          _id: new mongoose.Types.ObjectId(String(effectiveEmployeeId)),
+        })
+        if (employee) {
+          const absence = findEmployeeAbsenceDuringPeriod(
+            employee.vacationDays as VacationDay[] | undefined,
+            effectiveStart,
+            effectiveEnd
+          )
+          if (absence) {
+            return NextResponse.json(
+              { success: false, error: formatEmployeeAbsenceConflict(employee.name || 'Mitarbeiter', absence) },
+              { status: 409 }
+            )
+          }
+        }
+      } catch { /* ungültige optionale Mitarbeiter-ID wird wie bisher ignoriert */ }
+    }
+
     if (body.projektId) {
       try {
         const project = await db.collection('projects').findOne({ _id: new mongoose.Types.ObjectId(body.projektId) })

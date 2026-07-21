@@ -15,6 +15,7 @@ export type PlantafelEventType =
   | 'krankheit'
   | 'sonderurlaub'
   | 'unbezahlt'
+  | 'fortbildung'
   | 'sonstiges'
   | 'feiertag'
   | 'projekt_plan'
@@ -65,7 +66,7 @@ export interface PlantafelEvent {
   projektId?: string
   projektName?: string
 
-  urlaubTyp?: 'urlaub' | 'krankheit' | 'sonderurlaub' | 'unbezahlt' | 'sonstiges'
+  urlaubTyp?: 'urlaub' | 'krankheit' | 'sonderurlaub' | 'unbezahlt' | 'fortbildung' | 'sonstiges'
 
   holidayType?: PlantafelHolidayType
   holidayScope?: string

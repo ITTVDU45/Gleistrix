@@ -10,10 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useEmployees } from '../hooks/useEmployees';
 import type { Employee, VacationDay } from '@/types/main';
+import {
+  EMPLOYEE_ABSENCE_TYPES,
+  findEmployeeAbsenceOnDay,
+  getEmployeeAbsenceMeta,
+  getEmployeeAbsenceType,
+} from '@/lib/employeeAbsence';
 import { v4 as uuidv4 } from 'uuid';
 
 // Einfache Textarea-Komponente inline definieren
@@ -46,6 +53,7 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
   const [formData, setFormData] = useState<Omit<VacationDay, 'id'>>({
     startDate: '',
     endDate: '',
+    type: 'urlaub',
     reason: '',
     approved: true
   });
@@ -75,8 +83,8 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
   }, [employee.id]);
 
   const isOnVacation = isEmployeeOnVacation(currentEmployee);
-  
-  // Wenn der Mitarbeiter-Urlaubsstatus sich ändert, teile es dem Parent mit
+
+  // Wenn sich der Abwesenheitsstatus ändert, teile es dem Parent mit
   useEffect(() => {
     if (onVacationChange) {
       onVacationChange(isOnVacation);
@@ -90,63 +98,64 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
   const validateForm = () => {
     const startDate = new Date(formData.startDate);
     const endDate = new Date(formData.endDate);
-    
+
     if (!formData.startDate) {
       setError('Bitte geben Sie ein Startdatum ein');
       return false;
     }
-    
+
     if (!formData.endDate) {
       setError('Bitte geben Sie ein Enddatum ein');
       return false;
     }
-    
+
     if (startDate > endDate) {
       setError('Das Startdatum kann nicht nach dem Enddatum liegen');
       return false;
     }
-    
+
     return true;
   };
 
   const handleSubmit = async () => {
     setError(null);
     setLoading(true);
-    
+
     if (!validateForm()) {
       setLoading(false);
       return;
     }
-    
+
     try {
       const vacationData: VacationDay = {
         ...formData,
-        id: uuidv4() // Generiere eine eindeutige ID für den neuen Urlaub
+        id: uuidv4() // Eindeutige ID für die neue Abwesenheit
       };
-      
+
       await addVacationDay(employee.id, vacationData);
-      
+
       // Lade die aktuellen Daten neu
       await fetchCurrentEmployee();
-      
-      // Aktualisiere den Status basierend auf Urlaubszeiten
+
+      // Aktualisiere den Status basierend auf Abwesenheiten
       await updateEmployeeStatusBasedOnVacation(employee.id);
-      
+
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
         setIsModalOpen(false);
       }, 1500);
-      
+
       // Zurücksetzen des Formulars
       setFormData({
         startDate: '',
         endDate: '',
+        type: 'urlaub',
         reason: '',
         approved: true
       });
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Fehler beim Speichern des Urlaubs'));
+      setError(getErrorMessage(err, 'Fehler beim Speichern der Abwesenheit'));
     } finally {
       setLoading(false);
     }
@@ -156,17 +165,17 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
     setIsDeleting(true);
     try {
       await deleteVacationDay(employee.id, vacationId);
-      
+
       // Lade die aktuellen Daten neu
       await fetchCurrentEmployee();
-      
-      // Aktualisiere den Status basierend auf Urlaubszeiten
+
+      // Aktualisiere den Status basierend auf Abwesenheiten
       await updateEmployeeStatusBasedOnVacation(employee.id);
-      
+
       setSuccess(true);
       setTimeout(() => setSuccess(false), 1500);
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Fehler beim Löschen des Urlaubs'));
+      setError(getErrorMessage(err, 'Fehler beim Löschen der Abwesenheit'));
     } finally {
       setIsDeleting(false);
     }
@@ -177,15 +186,15 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center">
           <Calendar className="mr-2 h-5 w-5 text-blue-600 dark:text-blue-400" />
-          Urlaubszeiten
+          Abwesenheiten
         </h2>
-        <Button 
-          onClick={() => setIsModalOpen(true)} 
+        <Button
+          onClick={() => setIsModalOpen(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center"
           size="sm"
         >
           <Plus className="mr-1 h-4 w-4" />
-          Urlaub eintragen
+          Abwesenheit eintragen
         </Button>
       </CardHeader>
       <CardContent>
@@ -197,7 +206,7 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
             </AlertDescription>
           </Alert>
         )}
-        
+
         {error && (
           <Alert className="mb-4 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 rounded-xl">
             <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -206,12 +215,12 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
             </AlertDescription>
           </Alert>
         )}
-        
+
         {!currentEmployee.vacationDays || currentEmployee.vacationDays.length === 0 ? (
           <div className="text-center py-8">
             <Calendar className="mx-auto h-10 w-10 text-slate-400 dark:text-slate-500" />
             <p className="mt-2 text-slate-600 dark:text-slate-400">
-              Keine Urlaubszeiten eingetragen
+              Keine Abwesenheiten eingetragen
             </p>
           </div>
         ) : (
@@ -219,28 +228,28 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
             {currentEmployee.vacationDays.map((vacation, index) => {
               const startDate = new Date(vacation.startDate);
               const endDate = new Date(vacation.endDate);
-              const isActive = isOnVacation && 
-                new Date() >= startDate && 
-                new Date() <= endDate;
-              
+              const isActive = Boolean(findEmployeeAbsenceOnDay([vacation], new Date()));
+              const absenceMeta = getEmployeeAbsenceMeta(vacation);
+
               // Erstelle einen eindeutigen Key
               const uniqueKey = vacation.id || `vacation-${index}-${startDate.getTime()}-${endDate.getTime()}`;
-              
+
               return (
-                <div 
-                  key={uniqueKey} 
+                <div
+                  key={uniqueKey}
                   className={`flex items-center justify-between p-3 border rounded-lg ${
-                    isActive 
+                    isActive
                       ? 'border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700'
                       : 'border-slate-200 dark:border-slate-700'
                   }`}
                 >
                   <div className="flex flex-col">
-                    <div className="flex items-center">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{absenceMeta.label}</Badge>
                       <span className="font-medium text-slate-900 dark:text-white">
                         {format(startDate, 'dd. MMMM yyyy', { locale: de })}
                       </span>
-                      <span className="mx-2 text-slate-600 dark:text-slate-400">bis</span>
+                      <span className="text-slate-600 dark:text-slate-400">bis</span>
                       <span className="font-medium text-slate-900 dark:text-white">
                         {format(endDate, 'dd. MMMM yyyy', { locale: de })}
                       </span>
@@ -274,16 +283,34 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
         )}
       </CardContent>
 
-      {/* Urlaub-Eintragen-Dialog */}
+      {/* Abwesenheit-Eintragen-Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md rounded-xl bg-white dark:bg-slate-800">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
               <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              Urlaub eintragen
+              Abwesenheit eintragen
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-3">
+            <div>
+              <Label htmlFor="absenceType">Art der Abwesenheit</Label>
+              <Select
+                value={getEmployeeAbsenceType(formData)}
+                onValueChange={(value) => handleInputChange('type', value)}
+              >
+                <SelectTrigger id="absenceType" className="mt-1 rounded-xl border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EMPLOYEE_ABSENCE_TYPES.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="startDate">Von</Label>
@@ -307,12 +334,12 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
               </div>
             </div>
             <div>
-              <Label htmlFor="reason">Grund (optional)</Label>
+              <Label htmlFor="reason">Notiz (optional)</Label>
               <Textarea
                 id="reason"
                 value={formData.reason || ''}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('reason', e.target.value)}
-                placeholder="Grund für den Urlaub"
+                placeholder="Zusätzlicher Vermerk zur Abwesenheit"
                 className="mt-1 rounded-xl min-h-[80px] border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white"
               />
             </div>
@@ -338,4 +365,4 @@ export default function VacationCard({ employee, onVacationChange }: VacationCar
       </Dialog>
     </Card>
   );
-} 
+}

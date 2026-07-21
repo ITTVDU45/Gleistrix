@@ -28,6 +28,7 @@ import EmployeeAssignmentFilter from '../../../components/EmployeeAssignmentFilt
 import EmployeeFilter from '../../../components/EmployeeFilter';
 import { ResourceLockDialog } from '@/components/ui/ResourceLockDialog';
 import EditEmployeeDialog from '../../../components/EditEmployeeDialog';
+import { findEmployeeAbsenceOnDay, getEmployeeAbsenceMeta } from '@/lib/employeeAbsence';
 
 export default function Page() {
   const params = useParams();
@@ -37,7 +38,7 @@ export default function Page() {
   const { employees, loading, error, updateEmployee, deleteEmployee, setEmployeeStatus, updateEmployeeStatusBasedOnVacation } = useEmployees();
   const { projects, isLoaded: projectsLoaded, error: projectsError } = useProjects({ includeTimes: true, includeVehicles: true });
   const employee = employees.find(emp => emp.id === id);
-  
+
   // Locking-System
   const {
     lockInfo,
@@ -158,17 +159,17 @@ export default function Page() {
     try {
       // Sperre freigeben
       const success = await releaseLock();
-      
+
       if (success) {
         setSnackbar({
           open: true,
           message: 'Sperre erfolgreich freigegeben - Weiterleitung zur Mitarbeiter-Seite',
           severity: 'success'
         });
-        
+
         // Kurze Verzögerung für die Freigabe
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         // Nach Verzögerung zur Mitarbeiter-Seite navigieren
         router.push('/mitarbeiter');
       } else {
@@ -272,28 +273,28 @@ export default function Page() {
   // Sammle alle Einsätze des Mitarbeiters aus allen Projekten
   const employeeAssignments = React.useMemo(() => {
     if (!employee || !projectsLoaded || !projects) return [];
-    
+
     logger.debug('Projekte geladen:', projects.length);
     logger.debug('Mitarbeitername:', employee.name);
-    
+
     // Debug-Log für die ersten 3 Projekte
     projects.slice(0, 3).forEach(project => {
-      logger.debug(`Projekt ${project.name} mitarbeiterZeiten:`, 
-        project.mitarbeiterZeiten ? 
-        Object.keys(project.mitarbeiterZeiten).length + ' Tage' : 
+      logger.debug(`Projekt ${project.name} mitarbeiterZeiten:`,
+        project.mitarbeiterZeiten ?
+        Object.keys(project.mitarbeiterZeiten).length + ' Tage' :
         'keine');
     });
-    
+
     return projects.flatMap(project => {
       if (!project.mitarbeiterZeiten) return [];
-      
+
       return Object.entries(project.mitarbeiterZeiten)
         .flatMap(([date, entries]) => {
           if (!Array.isArray(entries)) {
             logger.warn(`Keine Array-Einträge für Projekt ${project.name} am ${date}:`, entries);
             return [];
           }
-          
+
           return entries
             .filter(entry => {
               const nameMatch = entry.name === employee.name;
@@ -304,7 +305,7 @@ export default function Page() {
               // Sammle Fahrzeuge für diesen Tag und Mitarbeiter
               const vehiclesForDay = project.fahrzeuge?.[date] || [];
               const vehicleNames = vehiclesForDay.map((v: any) => `${v.type} (${v.licensePlate})`);
-              
+
               return {
                 id: `${project.id}-${date}-${entry.id || Math.random()}`,
                 projektName: project.name,
@@ -369,13 +370,13 @@ export default function Page() {
 
   const handleEditClick = async () => {
     if (!employee) return;
-    
+
     // Sperre erwerben bevor Bearbeitung
     const lockAcquired = await acquireLockOnDemand();
     if (!lockAcquired) {
       return;
     }
-    
+
     setEditedEmployee({
       name: employee.name,
       position: employee.position || '',
@@ -474,18 +475,18 @@ export default function Page() {
     doc.text('Mitarbeiterdetails', 14, 20);
     doc.setFontSize(12);
     doc.text(`Exportiert am: ${timestamp}`, 14, 30);
-    
+
     // Filter-Information hinzufügen, wenn Filter aktiv sind
     let filterInfo = '';
     if (filteredAssignments.length > 0 && filteredAssignments.length !== employeeAssignments.length) {
       filterInfo = `Gefilterte Einsätze: ${filteredAssignments.length} von ${employeeAssignments.length} Einsätzen`;
     }
-    
+
     if (filterInfo) {
       doc.setFontSize(10);
       doc.text(filterInfo, 14, 40);
     }
-    
+
     doc.setFontSize(14);
     doc.text('Mitarbeiterinformationen', 14, filterInfo ? 50 : 40);
     doc.setFontSize(11);
@@ -504,24 +505,26 @@ export default function Page() {
     doc.text(`Gesamtstunden: ${totalHours.toFixed(1)}h`, 14, y); y += 7;
     doc.text(`Gesamtfahrstunden: ${totalTravelHours.toFixed(1)}h`, 14, y); y += 7;
 
-    // Urlaubstabelle
+    // Abwesenheitstabelle
     if (employee.vacationDays && employee.vacationDays.length > 0) {
       doc.setFontSize(14);
-      doc.text('Urlaub', 14, y + 6);
+      doc.text('Abwesenheiten', 14, y + 6);
       const startY = y + 12;
       const vacationRows = employee.vacationDays.map((v) => {
         const start = new Date(v.startDate);
         const end = new Date(v.endDate);
         const days = differenceInCalendarDays(end, start) + 1;
         return [
+          getEmployeeAbsenceMeta(v).label,
           format(start, 'dd.MM.yyyy', { locale: de }),
           format(end, 'dd.MM.yyyy', { locale: de }),
           `${days} Tage`,
+          v.reason || '-',
         ];
       });
 
       autoTable(doc, {
-        head: [['Start', 'Ende', 'Dauer']],
+        head: [['Art', 'Start', 'Ende', 'Dauer', 'Notiz']],
         body: vacationRows,
         startY,
         styles: { fontSize: 8, cellPadding: 2 },
@@ -531,16 +534,16 @@ export default function Page() {
       y = afterTableY + 10;
     } else {
       doc.setFontSize(12);
-      doc.text('Urlaub: Keine Einträge', 14, y); y += 7;
+      doc.text('Abwesenheiten: Keine Einträge', 14, y); y += 7;
     }
-    
+
     // Einsätze-Tabelle
     if (assignmentsToUse.length > 0) {
       doc.addPage();
       doc.setFontSize(16);
       doc.text('Einsätze', 14, 20);
       doc.setFontSize(10);
-      
+
       const tableData = assignmentsToUse.map(assignment => [
         assignment.projektName || '-',
         format(new Date(assignment.datum), 'dd.MM.yyyy', { locale: de }),
@@ -548,7 +551,7 @@ export default function Page() {
         assignment.fahrtstunden ? `${assignment.fahrtstunden.toFixed(1)}h` : '-',
         assignment.funktion || '-'
       ]);
-      
+
       autoTable(doc, {
         head: [['Projekt', 'Datum', 'Arbeitsstunden', 'Fahrstunden', 'Funktion']],
         body: tableData,
@@ -563,9 +566,9 @@ export default function Page() {
         }
       });
     }
-    
+
     doc.save(`mitarbeiter-${employee.name.replace(/\s+/g, '_')}.pdf`);
-    
+
     setSnackbar({
       open: true,
       message: 'PDF erfolgreich exportiert',
@@ -574,16 +577,7 @@ export default function Page() {
   };
 
   const isCurrentlyOnVacation = (emp: Employee) => {
-    if (!emp.vacationDays || emp.vacationDays.length === 0) {
-      return false;
-    }
-    const today = new Date();
-    const isVacationToday = emp.vacationDays.some(vacation => {
-      const start = new Date(vacation.startDate);
-      const end = new Date(vacation.endDate);
-      return today >= start && today <= end;
-    });
-    return isVacationToday;
+    return Boolean(findEmployeeAbsenceOnDay(emp.vacationDays, new Date()));
   };
 
   return (
@@ -651,8 +645,8 @@ export default function Page() {
                   Sperre erwerben
                 </Button>
               )}
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleExportPDF}
                 disabled={lockInfo.isLocked && !lockInfo.isOwnLock}
                 className={lockInfo.isLocked && !lockInfo.isOwnLock ? 'opacity-50 cursor-not-allowed' : ''}
@@ -660,8 +654,8 @@ export default function Page() {
                 <Download className="mr-2 h-4 w-4" />
                 PDF Export
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleEditClick}
                 disabled={lockInfo.isLocked && !lockInfo.isOwnLock}
                 className={lockInfo.isLocked && !lockInfo.isOwnLock ? 'opacity-50 cursor-not-allowed' : ''}
@@ -669,8 +663,8 @@ export default function Page() {
                 <Pencil className="mr-2 h-4 w-4" />
                 Bearbeiten
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => setIsDeleteDialogOpen(true)}
                 disabled={lockInfo.isLocked && !lockInfo.isOwnLock}
                 className={lockInfo.isLocked && !lockInfo.isOwnLock ? 'opacity-50 cursor-not-allowed' : ''}
@@ -680,9 +674,9 @@ export default function Page() {
               </Button>
             </div>
           </div>
-          <Button 
+          <Button
             className="flex items-center gap-2 bg-slate-600 hover:bg-slate-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 mb-6"
-            size="sm" 
+            size="sm"
             onClick={() => router.push('/mitarbeiter')}
           >
             <ArrowLeft className="h-4 w-4" />
@@ -758,18 +752,17 @@ export default function Page() {
                 </div>
               </CardContent>
             </Card>
-            
-            {/* VacationCard hinzufügen */}
+
+            {/* Abwesenheiten */}
             {employee && (
-              <VacationCard 
-                employee={employee} 
+              <VacationCard
+                employee={employee}
                 onVacationChange={(isOnVacation) => {
-                  // Hier können wir später Logik für die Projektvergabe hinzufügen
-                  logger.debug(`Mitarbeiter ${employee.name} ist ${isOnVacation ? 'im Urlaub' : 'verfügbar'}`);
+                  logger.debug(`Mitarbeiter ${employee.name} ist ${isOnVacation ? 'abwesend' : 'verfügbar'}`);
                 }}
               />
             )}
-            
+
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">
               <CardHeader>
                 <h2 className="text-xl font-semibold text-[#114F6B] dark:text-white">Einsätze</h2>
@@ -791,7 +784,7 @@ export default function Page() {
                   assignments={employeeAssignments}
                   onFilterChange={handleFilterChange}
                 />
-                
+
                 <div className="rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden">
                   <Table>
                     <TableHeader>
@@ -899,9 +892,9 @@ export default function Page() {
           snackbar.severity === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
           <AlertDescription>{snackbar.message}</AlertDescription>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={closeSnackbar}
             className="ml-2 text-white hover:text-white/80"
           >
@@ -911,4 +904,4 @@ export default function Page() {
       )}
     </div>
   );
-} 
+}

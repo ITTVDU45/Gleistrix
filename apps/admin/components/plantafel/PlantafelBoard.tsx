@@ -83,6 +83,7 @@ const EVENT_COLORS: Record<string, string> = {
   krankheit: '#ef4444',
   sonderurlaub: '#a78bfa',
   unbezahlt: '#fbbf24',
+  fortbildung: '#0ea5e9',
   sonstiges: '#94a3b8',
   feiertag: '#f59e0b',
   projekt_plan: '#6366f1',
@@ -599,7 +600,7 @@ export default function PlantafelBoard() {
               size="sm"
               className="rounded-md"
               onClick={() => setFilters((f) => ({ ...f, showAbsences: !f.showAbsences }))}
-              title="Urlaub & Krankmeldungen ein-/ausblenden"
+              title="Urlaub, AU, unbezahlte Freistellung und Fortbildung ein-/ausblenden"
             >
               <Palmtree className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Abwesenheiten</span>

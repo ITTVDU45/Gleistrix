@@ -50,6 +50,8 @@ Falls Turbopack weiterhin Probleme macht: `pnpm run dev:webpack` (Webpack statt 
 ## Benachrichtigungseinstellungen
 - Einstellungen → Profil → „Benachrichtigungen“: Schalter aktivieren/deaktivieren, Empfänger-E-Mail pro Regel konfigurierbar.
 - Standard‑Regel: E-Mail bei Status „geleistet“ (inkl. PDF) an Buchhaltung.
+- Rückgabe-Erinnerungen: Administratoren können beliebige Zeitpunkte in Tagen, Wochen oder Monaten vor der geplanten Rückgabe anlegen und einzeln aktivieren/deaktivieren. Empfänger ist der Benutzer, der die Ausgabe gebucht hat.
+- Der tägliche Vercel-Cron ruft `/api/cron/return-reminders` um 05:00 UTC auf. In Produktion muss `CRON_SECRET` gesetzt sein; optional steuert `RETURN_REMINDER_TIMEZONE` den Geschäftstag (Standard: `Europe/Berlin`).
 
 ## Wichtige Hinweise
 - Authentifizierung: Einheitlich NextAuth (JWT). API-Routen verwenden `getToken()`.

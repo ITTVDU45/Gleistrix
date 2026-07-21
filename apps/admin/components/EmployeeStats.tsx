@@ -3,6 +3,7 @@ import React from 'react';
 import { Users, UserCheck, UserX, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Employee } from '@/types/main';
+import { findEmployeeAbsenceOnDay } from '@/lib/employeeAbsence';
 
 interface EmployeeStatsProps {
   employees: Employee[];
@@ -22,15 +23,9 @@ export default function EmployeeStats({ employees }: EmployeeStatsProps) {
     const totalEmployees = employees.length;
     const activeEmployees = employees.filter(emp => emp.status === 'aktiv').length;
     const inactiveEmployees = employees.filter(emp => emp.status === 'nicht aktiv').length;
-    const onVacationEmployees = employees.filter(emp => {
-      if (!emp.vacationDays || emp.vacationDays.length === 0) return false;
-      const today = new Date();
-      return emp.vacationDays.some(vacation => {
-        const startDate = new Date(vacation.startDate);
-        const endDate = new Date(vacation.endDate);
-        return today >= startDate && today <= endDate;
-      });
-    }).length;
+    const onVacationEmployees = employees.filter(emp =>
+      Boolean(findEmployeeAbsenceOnDay(emp.vacationDays, new Date()))
+    ).length;
 
     return {
       totalEmployees,
@@ -66,7 +61,7 @@ export default function EmployeeStats({ employees }: EmployeeStatsProps) {
       accent: 'from-fuchsia-500 via-violet-400 to-purple-300',
     },
     {
-      label: 'Im Urlaub',
+      label: 'Abwesend',
       value: stats.onVacationEmployees,
       icon: Clock,
       tone: 'text-amber-600',

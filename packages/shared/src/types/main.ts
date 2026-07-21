@@ -16,10 +16,17 @@ export interface EmployeeApiResponse extends ApiResponse<Employee> {}
 export interface VehicleApiResponse extends ApiResponse<Vehicle> {}
 
 // ===== GRUNDLEGENDE ENTITIES =====
+export type EmployeeAbsenceType =
+  | 'urlaub'
+  | 'arbeitsunfaehigkeit'
+  | 'unbezahlte_freistellung'
+  | 'fortbildung'
+
 export interface VacationDay {
   id?: string
   startDate: Date | string
   endDate: Date | string
+  type?: EmployeeAbsenceType
   reason?: string
   approved?: boolean
 }
@@ -444,6 +451,11 @@ export interface ArticleAssignment {
   ausgabedatum: string | Date
   rueckgabedatum?: string | Date | null
   geplanteRueckgabe?: string | Date | null
+  ausgegebenVon?: {
+    userId?: string
+    name?: string
+    email?: string
+  }
   status?: AssignmentStatus
   bemerkung?: string
   lieferscheinId?: string
@@ -453,5 +465,3 @@ export interface ArticleAssignment {
   createdAt?: string
   updatedAt?: string
 } 
-
-

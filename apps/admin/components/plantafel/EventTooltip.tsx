@@ -14,6 +14,7 @@ const EVENT_COLORS: Record<string, string> = {
   krankheit: '#ef4444',
   sonderurlaub: '#a78bfa',
   unbezahlt: '#fbbf24',
+  fortbildung: '#0ea5e9',
   sonstiges: '#94a3b8',
   feiertag: '#f59e0b',
   projekt_plan: '#6366f1',
@@ -24,9 +25,10 @@ const TYPE_LABELS: Record<string, string> = {
   einsatz: 'Einsatz',
   meeting: 'Meeting',
   urlaub: 'Urlaub',
-  krankheit: 'Krankheit',
+  krankheit: 'Arbeitsunfähigkeit (AU)',
   sonderurlaub: 'Sonderurlaub',
-  unbezahlt: 'Unbezahlt',
+  unbezahlt: 'Unbezahlte Freistellung',
+  fortbildung: 'Fortbildung',
   feiertag: 'Feiertag',
   sonstiges: 'Sonstiges',
   projekt_plan: 'Projekt (geplant)',
@@ -101,6 +103,8 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
             {event.allDay && (
               <div className="text-slate-400">
                 {format(event.start, 'dd.MM.yyyy', { locale: de })}
+                {' – '}
+                {format(event.end, 'dd.MM.yyyy', { locale: de })}
               </div>
             )}
 

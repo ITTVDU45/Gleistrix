@@ -7,6 +7,12 @@ import dbConnect from '@/lib/dbConnect';
 import { format, parseISO } from 'date-fns';
 import { z } from 'zod';
 import { requireAuth } from '@/lib/security/requireAuth';
+import { Employee } from '@/lib/models/Employee';
+import {
+  findEmployeeAbsenceOnDay,
+  formatEmployeeAbsenceConflict,
+} from '@/lib/employeeAbsence';
+import type { VacationDay } from '@/types/main';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   await dbConnect();
@@ -26,22 +32,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         name: z.string().min(1),
         stunden: z.number().nonnegative(),
         funktion: z.string().optional().or(z.literal('')),
+        isExternal: z.boolean().optional(),
       })
     });
     const parseResult = schema.safeParse(await req.json());
     if (!parseResult.success) {
       return NextResponse.json({ error: 'Validierungsfehler', issues: parseResult.error.flatten() }, { status: 400 });
     }
-    let { date, entry } = parseResult.data;
-    
+    let { date } = parseResult.data;
+    const { entry } = parseResult.data;
+
     const currentUser = await getCurrentUser(req);
-    
+
     if (!date || !entry) {
       return NextResponse.json({ error: 'Datum und Eintrag sind erforderlich.' }, { status: 400 });
     }
     // Datum immer als yyyy-MM-dd speichern
     if (date.length > 10) {
       date = format(parseISO(date), 'yyyy-MM-dd');
+    }
+    const employeeResult = entry.isExternal
+      ? null
+      : await Employee.findOne({ name: entry.name }).select('name vacationDays').lean();
+    const employee = employeeResult as unknown as { vacationDays?: VacationDay[] } | null;
+    const absence = employee
+      ? findEmployeeAbsenceOnDay(employee.vacationDays as VacationDay[] | undefined, date)
+      : undefined;
+    if (absence) {
+      return NextResponse.json(
+        { error: formatEmployeeAbsenceConflict(entry.name, absence) },
+        { status: 409 }
+      );
     }
     const project = await Project.findById(id);
     if (!project) {
@@ -69,7 +90,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     project.mitarbeiterZeiten[date].push(entry);
     project.markModified('mitarbeiterZeiten');
     await project.save();
-    
+
     // Activity Log erstellen
     if (currentUser) {
       try {
@@ -94,7 +115,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             }
           }
         });
-        
+
         await activityLog.save();
         logger.debug('Activity Log erstellt für Zeiteintrag-Hinzufügung');
       } catch (logError) {
@@ -102,7 +123,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Activity Log Fehler sollte nicht die Hauptfunktion beeinträchtigen
       }
     }
-    
+
     // Debug: Nach dem Speichern
     logger.debug('Nachher (mitarbeiterZeiten):', JSON.stringify(project.mitarbeiterZeiten, null, 2));
     logger.debug('Nachher (Keys):', Object.keys(project.mitarbeiterZeiten));
@@ -210,4 +231,4 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   } catch (error) {
     return NextResponse.json({ error: 'Fehler beim Bearbeiten des Zeiteintrags.' }, { status: 500 });
   }
-} 
+}

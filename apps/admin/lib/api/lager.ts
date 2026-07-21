@@ -120,6 +120,7 @@ export const LagerApi = {
       menge: number
       datum: string | Date
       empfaenger?: string | null
+      geplanteRueckgabe?: string | Date | null
       lieferscheinId?: string | null
       bemerkung?: string
       unitIds?: string[]
@@ -199,6 +200,33 @@ export const LagerApi = {
       postJSON<{ success: boolean; message?: string }>('/api/lager/assignments/bulk', data as Record<string, unknown>, 'lager:assignments:bulk'),
     return: (id: string) =>
       putJSON<{ success: boolean; message?: string; error?: string }>(`/api/lager/assignments/${id}/return`, {}, 'lager:assignments:return')
+  },
+  returnReminders: {
+    list: () =>
+      getJSON<{
+        success: boolean
+        unreadCount: number
+        notifications: Array<{
+          id: string
+          assignmentId: string
+          articleName: string
+          articleNumber?: string
+          employeeName: string
+          dueDate: string
+          reminderDate: string
+          intervalLabel: string
+          message: string
+          readAt?: string | null
+          emailStatus: 'pending' | 'processing' | 'sent' | 'failed'
+          createdAt: string
+        }>
+      }>('/api/lager/return-reminders'),
+    markRead: (id: string) =>
+      putJSON<{ success: boolean; readAt?: string }>(
+        `/api/lager/return-reminders/${id}/read`,
+        {},
+        'lager:return-reminders:read'
+      )
   },
   maintenance: {
     list: (params?: { artikelId?: string; status?: string }) => {
@@ -367,4 +395,3 @@ export const LagerApi = {
       postJSON(`/api/lager/inventory/${id}/complete`, {}, 'lager:inventory:complete')
   }
 }
-

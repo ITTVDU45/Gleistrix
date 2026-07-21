@@ -370,7 +370,7 @@ export default function AddEmployeeDialog({
                     >
                       <option value="aktiv">Aktiv</option>
                       <option value="nicht aktiv">Nicht aktiv</option>
-                      <option value="urlaub">Urlaub</option>
+                      <option value="urlaub">Abwesend</option>
                     </select>
                   </div>
                 </div>
@@ -518,7 +518,6 @@ export default function AddEmployeeDialog({
     </>
   );
 } 
-
 
 
 

@@ -8,6 +8,16 @@ import mongoose from 'mongoose';
 import { requireAuth } from '@/lib/security/requireAuth';
 import { z } from 'zod';
 
+const absenceSchema = z.object({
+  id: z.string().optional(),
+  startDate: z.string(),
+  endDate: z.string(),
+  type: z.enum(['urlaub', 'arbeitsunfaehigkeit', 'unbezahlte_freistellung', 'fortbildung']).optional(),
+  reason: z.string().optional(),
+  approved: z.boolean().optional(),
+  durationInDays: z.number().optional(),
+});
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -77,7 +87,7 @@ export async function PUT(
       address: z.string().optional().or(z.literal('')),
       postalCode: z.string().optional().or(z.literal('')),
       city: z.string().optional().or(z.literal('')),
-      vacationDays: z.array(z.object({ startDate: z.string(), endDate: z.string(), durationInDays: z.number().optional() })).optional(),
+      vacationDays: z.array(absenceSchema).optional(),
     }).passthrough();
     const parseResult = schema.safeParse(await request.json());
     if (!parseResult.success) {
@@ -121,16 +131,16 @@ export async function PUT(
         startDate: new Date(vacation.startDate),
         endDate: new Date(vacation.endDate)
       }));
-      
+
       logger.debug('Saving vacationDays with dates:', vacationDaysWithDates);
-      
+
       // Speichere vacationDays explizit in der Datenbank
       const db = mongoose.connection.db;
       if (db) {
         // Direkte Aktualisierung in der Collection
         await db.collection('employees').updateOne(
            { _id: new mongoose.Types.ObjectId(String(id)) },
-          { 
+          {
             $set: {
               ...updateData,
               vacationDays: vacationDaysWithDates,
@@ -138,26 +148,26 @@ export async function PUT(
             }
           }
         );
-        
+
         // Lade den aktualisierten Mitarbeiter
         updated = await Employee.findById(id);
       } else {
         // Fallback zur Mongoose-Methode
         updated = await Employee.findByIdAndUpdate(
-          id, 
-          { 
+          id,
+          {
             $set: {
               ...updateData,
-              vacationDays: vacationDaysWithDates 
+              vacationDays: vacationDaysWithDates
             }
-          }, 
+          },
           { new: true }
         );
       }
     } else {
       updated = await Employee.findByIdAndUpdate(id, updateData, { new: true });
     }
-    
+
     if (!updated) {
       return NextResponse.json(
         { error: 'Mitarbeiter nicht gefunden' },
@@ -170,17 +180,17 @@ export async function PUT(
       try {
         let actionType = 'employee_updated';
         let description = `Mitarbeiter "${originalEmployee.name}" bearbeitet`;
-        
+
         // Spezielle Behandlung für Status-Änderungen
         if (body.status && body.status !== originalEmployee.status) {
           actionType = 'employee_status_changed';
           description = `Status von "${originalEmployee.name}" von "${originalEmployee.status}" auf "${body.status}" geändert`;
         }
-        
-        // Spezielle Behandlung für Urlaubszeiten
+
+        // Spezielle Behandlung für Abwesenheiten
         if (body.vacationDays && body.vacationDays.length !== (originalEmployee.vacationDays?.length || 0)) {
           actionType = 'employee_vacation_added';
-          description = `Urlaubszeiten für "${originalEmployee.name}" aktualisiert`;
+          description = `Abwesenheiten für "${originalEmployee.name}" aktualisiert`;
         }
 
         const activityLog = new ActivityLog({
@@ -207,7 +217,7 @@ export async function PUT(
             }
           }
         });
-        
+
         await activityLog.save();
         logger.debug('Activity Log erstellt für Mitarbeiter-Update');
       } catch (logError) {
@@ -218,21 +228,21 @@ export async function PUT(
 
     // Stelle sicher, dass vacationDays in der Antwort enthalten sind
     const responseData = updated.toObject();
-    
+
     logger.debug('Raw updated employee from database:', responseData);
     logger.debug('Raw vacationDays from database:', responseData.vacationDays);
-    
+
     // Lade die vacationDays explizit aus der Datenbank
     const employeeWithVacationDays = {
       ...responseData,
       vacationDays: body.vacationDays || responseData.vacationDays || []
     };
-    
+
     logger.debug('Updated employee data with vacationDays:', employeeWithVacationDays);
 
-    return NextResponse.json({ 
-      success: true, 
-      employee: employeeWithVacationDays 
+    return NextResponse.json({
+      success: true,
+      employee: employeeWithVacationDays
     });
   } catch (error) {
     logger.error('Fehler beim Aktualisieren des Mitarbeiters:', error);
@@ -253,26 +263,26 @@ export async function DELETE(
     const csrf = request.headers.get('x-csrf-intent');
     if (process.env.NODE_ENV === 'production' && csrf !== 'employees:delete') {
       return NextResponse.json(
-        { 
+        {
           success: false,
-          message: 'Ungültige Anforderung' 
+          message: 'Ungültige Anforderung'
         },
         { status: 400 }
       );
     }
     const auth = await requireAuth(request, ['admin','superadmin']);
     if (!auth.ok) return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    
+
     const currentUser = await getCurrentUser(request);
-    
+
     // Lade den Mitarbeiter vor dem Löschen für Activity Log
     const employee = await Employee.findById(id);
-    
+
     if (!employee) {
       return NextResponse.json(
-        { 
+        {
           success: false,
-          message: 'Mitarbeiter nicht gefunden' 
+          message: 'Mitarbeiter nicht gefunden'
         },
         { status: 404 }
       );
@@ -300,7 +310,7 @@ export async function DELETE(
             }
           }
         });
-        
+
         await activityLog.save();
         logger.debug('Activity Log erstellt für Mitarbeiter-Löschung');
       } catch (logError) {
@@ -312,18 +322,18 @@ export async function DELETE(
     // Mitarbeiter löschen
     await Employee.findByIdAndDelete(id);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: 'Mitarbeiter erfolgreich gelöscht' 
+      message: 'Mitarbeiter erfolgreich gelöscht'
     });
   } catch (error) {
     logger.error('Fehler beim Löschen des Mitarbeiters:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
-        message: 'Fehler beim Löschen des Mitarbeiters' 
+        message: 'Fehler beim Löschen des Mitarbeiters'
       },
       { status: 500 }
     );
   }
-} 
+}

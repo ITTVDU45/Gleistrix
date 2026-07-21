@@ -16,6 +16,7 @@ import LagerWartungView from '@/components/lager/LagerWartungView'
 import LagerLieferscheineView from '@/components/lager/LagerLieferscheineView'
 import LagerKategorienView from '@/components/lager/LagerKategorienView'
 import LagerPartnerView from '@/components/lager/LagerPartnerView'
+import ReturnReminderInbox from '@/components/lager/ReturnReminderInbox'
 import { Card, CardContent } from '@/components/ui/card'
 import { Package, LayoutGrid, ArrowLeftRight, UserCheck, ClipboardCheck, Wrench, FileText, AlertTriangle, CalendarClock, ArrowLeft, FolderTree, Building2 } from 'lucide-react'
 
@@ -115,6 +116,10 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
           </div>
         )}
       </div>
+
+      <ReturnReminderInbox
+        onOpenAssignments={isLagerOnly ? undefined : () => setActiveTab('ausgabe')}
+      />
 
       {!isLagerOnly && stats && (stats.unterMindestbestand > 0 || stats.faelligeWartungen > 0 || stats.ueberfaelligeRueckgaben > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -249,7 +254,6 @@ export default function LagerClient({ initialArticles = [], initialCategories = 
     </div>
   )
 }
-
 
 
 

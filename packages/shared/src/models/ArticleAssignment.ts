@@ -30,6 +30,11 @@ const articleAssignmentSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  ausgegebenVon: {
+    userId: { type: String, default: '', index: true },
+    name: { type: String, default: '' },
+    email: { type: String, default: '' }
+  },
   status: {
     type: String,
     enum: ['ausgegeben', 'zurueckgegeben', 'ueberfaellig'],

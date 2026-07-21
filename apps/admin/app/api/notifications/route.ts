@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import NotificationSettings from '@/lib/models/NotificationSettings';
 import { DEFAULT_NOTIFICATION_DEFS } from '@/lib/notificationDefs';
+import { RETURN_REMINDER_NOTIFICATION_KEY } from '@/lib/notificationDefs';
+import { normalizeReturnReminderConfig } from '@/lib/lager/returnReminderSchedule';
 import { getToken } from 'next-auth/jwt';
 
 // Baseline-Definitionen für Notification Keys
@@ -20,6 +22,11 @@ function buildMergedSettings(doc?: any) {
       for (const [k, v] of doc.configByKey.entries()) configByKey.set(k, v);
     }
   }
+
+  configByKey.set(
+    RETURN_REMINDER_NOTIFICATION_KEY,
+    normalizeReturnReminderConfig(configByKey.get(RETURN_REMINDER_NOTIFICATION_KEY))
+  );
 
   return { enabledByKey, configByKey };
 }
@@ -52,13 +59,27 @@ export async function PUT(req: NextRequest) {
     await dbConnect();
     const body = await req.json();
     const { enabledByKey = {}, configByKey = {} } = body || {};
+    const sanitizedEnabledByKey = Object.fromEntries(
+      Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([key, definition]) => [
+        key,
+        typeof enabledByKey?.[key] === 'boolean' ? enabledByKey[key] : definition.defaultEnabled,
+      ])
+    );
+    const sanitizedConfigByKey = Object.fromEntries(
+      Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([key, definition]) => [
+        key,
+        key === RETURN_REMINDER_NOTIFICATION_KEY
+          ? normalizeReturnReminderConfig(configByKey?.[key] ?? definition.defaultConfig)
+          : (configByKey?.[key] ?? definition.defaultConfig),
+      ])
+    );
 
     const doc = await NotificationSettings.findOneAndUpdate(
       { scope: 'global' },
       {
         $set: {
-          enabledByKey,
-          configByKey,
+          enabledByKey: sanitizedEnabledByKey,
+          configByKey: sanitizedConfigByKey,
         },
       },
       { upsert: true, new: true }
@@ -75,5 +96,4 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Fehler beim Speichern der Benachrichtigungseinstellungen' }, { status: 500 });
   }
 }
-
 

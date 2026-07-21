@@ -99,6 +99,9 @@ export async function POST(request: NextRequest) {
     const geplanteRueckgabe = body.geplanteRueckgabe
       ? (typeof body.geplanteRueckgabe === 'string' ? new Date(body.geplanteRueckgabe) : body.geplanteRueckgabe)
       : undefined
+    if (Number.isNaN(ausgabedatum.getTime()) || (geplanteRueckgabe && Number.isNaN(geplanteRueckgabe.getTime()))) {
+      return NextResponse.json({ success: false, message: 'Ungültiges Ausgabe- oder Rückgabedatum' }, { status: 400 })
+    }
 
     let deliveryNoteId: mongoose.Types.ObjectId | undefined
     if (body.createDeliveryNote) {
@@ -131,6 +134,13 @@ export async function POST(request: NextRequest) {
       geplanteRueckgabe: geplanteRueckgabe ?? undefined,
       status: 'ausgegeben',
       bemerkung: body.bemerkung ?? '',
+      ...(currentUser && {
+        ausgegebenVon: {
+          userId: currentUser.id,
+          name: currentUser.name ?? '',
+          email: currentUser.email?.trim().toLowerCase() ?? ''
+        }
+      }),
       ...(deliveryNoteId && { lieferscheinId: deliveryNoteId })
     }
 

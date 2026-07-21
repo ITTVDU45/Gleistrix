@@ -22,6 +22,7 @@ import { BreakSegmentEditor } from './BreakSegmentEditor'
 import { HolidaysApi } from '@/lib/api/holidays'
 import { useSubcompanies } from '../hooks/useSubcompanies'
 import { MITARBEITER_FUNKTION_OPTIONS } from '@/types/constants'
+import { findEmployeeAbsenceOnDay, getEmployeeAbsenceMeta } from '@/lib/employeeAbsence'
 
 // Modulare TimeEntry-Utilities importieren
 import {
@@ -230,16 +231,12 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     return employees;
   }, [employees]);
 
-  // Neue Funktion: PrÃ¼ft, ob ein Mitarbeiter an einem spezifischen Tag im Urlaub ist
+  // Prüft, ob ein Mitarbeiter an einem spezifischen Tag abwesend ist.
+  const getEmployeeAbsenceOnDay = (employee: any, day: string) =>
+    findEmployeeAbsenceOnDay(employee.vacationDays, day);
+
   const isEmployeeOnVacationOnDay = (employee: any, day: string) => {
-    if (!employee.vacationDays || employee.vacationDays.length === 0) return false;
-    
-    const checkDate = parseISO(day);
-    return employee.vacationDays.some((vacation: any) => {
-      const startDate = new Date(vacation.startDate);
-      const endDate = new Date(vacation.endDate);
-      return checkDate >= startDate && checkDate <= endDate;
-    });
+    return Boolean(getEmployeeAbsenceOnDay(employee, day));
   };
 
   const [selectedDays, setSelectedDays] = useState<string[]>(selectedDate ? [selectedDate] : [])
@@ -773,7 +770,8 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     if (copyMode && selectedCopyEntry) {
       return (
         selectedEmployees.length > 0 &&
-        formData.funktion
+        formData.funktion &&
+        !hasVacationConflict
       );
     }
 
@@ -784,7 +782,8 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
         formData.funktion &&
         startTime &&
         endTime &&
-        selectedCopyEntry !== null
+        selectedCopyEntry !== null &&
+        !hasVacationConflict
       );
     }
 
@@ -977,8 +976,13 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
       }
     } catch (err: unknown) {
       const httpErr = asHttpLikeError(err);
-      if (httpErr.response?.status === 409 || getErrorMessage(err).includes('bereits im Projekt')) {
-        setApiError(httpErr.response?.data?.error || 'Mitarbeiter ist an einem der Tage bereits eingetragen.');
+      const message = getErrorMessage(err);
+      if (
+        httpErr.response?.status === 409 ||
+        message.includes('bereits im Projekt') ||
+        message.includes('nicht verfügbar')
+      ) {
+        setApiError(httpErr.response?.data?.error || message || 'Mitarbeiter ist an einem der Tage nicht verfügbar.');
       } else {
         setApiError('Fehler beim Speichern der ZeiteintrÃ¤ge.');
       }
@@ -1187,12 +1191,14 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
             {!copyMode && (
               <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-none max-h-32 overflow-y-auto project-times-add">
                 {projectDays.map(day => {
-                  // PrÃ¼fe, ob der ausgewÃ¤hlte Mitarbeiter an diesem Tag im Urlaub ist
-                  const isSelectedEmployeeOnVacation = activeTab === 'external' ? false : selectedEmployees.length > 0 && 
-                    selectedEmployees.some(employeeName => {
+                  // Prüfe, ob ein ausgewählter Mitarbeiter an diesem Tag abwesend ist.
+                  const absenceConflict = activeTab === 'external' ? undefined : selectedEmployees
+                    .map((employeeName) => {
                       const employee = availableEmployees.find(e => e.name === employeeName);
-                      return employee && isEmployeeOnVacationOnDay(employee, day);
-                    });
+                      return employee ? getEmployeeAbsenceOnDay(employee, day) : undefined;
+                    })
+                    .find(Boolean);
+                  const isSelectedEmployeeOnVacation = Boolean(absenceConflict);
                   
                   // PrÃ¼fe, ob der Tag belegt ist (durch andere EintrÃ¤ge)
                   const isBelegt = activeTab === 'external' ? false : belegteTage.includes(day);
@@ -1214,8 +1220,8 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
                   
                   // Bestimme den Status-Text
                   let statusText = '';
-                  if (isSelectedEmployeeOnVacation) {
-                    statusText = '(Urlaub)';
+                  if (absenceConflict) {
+                    statusText = `(${getEmployeeAbsenceMeta(absenceConflict).shortLabel})`;
                   } else if (isBelegt && !isSelectedEmployeeOnVacation) {
                     statusText = '(Belegt)';
                   }
@@ -1227,6 +1233,9 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
                       variant={buttonVariant}
                       size="sm"
                       disabled={isDisabled}
+                      title={absenceConflict
+                        ? [getEmployeeAbsenceMeta(absenceConflict).label, absenceConflict.reason].filter(Boolean).join(': ')
+                        : undefined}
                       className={buttonClassName}
                       onClick={() => !isDisabled && handleDayToggle(day)}
                     >
@@ -1358,7 +1367,7 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
                 onChange={e => {
                   const val = e.target.value;
                   // allow empty or any non-negative integer/float with comma or dot
-                  if (val === '' || /^[0-9]+([\.,][0-9]+)?$/.test(val)) {
+                  if (val === '' || /^[0-9]+([.,][0-9]+)?$/.test(val)) {
                     setFormData(prev => ({ ...prev, extra: val }));
                   }
                 }}
@@ -1537,6 +1546,3 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
     </div>
   )
 } 
-
-
-

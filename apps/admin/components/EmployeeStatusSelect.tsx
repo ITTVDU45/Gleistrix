@@ -15,9 +15,9 @@ interface EmployeeStatusSelectProps {
   disabled?: boolean;
 }
 
-export default function EmployeeStatusSelect({ 
-  employee, 
-  currentStatus, 
+export default function EmployeeStatusSelect({
+  employee,
+  currentStatus,
   onStatusChange,
   isCurrentlyOnVacation,
   disabled = false,
@@ -28,7 +28,7 @@ export default function EmployeeStatusSelect({
   const statusOptions = [
     { value: 'aktiv', label: 'Aktiv', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
     { value: 'nicht aktiv', label: 'Nicht aktiv', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
-    { value: 'urlaub', label: 'Urlaub', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' }
+    { value: 'urlaub', label: 'Abwesend', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' }
   ];
 
   const currentStatusOption = statusOptions.find(option => option.value === currentStatus) || statusOptions[0];
@@ -59,7 +59,7 @@ export default function EmployeeStatusSelect({
           disabled={isLoading || disabled}
           className="h-auto p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
         >
-          <Badge 
+          <Badge
             className={`text-xs ${currentStatusOption.color} ${isCurrentlyOnVacation ? 'ring-2 ring-orange-300 dark:ring-orange-600' : ''}`}
           >
             {currentStatusOption.label}
@@ -91,4 +91,4 @@ export default function EmployeeStatusSelect({
       </PopoverContent>
     </Popover>
   );
-} 
+}

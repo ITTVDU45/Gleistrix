@@ -30,18 +30,18 @@ import SubcompanyActions from '../../components/SubcompanyActions';
  
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { getEmployeeAbsenceMeta, toAbsenceDateKey } from '@/lib/employeeAbsence';
 
-// Hilfsfunktion zur Formatierung der Urlaubszeiträume
+// Hilfsfunktion zur Formatierung der aktuellen und künftigen Abwesenheiten
 const formatVacationPeriods = (vacationDays: VacationDay[] | undefined): string => {
   if (!vacationDays || vacationDays.length === 0) {
     return '-';
   }
 
-  // Aktuelle Urlaubszeiträume filtern (heute oder in der Zukunft)
-  const today = new Date();
+  // Aktuelle Abwesenheiten filtern (heute oder in der Zukunft)
+  const today = toAbsenceDateKey(new Date());
   const currentVacations = vacationDays.filter(vacation => {
-    const endDate = new Date(vacation.endDate);
-    return endDate >= today;
+    return toAbsenceDateKey(vacation.endDate) >= today;
   });
 
   if (currentVacations.length === 0) {
@@ -51,36 +51,35 @@ const formatVacationPeriods = (vacationDays: VacationDay[] | undefined): string 
   // Sortiere nach Startdatum
   currentVacations.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
-  // Formatiere die ersten 2 Urlaubszeiträume
+  // Formatiere die ersten 2 Abwesenheiten
   const formattedVacations = currentVacations.slice(0, 2).map(vacation => {
     const startDate = new Date(vacation.startDate);
     const endDate = new Date(vacation.endDate);
     
     // Wenn Start- und Enddatum im gleichen Monat sind
     if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
-      return `${format(startDate, 'dd.', { locale: de })}-${format(endDate, 'dd.MM', { locale: de })}`;
+      return `${getEmployeeAbsenceMeta(vacation).shortLabel}: ${format(startDate, 'dd.', { locale: de })}-${format(endDate, 'dd.MM', { locale: de })}`;
     } else {
-      return `${format(startDate, 'dd.MM', { locale: de })}-${format(endDate, 'dd.MM', { locale: de })}`;
+      return `${getEmployeeAbsenceMeta(vacation).shortLabel}: ${format(startDate, 'dd.MM', { locale: de })}-${format(endDate, 'dd.MM', { locale: de })}`;
     }
   });
 
   return formattedVacations.join(', ');
 };
 
-// Hilfsfunktion zur Extraktion von Urlaubszeiträumen für Filter
+// Hilfsfunktion zur Extraktion von Abwesenheitszeiträumen für Filter
 const getVacationPeriods = (vacationDays: VacationDay[] | undefined): string[] => {
   if (!vacationDays || vacationDays.length === 0) {
-    return ['Keine Urlaubszeiträume'];
+    return ['Keine Abwesenheiten'];
   }
 
-  const today = new Date();
+  const today = toAbsenceDateKey(new Date());
   const currentVacations = vacationDays.filter(vacation => {
-    const endDate = new Date(vacation.endDate);
-    return endDate >= today;
+    return toAbsenceDateKey(vacation.endDate) >= today;
   });
 
   if (currentVacations.length === 0) {
-    return ['Keine aktuellen Urlaubszeiträume'];
+    return ['Keine aktuellen Abwesenheiten'];
   }
 
   return currentVacations.map(vacation => {
@@ -88,9 +87,9 @@ const getVacationPeriods = (vacationDays: VacationDay[] | undefined): string[] =
     const endDate = new Date(vacation.endDate);
     
     if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
-      return `${format(startDate, 'dd.', { locale: de })}-${format(endDate, 'dd.MM', { locale: de })}`;
+      return `${getEmployeeAbsenceMeta(vacation).shortLabel}: ${format(startDate, 'dd.', { locale: de })}-${format(endDate, 'dd.MM', { locale: de })}`;
     } else {
-      return `${format(startDate, 'dd.MM', { locale: de })}-${format(endDate, 'dd.MM', { locale: de })}`;
+      return `${getEmployeeAbsenceMeta(vacation).shortLabel}: ${format(startDate, 'dd.MM', { locale: de })}-${format(endDate, 'dd.MM', { locale: de })}`;
     }
   });
 };
@@ -299,7 +298,7 @@ export default function MitarbeiterPage() {
                       <TableHead className="font-medium text-slate-700 dark:text-slate-300">Status</TableHead>
                       <TableHead className="font-medium text-slate-700 dark:text-slate-300">Kontakt</TableHead>
                       <TableHead className="font-medium text-slate-700 dark:text-slate-300">Adresse</TableHead>
-                      <TableHead className="font-medium text-slate-700 dark:text-slate-300">Urlaub</TableHead>
+                      <TableHead className="font-medium text-slate-700 dark:text-slate-300">Abwesenheiten</TableHead>
                       <TableHead className="font-medium text-slate-700 dark:text-slate-300 text-right">Aktionen</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -514,4 +513,3 @@ export default function MitarbeiterPage() {
   </div>
 );
 }
-

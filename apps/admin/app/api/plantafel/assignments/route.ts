@@ -6,27 +6,25 @@ import PlantafelMeeting from '@/lib/models/PlantafelMeeting'
 import { Holiday } from '@/lib/models/Holiday'
 import { getIslamicHolidaysInRange, holidaysToPlantafelEvents, type PlantafelHoliday } from '@/lib/services/plantafel/holidayService'
 import { getPlannedColor, detectEntryShift } from '@/lib/plantafel/projectColors'
+import { formatProjectBarTitle } from '@/lib/plantafel/projectLabel'
+import {
+  findEmployeeAbsenceDuringPeriod,
+  formatEmployeeAbsenceConflict,
+  getEmployeeAbsenceMeta,
+  getEmployeeAbsenceType,
+} from '@/lib/employeeAbsence'
+import type { VacationDay } from '@/types/main'
 import { syncAssignmentToCalendar } from '@/lib/services/microsoft/plantafel-sync'
 import { ensureEventsSubscription } from '@/lib/services/microsoft/subscriptions'
 import mongoose from 'mongoose'
 
-const VACATION_TYPE_KEYWORDS: { keyword: string; type: 'krankheit' | 'sonderurlaub' | 'unbezahlt' }[] = [
-  { keyword: 'krank', type: 'krankheit' },
-  { keyword: 'sonderurlaub', type: 'sonderurlaub' },
-  { keyword: 'unbezahlt', type: 'unbezahlt' },
-]
-
-function detectAbsenceType(reason: string): 'urlaub' | 'krankheit' | 'sonderurlaub' | 'unbezahlt' {
-  const lower = reason.toLowerCase()
-  const match = VACATION_TYPE_KEYWORDS.find((k) => lower.includes(k.keyword))
-  return match?.type ?? 'urlaub'
-}
-
-const ABSENCE_LABELS: Record<'urlaub' | 'krankheit' | 'sonderurlaub' | 'unbezahlt', string> = {
-  urlaub: 'Urlaub',
-  krankheit: 'Krankheit',
-  sonderurlaub: 'Sonderurlaub',
-  unbezahlt: 'Unbezahlt',
+function toPlantafelAbsenceType(absence: Pick<VacationDay, 'type' | 'reason'>) {
+  switch (getEmployeeAbsenceType(absence)) {
+    case 'arbeitsunfaehigkeit': return 'krankheit' as const
+    case 'unbezahlte_freistellung': return 'unbezahlt' as const
+    case 'fortbildung': return 'fortbildung' as const
+    default: return 'urlaub' as const
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -181,10 +179,12 @@ export async function GET(req: NextRequest) {
           .filter((v: Record<string, unknown>) => new Date(v.startDate as string) <= new Date(to) && new Date(v.endDate as string) >= new Date(from))
           .map((v: Record<string, unknown>) => {
             const reason = (v.reason as string) || ''
-            const absenceType = detectAbsenceType(reason)
+            const absence = { type: v.type, reason } as Pick<VacationDay, 'type' | 'reason'>
+            const absenceType = toPlantafelAbsenceType(absence)
+            const absenceMeta = getEmployeeAbsenceMeta(absence)
             return {
-              id: `urlaub-${id}-${v.id}`,
-              title: `${ABSENCE_LABELS[absenceType]}: ${e.name || ''}`,
+              id: `abwesenheit-${id}-${v.id}`,
+              title: `${absenceMeta.label}: ${e.name || ''}`,
               start: v.startDate,
               end: v.endDate,
               resourceId: id,
@@ -194,6 +194,7 @@ export async function GET(req: NextRequest) {
               sourceId: String(v.id),
               mitarbeiterId: id,
               mitarbeiterName: e.name || '',
+              urlaubTyp: absenceType,
               notes: reason,
               hasConflict: false,
             }
@@ -232,7 +233,7 @@ export async function GET(req: NextRequest) {
         const id = String(p._id)
         const name = (p.name as string) || 'Projekt'
         const auftragsnummer = (p.auftragsnummer as string) || ''
-        const title = auftragsnummer ? `${name} · ${auftragsnummer}` : name
+        const title = formatProjectBarTitle(name, auftragsnummer)
         const status = (p.status as string) || ''
         const evts: Record<string, unknown>[] = []
 
@@ -397,7 +398,20 @@ export async function POST(req: NextRequest) {
   if (mitarbeiterId) {
     try {
       const employee = await db.collection('employees').findOne({ _id: new mongoose.Types.ObjectId(mitarbeiterId) })
-      mitarbeiterName = employee?.name || ''
+      if (employee) {
+        mitarbeiterName = employee.name || ''
+        const absence = findEmployeeAbsenceDuringPeriod(
+          employee.vacationDays as VacationDay[] | undefined,
+          new Date(von),
+          new Date(bis)
+        )
+        if (absence) {
+          return NextResponse.json(
+            { success: false, error: formatEmployeeAbsenceConflict(mitarbeiterName || 'Mitarbeiter', absence) },
+            { status: 409 }
+          )
+        }
+      }
     } catch { /* ignore */ }
   }
 

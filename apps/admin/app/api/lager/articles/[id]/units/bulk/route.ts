@@ -32,6 +32,12 @@ export async function POST(
     if (!article) {
       return NextResponse.json({ success: false, message: 'Artikel nicht gefunden' }, { status: 404 })
     }
+    if (article.serialTracking !== 'individual') {
+      return NextResponse.json(
+        { success: false, message: 'Für diesen Artikel sind keine Seriennummern aktiviert' },
+        { status: 409 }
+      )
+    }
 
     const schema = z.object({
       units: z.array(z.object({
@@ -70,7 +76,7 @@ export async function POST(
       seriennummer: { $in: serials }
     }).lean()
     if (existing.length > 0) {
-      const duplicates = existing.map((e: any) => e.seriennummer)
+      const duplicates = existing.map((entry) => entry.seriennummer)
       return NextResponse.json(
         { success: false, message: `Folgende Seriennummern existieren bereits: ${duplicates.join(', ')}` },
         { status: 409 }
