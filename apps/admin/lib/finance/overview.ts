@@ -18,7 +18,7 @@ import {
   entryAffectsBasis,
   eurosToCents,
   plannedProjectRevenueCents,
-  selectEffectiveEmployeeRate,
+  selectEmployeeRateForFunktion,
 } from '@/lib/finance-core/calculations'
 import type {
   FinanceAccountDto,
@@ -226,9 +226,9 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
         continue
       }
       const employee = matches[0]
-      const rate = selectEffectiveEmployeeRate(ratesByEmployee.get(asId(employee._id)) || [], row.day)
+      const rate = selectEmployeeRateForFunktion(ratesByEmployee.get(asId(employee._id)) || [], row.funktion, row.day)
       if (!rate) {
-        warnings.push(`Kein gültiger Lohnsatz für ${employee.name} am ${row.day}.`)
+        warnings.push(`Kein gültiger Lohnsatz für ${employee.name} am ${row.day} (Funktion ${row.funktion || 'unbekannt'}).`)
         continue
       }
       const netCents = calculateEmployeeCost({

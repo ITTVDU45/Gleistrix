@@ -60,6 +60,7 @@ export const financeCategorySchema = z.object({
 
 export const employeeFinanceRateSchema = z.object({
   employeeId: z.string().regex(/^[a-f\d]{24}$/i),
+  funktion: z.string().trim().min(1).max(60),
   validFrom: dateString,
   baseHourlyCents: z.number().int().min(0),
   travelHourlyCents: z.number().int().min(0),

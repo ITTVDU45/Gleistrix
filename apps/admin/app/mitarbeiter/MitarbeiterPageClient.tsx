@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSubcompanies } from '../../hooks/useSubcompanies';
 import SubcompanyDialog from '../../components/SubcompanyDialog';
 import SubcompanyActions from '../../components/SubcompanyActions';
+import EmployeeWageBulkDialog from '../../components/finance/EmployeeWageBulkDialog';
  
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -277,6 +278,7 @@ export default function MitarbeiterPage() {
                   {filteredEmployees.length} von {employees.length} Mitarbeitern
                 </p>
               </div>
+              <EmployeeWageBulkDialog employees={employees.map((item) => ({ id: item.id, name: item.name, miNumber: item.miNumber }))} />
             </div>
           </CardHeader>
           <CardContent>

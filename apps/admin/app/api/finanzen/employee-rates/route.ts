@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
   const denied = await requireFinanceAccess(request)
   if (denied) return denied
   await dbConnect()
+  const employeeId = request.nextUrl.searchParams.get('employeeId') || undefined
+  const rateQuery = employeeId ? { employeeId } : {}
   const [rates, employees] = await Promise.all([
-    EmployeeFinanceRate.find({}).sort({ validFrom: -1 }).lean(),
+    EmployeeFinanceRate.find(rateQuery).sort({ funktion: 1, validFrom: -1 }).lean(),
     Employee.find({}).select('name miNumber status').sort({ name: 1 }).lean(),
   ])
   const names = new Map(employees.map((employee: any) => [String(employee._id), employee.name]))

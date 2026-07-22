@@ -2,6 +2,7 @@ import mongoose, { Document, Schema, models } from 'mongoose'
 
 export interface IEmployeeFinanceRate extends Document {
   employeeId: mongoose.Types.ObjectId
+  funktion: string
   validFrom: Date
   baseHourlyCents: number
   travelHourlyCents: number
@@ -16,6 +17,7 @@ export interface IEmployeeFinanceRate extends Document {
 
 const EmployeeFinanceRateSchema = new Schema<IEmployeeFinanceRate>({
   employeeId: { type: Schema.Types.ObjectId, ref: 'Employee', required: true, index: true },
+  funktion: { type: String, required: true, trim: true, maxlength: 60, index: true },
   validFrom: { type: Date, required: true, index: true },
   baseHourlyCents: { type: Number, required: true, min: 0 },
   travelHourlyCents: { type: Number, required: true, min: 0, default: 0 },
@@ -26,6 +28,7 @@ const EmployeeFinanceRateSchema = new Schema<IEmployeeFinanceRate>({
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true })
 
-EmployeeFinanceRateSchema.index({ employeeId: 1, validFrom: 1 }, { unique: true })
+// Ein Satz je Mitarbeiter + Funktion + Gültigkeitsdatum (strikt funktionsbezogen)
+EmployeeFinanceRateSchema.index({ employeeId: 1, funktion: 1, validFrom: 1 }, { unique: true })
 
 export default models.EmployeeFinanceRate || mongoose.model<IEmployeeFinanceRate>('EmployeeFinanceRate', EmployeeFinanceRateSchema)

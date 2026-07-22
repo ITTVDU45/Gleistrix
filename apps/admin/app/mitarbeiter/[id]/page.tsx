@@ -24,6 +24,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import EmployeeStatusSelect from '../../../components/EmployeeStatusSelect';
 import VacationCard from '../../../components/VacationCard';
+import EmployeeFunctionRates from '../../../components/finance/EmployeeFunctionRates';
 import EmployeeAssignmentFilter from '../../../components/EmployeeAssignmentFilter';
 import EmployeeFilter from '../../../components/EmployeeFilter';
 import { ResourceLockDialog } from '@/components/ui/ResourceLockDialog';
@@ -761,6 +762,11 @@ export default function Page() {
                   logger.debug(`Mitarbeiter ${employee.name} ist ${isOnVacation ? 'abwesend' : 'verfügbar'}`);
                 }}
               />
+            )}
+
+            {/* Löhne je Funktion – nur für Super-Admins (vertrauliche Sätze) */}
+            {employee && session?.user?.role === 'superadmin' && (
+              <EmployeeFunctionRates employeeId={employee.id} employeeName={employee.name} />
             )}
 
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-800 rounded-xl">

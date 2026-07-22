@@ -11,6 +11,7 @@ import {
   plannedProjectRevenueCents,
   recurringPeriodKey,
   selectEffectiveEmployeeRate,
+  selectEmployeeRateForFunktion,
 } from './calculations'
 
 describe('Finanzberechnungen', () => {
@@ -32,6 +33,23 @@ describe('Finanzberechnungen', () => {
     expect(selectEffectiveEmployeeRate(rates, '2025-12-31')?.baseHourlyCents).toBe(2000)
     expect(selectEffectiveEmployeeRate(rates, '2026-02-01')?.baseHourlyCents).toBe(2500)
     expect(selectEffectiveEmployeeRate(rates, '2024-12-31')).toBeUndefined()
+  })
+
+  test('wählt den Lohnsatz strikt je Funktion, ohne funktionsübergreifenden Fallback', () => {
+    const rates = [
+      { funktion: 'SIPO', validFrom: '2026-01-01', baseHourlyCents: 3000, travelHourlyCents: 0, nightSurchargePercent: 25, sundaySurchargePercent: 50, holidaySurchargePercent: 100 },
+      { funktion: 'Monteur/bediener', validFrom: '2026-01-01', baseHourlyCents: 2000, travelHourlyCents: 0, nightSurchargePercent: 25, sundaySurchargePercent: 50, holidaySurchargePercent: 100 },
+      { funktion: 'SIPO', validFrom: '2026-06-01', baseHourlyCents: 3200, travelHourlyCents: 0, nightSurchargePercent: 25, sundaySurchargePercent: 50, holidaySurchargePercent: 100 },
+    ]
+    // passende Funktion, jüngster wirksamer Satz vor dem Datum
+    expect(selectEmployeeRateForFunktion(rates, 'SIPO', '2026-07-01')?.baseHourlyCents).toBe(3200)
+    expect(selectEmployeeRateForFunktion(rates, 'SIPO', '2026-03-01')?.baseHourlyCents).toBe(3000)
+    // Funktion wird case-insensitiv/getrimmt verglichen
+    expect(selectEmployeeRateForFunktion(rates, ' sipo ', '2026-07-01')?.baseHourlyCents).toBe(3200)
+    expect(selectEmployeeRateForFunktion(rates, 'Monteur/bediener', '2026-07-01')?.baseHourlyCents).toBe(2000)
+    // ohne passenden Funktionssatz kein Fallback
+    expect(selectEmployeeRateForFunktion(rates, 'HFE', '2026-07-01')).toBeUndefined()
+    expect(selectEmployeeRateForFunktion(rates, 'SIPO', '2025-12-31')).toBeUndefined()
   })
 
   test('Referenzfall ergibt 227,50 Euro ohne Cash-Wirkung', () => {
