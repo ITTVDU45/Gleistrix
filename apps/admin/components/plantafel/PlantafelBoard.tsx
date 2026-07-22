@@ -16,6 +16,7 @@ import { useProjects } from '@/hooks/useProjects'
 import PlantafelToolbar from './PlantafelToolbar'
 import YearView from './YearView'
 import DayView from './DayView'
+import ProjectWeekView from './ProjectWeekView'
 import ProjectDayEditDialog, { type ProjectEditorTab } from './ProjectDayEditDialog'
 import MeetingDialog from './MeetingDialog'
 import DocumentDropUploadDialog from './DocumentDropUploadDialog'
@@ -283,9 +284,12 @@ export default function PlantafelBoard() {
   }, [])
 
   const handleEditorSaved = useCallback(() => {
+    // Kalender-Events neu laden, damit Laufzeitbalken und Schicht-Badges
+    // nach Zeiten-Änderungen im Editor sofort aktuell sind.
+    fetchData()
     fetchProjects()
     setDayRefreshKey((k) => k + 1)
-  }, [fetchProjects])
+  }, [fetchData, fetchProjects])
 
   const handleOpenProjectDialog = useCallback(() => {
     setIsProjectDialogOpen(true)
@@ -718,6 +722,15 @@ export default function PlantafelBoard() {
               onProjectClick={handleDayProjectClick}
               onProjectFileDrop={handleDayProjectFileDrop}
               refreshKey={dayRefreshKey}
+            />
+          ) : view === 'project' && calendarView === 'week' ? (
+            // Projekt-Modus, Woche: Projekte über die ganze Kalenderfläche,
+            // ohne Zeitraster und ohne einzelne Mitarbeiter-Zeiten.
+            <ProjectWeekView
+              date={currentDate}
+              events={filteredEvents}
+              onProjectClick={handleSelectEvent}
+              onProjectFileDrop={handleEventFileDrop}
             />
           ) : (
             <DnDCalendar
