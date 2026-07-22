@@ -34,7 +34,6 @@ export interface PlantafelFilters {
   showAbsences: boolean
   showGermanHolidays: boolean
   showIslamicHolidays: boolean
-  showProjects: boolean
   hiddenProjectStatuses: string[]
   eventTypes: PlantafelEventType[]
 }

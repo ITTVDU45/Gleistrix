@@ -98,8 +98,14 @@ export async function GET(req: NextRequest) {
     .map((s) => s.trim())
     .filter(Boolean)
 
+  // Projekte ohne gesetzten Status gelten überall als 'kein Status' — beim
+  // Ausblenden dieses Status müssen daher auch fehlende und leere Werte raus.
+  const hiddenStatusValues: (string | null)[] = hiddenProjectStatuses.includes('kein Status')
+    ? [...hiddenProjectStatuses, '', null]
+    : hiddenProjectStatuses
+
   const projectQuery: Record<string, unknown> =
-    hiddenProjectStatuses.length > 0 ? { status: { $nin: hiddenProjectStatuses } } : {}
+    hiddenProjectStatuses.length > 0 ? { status: { $nin: hiddenStatusValues } } : {}
 
   const [employees, projects] = await Promise.all([
     db.collection('employees').find({ status: { $ne: 'nicht aktiv' } }).toArray(),

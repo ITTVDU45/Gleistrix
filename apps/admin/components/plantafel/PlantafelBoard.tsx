@@ -672,8 +672,8 @@ export default function PlantafelBoard() {
         </div>
       </div>
 
-      {/* Farb-Legende (fachliche Einordnung) — nur wenn Projekte sichtbar */}
-      {filters.showProjects && calendarView !== 'day' && <PlantafelLegend />}
+      {/* Farb-Legende (fachliche Einordnung) */}
+      {calendarView !== 'day' && <PlantafelLegend />}
 
       {/* Hauptbereich */}
       <div
