@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Project } from '@/lib/models/Project'
 import { requireAuth } from '@/lib/security/requireAuth'
+import { sendProjectStatusNotification } from '@/lib/notifications/projectStatusNotification'
 
 export async function POST(req: Request, context: any){
   try{
@@ -59,6 +60,14 @@ export async function POST(req: Request, context: any){
     
     logger.debug('Setze neuen Status:', newStatus)
     await Project.findByIdAndUpdate(id, { $set: { status: newStatus } })
+
+    if (newStatus !== project.status) {
+      await sendProjectStatusNotification({
+        project: { ...project, status: newStatus },
+        previousStatus: project.status,
+        performedBy: String(auth.token?.name || auth.token?.email || 'System'),
+      })
+    }
 
     return NextResponse.json({ 
       success: true, 

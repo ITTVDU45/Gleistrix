@@ -82,14 +82,31 @@ function firstEnv(...keys: string[]): string | undefined {
   return undefined;
 }
 
+function emailAddressFrom(value?: string): string | undefined {
+  if (!value) return undefined;
+  const bracketAddress = value.match(/<([^<>\s]+@[^<>\s]+)>/)?.[1];
+  if (bracketAddress) return bracketAddress;
+  const trimmed = value.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : undefined;
+}
+
+function emailNameFrom(value?: string): string | undefined {
+  if (!value || !value.includes('<')) return undefined;
+  const name = value.slice(0, value.indexOf('<')).trim().replace(/^"|"$/g, '');
+  return name || undefined;
+}
+
 export async function sendEmailResult(emailData: EmailData): Promise<{ ok: boolean; error?: string }>{
   try {
     // Basiskonfig prüfen
     const missing: string[] = [];
     const host = firstEnv('EMAIL_HOST', 'EMAIL_SERVER', 'SMTP_HOST', 'MAIL_HOST');
-    const portStr = firstEnv('EMAIL_PORT', 'SMTP_PORT');
-    const user = firstEnv('EMAIL_FROM', 'EMAIL_USER'); // bevorzugt Absenderadresse, sonst USER
-    const pass = firstEnv('EMAIL_PASS');
+    const portStr = firstEnv('EMAIL_PORT', 'SMTP_PORT', 'MAIL_PORT');
+    // SMTP-Login und sichtbarer Absender sind nicht zwingend identisch. Zuerst
+    // immer den expliziten Login verwenden; EMAIL_FROM dient nur als Fallback.
+    const configuredFrom = firstEnv('EMAIL_FROM', 'SMTP_FROM', 'MAIL_FROM');
+    const user = firstEnv('EMAIL_USER', 'SMTP_USER', 'MAIL_USER') || emailAddressFrom(configuredFrom);
+    const pass = firstEnv('EMAIL_PASS', 'EMAIL_PASSWORD', 'SMTP_PASS', 'SMTP_PASSWORD', 'MAIL_PASS', 'MAIL_PASSWORD');
     if (!host) missing.push('EMAIL_HOST');
     if (!portStr) missing.push('EMAIL_PORT');
     if (!user) missing.push('EMAIL_USER/EMAIL_FROM');
@@ -99,7 +116,8 @@ export async function sendEmailResult(emailData: EmailData): Promise<{ ok: boole
     }
 
     const port = parseInt(portStr || '587', 10);
-    const secure = firstEnv('EMAIL_SECURE') ? firstEnv('EMAIL_SECURE') === 'true' : port === 465;
+    const secureSetting = firstEnv('EMAIL_SECURE', 'SMTP_SECURE', 'MAIL_SECURE');
+    const secure = secureSetting ? secureSetting.toLowerCase() === 'true' : port === 465;
 
     const transporter = nodemailer.createTransport({
       host,
@@ -119,12 +137,12 @@ export async function sendEmailResult(emailData: EmailData): Promise<{ ok: boole
       return { ok: false, error: `SMTP Verify fehlgeschlagen (${host}:${port}${secure ? ' secure' : ''}): ${vm}` };
     }
 
-    const fromDisplay = firstEnv('EMAIL_FROM_NAME') || firstEnv('EMAIL_FROM') || 'Gleistrix';
-    const fromEmail = (firstEnv('EMAIL_FROM') && /@/.test(firstEnv('EMAIL_FROM')!)) ? firstEnv('EMAIL_FROM')! : (firstEnv('EMAIL_USER')!);
+    const fromDisplay = firstEnv('EMAIL_FROM_NAME', 'SMTP_FROM_NAME', 'MAIL_FROM_NAME') || emailNameFrom(configuredFrom) || 'Gleistrix';
+    const fromEmail = emailAddressFrom(configuredFrom) || user;
 
     const mailOptions: any = {
       from: `${fromDisplay} <${fromEmail}>`,
-      replyTo: process.env.EMAIL_REPLY_TO || fromEmail,
+      replyTo: firstEnv('EMAIL_REPLY_TO', 'SMTP_REPLY_TO', 'MAIL_REPLY_TO') || fromEmail,
       to: emailData.to,
       subject: emailData.subject,
       html: emailData.html,

@@ -5,13 +5,14 @@ import { Project } from '@/lib/models/Project'
 import { requireAuth } from '@/lib/security/requireAuth'
 import { sendEmailResult } from '@/lib/mailer'
 import { createPDFForProjectDays } from '@/lib/pdfExport'
-import NotificationSettings from '@/lib/models/NotificationSettings'
-import { DEFAULT_NOTIFICATION_DEFS } from '@/lib/notificationDefs'
+import { BILLING_CREATED_NOTIFICATION_KEY } from '@/lib/notificationDefs'
 import NotificationLog from '@/lib/models/NotificationLog'
 import ActivityLog from '@/lib/models/ActivityLog'
 import BillingPosition from '@/lib/models/BillingPosition'
 import { normalizeProjectTimeEntriesToBillingRows } from '@/lib/timeEntry/billingRows'
 import mongoose from 'mongoose'
+import { getNotificationRule } from '@/lib/notifications/notificationSettings'
+import { sendProjectStatusNotification } from '@/lib/notifications/projectStatusNotification'
 
 export async function POST(req: NextRequest){
   try{
@@ -117,19 +118,9 @@ export async function POST(req: NextRequest){
       return NextResponse.json({ message: 'Fehler beim Erstellen der Abrechnungs-PDF' }, { status: 500 })
     }
 
-    // Send email using NotificationSettings (global) if configured, fallback to ENV
-    const settingsDoc = await NotificationSettings.findOne({ scope: 'global' });
-    const enabledByKey = new Map<string, boolean>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultEnabled]));
-    const configByKey = new Map<string, any>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultConfig]));
-    if (settingsDoc?.enabledByKey) for (const [k, v] of settingsDoc.enabledByKey.entries()) enabledByKey.set(k, v);
-    if (settingsDoc?.configByKey) for (const [k, v] of settingsDoc.configByKey.entries()) configByKey.set(k, v);
-
-    const notifKey = 'Abrechnung erstellt – E-Mail an Buchhaltung';
-    const isEnabled = Boolean(enabledByKey.get(notifKey));
-    const cfg = configByKey.get(notifKey) || {};
-    const defaultNotif = (DEFAULT_NOTIFICATION_DEFS as any)[notifKey];
-    const defaultRecipient = defaultNotif?.defaultConfig?.to || process.env.ABBRECHNUNG_EMAIL || process.env.EMAIL_FROM || 'admin@example.com';
-    const to = isEnabled ? (cfg.to || defaultRecipient) : defaultRecipient;
+    const notifKey = BILLING_CREATED_NOTIFICATION_KEY
+    const billingNotification = await getNotificationRule(notifKey)
+    const to = billingNotification.to
 
     // Attach project documents from MinIO if present
     const emailAttachments: any[] = []
@@ -247,23 +238,26 @@ export async function POST(req: NextRequest){
     // set subject to subjectText
     // (we will use subjectText variable below)
 
-    const emailResult = await sendEmailResult({ to, subject: subjectText, html: emailHtml, attachments: emailAttachments });
+    if (billingNotification.enabled) {
+      const emailResult = to
+        ? await sendEmailResult({ to, subject: subjectText, html: emailHtml, attachments: emailAttachments })
+        : { ok: false, error: 'Keine gültige Empfänger-E-Mail konfiguriert' }
 
-    // Log notification
-    try {
-      await NotificationLog.create({
-        key: notifKey,
-        to,
-        subject: `Abrechnung ${project.name}`,
-        success: emailResult.ok,
-        errorMessage: emailResult.error,
-        projectId: project._id,
-        projectName: project.name,
-        attachmentsCount: emailAttachments.length,
-        meta: { days: daysFromRows, copyDays: Array.from(copySet), selectedRowKeys, performedBy: auth.token?.email || 'system' }
-      })
-    } catch (logErr) {
-      logger.error('Failed to create notification log:', logErr)
+      try {
+        await NotificationLog.create({
+          key: notifKey,
+          to: to || '(nicht konfiguriert)',
+          subject: subjectText,
+          success: emailResult.ok,
+          errorMessage: emailResult.error,
+          projectId: project._id,
+          projectName: project.name,
+          attachmentsCount: emailAttachments.length,
+          meta: { days: daysFromRows, copyDays: Array.from(copySet), selectedRowKeys, performedBy: auth.token?.email || 'system' }
+        })
+      } catch (logErr) {
+        logger.error('Failed to create notification log:', logErr)
+      }
     }
 
     // Update project's billed days and status based on billed billing positions
@@ -291,6 +285,14 @@ export async function POST(req: NextRequest){
         project._id,
         { $set: { abgerechneteTage: fullyBilledDays, status: newStatus } }
       )
+
+      if (newStatus !== project.status) {
+        await sendProjectStatusNotification({
+          project: { ...project, status: newStatus, abgerechneteTage: fullyBilledDays },
+          previousStatus: project.status,
+          performedBy: String(auth.token?.name || auth.token?.email || 'System'),
+        })
+      }
 
         // Aktivitäten-Logs schreiben
         try {
@@ -362,5 +364,4 @@ export async function POST(req: NextRequest){
     return NextResponse.json({ message: 'Fehler bei Abrechnung' }, { status: 500 })
   }
 }
-
 

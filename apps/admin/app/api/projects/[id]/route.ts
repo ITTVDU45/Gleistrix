@@ -7,13 +7,9 @@ import ActivityLog from '@/lib/models/ActivityLog';
 import User from '@/lib/models/User';
 import { getCurrentUser } from '../../../../lib/auth/getCurrentUser';
 import dbConnect from '@/lib/dbConnect';
-import NotificationSettings from '@/lib/models/NotificationSettings';
-import { DEFAULT_NOTIFICATION_DEFS } from '@/lib/notificationDefs';
-import { sendEmail } from '@/lib/mailer';
-import jsPDF from 'jspdf';
-import NotificationLog from '@/lib/models/NotificationLog';
 import { z } from 'zod';
 import { requireAuth } from '@/lib/security/requireAuth';
+import { sendProjectStatusNotification } from '@/lib/notifications/projectStatusNotification';
 import { computeTimeEntry, minutesToHours } from '@/lib/timeEntry';
 import { syncProjectExternalCompanyIds } from '@/lib/subunternehmen/syncExternalCompanyIds';
 import {
@@ -885,6 +881,14 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    if (originalProject.status !== project.status) {
+      await sendProjectStatusNotification({
+        project,
+        previousStatus: originalProject.status,
+        performedBy: String(currentUser?.name || currentUser?.email || 'Unbekannt'),
+      });
+    }
+
     return NextResponse.json(project);
   } catch (error) {
     logger.error('Fehler beim Aktualisieren des Projekts:', error);
@@ -922,6 +926,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const previousProject = body?.status !== undefined
+      ? await Project.findById(id).select({ status: 1 }).lean()
+      : null;
+
     const project = await Project.findByIdAndUpdate(
       id,
       body,
@@ -940,58 +948,12 @@ export async function PATCH(request: NextRequest) {
       await syncProjectExternalCompanyIds(project);
     }
 
-    // Falls Status via PATCH auf "fertiggestellt" gesetzt wurde
-    try {
-      if (body && body.status === 'fertiggestellt') {
-        const settings = await NotificationSettings.findOne({ scope: 'global' });
-        const enabledByKey = new Map<string, boolean>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultEnabled]));
-        const configByKey = new Map<string, any>(Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([k, def]) => [k, def.defaultConfig]));
-        if (settings?.enabledByKey) for (const [k, v] of settings.enabledByKey.entries()) enabledByKey.set(k, v);
-        if (settings?.configByKey) for (const [k, v] of settings.configByKey.entries()) configByKey.set(k, v);
-
-        const notifKeyNew = 'Projekt auf „fertiggestellt“ gesetzt – E-Mail an Buchhaltung';
-        const notifKeyOld = 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung';
-        const isEnabledNew = enabledByKey.get(notifKeyNew);
-        const isEnabledOld = enabledByKey.get(notifKeyOld);
-        const activeKey = isEnabledNew ? notifKeyNew : (isEnabledOld ? notifKeyOld : notifKeyNew);
-        if (isEnabledNew || isEnabledOld) {
-          const cfg = configByKey.get(activeKey) || {};
-          const to = cfg.to || (DEFAULT_NOTIFICATION_DEFS as any)[activeKey].defaultConfig.to;
-
-          const docPdf = new jsPDF();
-          let y = 20;
-          docPdf.setFontSize(18);
-          docPdf.text(`Projektdetails: ${project.name}`, 14, y);
-          y += 10;
-          docPdf.setFontSize(11);
-          docPdf.text(`Status: ${project.status}`, 14, y); y += 8;
-          if (project.auftraggeber) { docPdf.text(`Auftraggeber: ${project.auftraggeber}`, 14, y); y += 8; }
-          if (project.baustelle) { docPdf.text(`Baustelle: ${project.baustelle}`, 14, y); y += 8; }
-          if (project.auftragsnummer) { docPdf.text(`Auftragsnummer: ${project.auftragsnummer}`, 14, y); y += 8; }
-          if (project.datumBeginn) { docPdf.text(`Beginn: ${project.datumBeginn}`, 14, y); y += 8; }
-          if (project.datumEnde) { docPdf.text(`Ende: ${project.datumEnde}`, 14, y); y += 8; }
-          const pdfBuffer = Buffer.from(docPdf.output('arraybuffer'));
-
-          const subject = `Projekt als "fertiggestellt" markiert: ${project.name}`;
-          const html = `
-            <p>Das Projekt <strong>${project.name}</strong> wurde soeben auf <strong>fertiggestellt</strong> gesetzt.</p>
-            <p>Auftraggeber: ${project.auftraggeber || '-'}<br/>
-            Baustelle: ${project.baustelle || '-'}<br/>
-            Auftragsnummer: ${project.auftragsnummer || '-'}</p>
-            <p>Die Projektdetails finden Sie im Anhang (PDF).</p>
-          `;
-          await sendEmail({
-            to,
-            subject,
-            html,
-            attachments: [
-              { filename: `Projektdetails_${project.name}.pdf`, content: pdfBuffer, contentType: 'application/pdf' },
-            ],
-          });
-        }
-      }
-    } catch (notifyErr) {
-      logger.error('Benachrichtigung (geleistet, PATCH) fehlgeschlagen:', notifyErr);
+    if (previousProject && previousProject.status !== project.status) {
+      await sendProjectStatusNotification({
+        project,
+        previousStatus: previousProject.status,
+        performedBy: String(auth.token?.name || auth.token?.email || 'Unbekannt'),
+      });
     }
 
     return NextResponse.json(project);

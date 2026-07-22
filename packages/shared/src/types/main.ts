@@ -1,5 +1,5 @@
 // ===== GRUNDLEGENDE TYPEN =====
-export type ProjectStatus = 'aktiv' | 'pausiert' | 'abgeschlossen' | 'fertiggestellt' | 'geleistet' | 'kein Status'
+export type ProjectStatus = 'aktiv' | 'pausiert' | 'abgeschlossen' | 'fertiggestellt' | 'geleistet' | 'teilweise_abgerechnet' | 'kein Status'
 export type MitarbeiterFunktion = 'SIPO' | 'HFE' | 'Monteur/bediener' | 'Sakra' | 'BüP' | 'HiBa' | 'SAS' | 'Bahnerder'
 export type SnackbarSeverity = 'success' | 'error' | 'warning' | 'info'
 
