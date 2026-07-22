@@ -53,6 +53,18 @@ export type BillingRow = {
   sourceEntry: TimeEntryLike
 }
 
+/**
+ * Marker für Einträge, die nur die Fortsetzung einer tagübergreifenden Schicht
+ * abbilden. Die Stunden stecken bereits vollständig im Eintrag des Vortages
+ * (buildTimeEntry rechnet bei isMultiDay die gesamte Spanne), deshalb dürfen
+ * solche Zeilen in Summen nicht mitgezählt werden.
+ */
+export const CONTINUATION_MARKER = 'Fortsetzung vom Vortag'
+
+export const isContinuationEntry = (
+  value: { bemerkung?: string | null } | null | undefined
+): boolean => typeof value?.bemerkung === 'string' && value.bemerkung.includes(CONTINUATION_MARKER)
+
 const toNumber = (value: unknown): number => {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0
   if (typeof value === 'string') {

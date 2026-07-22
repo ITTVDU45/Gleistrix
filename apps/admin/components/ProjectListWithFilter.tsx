@@ -5,10 +5,11 @@ import type { Project } from '../types';
 import HoursByFunctionCard from './HoursByFunctionCard';
 import ProjectListFilter from './ProjectListFilter';
 import ProjectTableClient from './ProjectTableClient';
-import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows';
+import { ResourceLockDialog } from './ui/ResourceLockDialog';
+import { normalizeProjectTimeEntriesToBillingRows, isContinuationEntry } from '@/lib/timeEntry/billingRows';
 import { aggregateProjectStats } from '@/lib/timeEntry/projectStats';
+import { billingRowToHoursByFunctionEntry, type HoursByFunctionEntry } from '@/lib/timeEntry/hoursByFunction';
 import type { SummaryStat } from '@/components/ui/summary-stats';
-import type { HoursByFunctionEntry } from '@/lib/timeEntry/hoursByFunction';
 
 interface ProjectListWithFilterProps {
   projects: Project[];
@@ -26,23 +27,17 @@ export default function ProjectListWithFilter({ projects }: ProjectListWithFilte
     setFilteredProjects(nextProjects);
   }, []);
 
-  const hoursByFunctionEntries: HoursByFunctionEntry[] = useMemo(() => {
-    return filteredProjects.flatMap((project) =>
-      Object.entries(project.mitarbeiterZeiten || {}).flatMap(([date, entries]) =>
-        (entries || []).flatMap((entry: any) => {
-          const rows = normalizeTimeEntryToBillingRows(date, entry)
-          return rows.map((row) => ({
-            funktion: row.funktion,
-            stunden: row.stundenTotal,
-            extra: row.extraTotal,
-            fahrtstunden: row.fahrtstundenTotal,
-            isExternal: row.isExternal,
-            externalCount: row.count,
-          }))
-        })
-      )
-    ).filter((e: any) => !(typeof e.bemerkung === 'string' && e.bemerkung.includes('Fortsetzung vom Vortag')))
-  }, [filteredProjects])
+  const hoursByFunctionEntries: HoursByFunctionEntry[] = useMemo(
+    () =>
+      filteredProjects.flatMap((project) =>
+        normalizeProjectTimeEntriesToBillingRows(project.mitarbeiterZeiten || {})
+          // Fortsetzungszeilen tragen keine eigenen Stunden – sie stecken bereits
+          // im Eintrag des Vortages und würden die Summe sonst verdoppeln.
+          .filter((row) => !isContinuationEntry(row))
+          .map(billingRowToHoursByFunctionEntry)
+      ),
+    [filteredProjects]
+  )
 
   const summaryStats: SummaryStat[] = useMemo(() => {
     const stats = aggregateProjectStats(filteredProjects)
@@ -116,7 +111,6 @@ function LockedProjectDialog({ lockedProjectId, onClose }: { lockedProjectId: st
     }
   };
 
-  const { ResourceLockDialog } = require('./ui/ResourceLockDialog');
   return (
     <ResourceLockDialog
       isOpen={dialogOpen}

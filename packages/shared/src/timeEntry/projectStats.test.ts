@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { aggregateProjectStats } from './projectStats'
+import { aggregateProjectStats, type ProjectWithStatus } from './projectStats'
 
 const projekt = (status: string, mitarbeiterZeiten = {}) => ({ status, mitarbeiterZeiten })
 
@@ -47,7 +47,7 @@ describe('aggregateProjectStats', () => {
     const leer = { gesamt: 0, aktiv: 0, abgeschlossen: 0, totalStunden: 0 }
 
     expect(aggregateProjectStats([])).toEqual(leer)
-    expect(aggregateProjectStats(undefined as any)).toEqual(leer)
+    expect(aggregateProjectStats(undefined as unknown as ProjectWithStatus[])).toEqual(leer)
   })
 
   test('behandelt Projekte ohne Status als weder aktiv noch abgeschlossen', () => {
