@@ -29,7 +29,14 @@ export type IntentKey =
   | 'plantafel:create' | 'plantafel:update' | 'plantafel:delete'
   | 'plantafel:meeting:create' | 'plantafel:meeting:update' | 'plantafel:meeting:delete'
   | 'integrations:gaeb-config'
-  | 'gaeb:upload' | 'gaeb:import-delete' | 'gaeb:validate' | 'gaeb:analyze' | 'gaeb:assign' | 'gaeb:ask';
+  | 'gaeb:upload' | 'gaeb:import-delete' | 'gaeb:validate' | 'gaeb:analyze' | 'gaeb:assign' | 'gaeb:ask'
+  | 'finance:entry:create' | 'finance:entry:update' | 'finance:entry:delete'
+  | 'finance:account:create' | 'finance:account:update' | 'finance:account:delete'
+  | 'finance:category:create' | 'finance:category:update' | 'finance:category:delete'
+  | 'finance:budget:create' | 'finance:budget:update' | 'finance:budget:delete'
+  | 'finance:recurring:create' | 'finance:recurring:update' | 'finance:recurring:delete' | 'finance:recurring:book'
+  | 'finance:rate:create' | 'finance:rate:update' | 'finance:rate:delete'
+  | 'finance:bank-import' | 'finance:ai-extract' | 'finance:ai-report';
 
 type FetchOptions = RequestInit & { intent?: IntentKey };
 
@@ -44,8 +51,6 @@ export async function fetchWithIntent(input: RequestInfo | URL, init: FetchOptio
   }
   return fetch(input, { ...rest, headers: mergedHeaders, credentials: 'include' });
 }
-
-
 
 
 

@@ -29,18 +29,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       date: z.string().min(8),
       entry: z.object({
         id: z.string().optional(),
+        employeeId: z.string().regex(/^[a-f\d]{24}$/i).optional(),
         name: z.string().min(1),
         stunden: z.number().nonnegative(),
         funktion: z.string().optional().or(z.literal('')),
         isExternal: z.boolean().optional(),
-      })
+      }).passthrough()
     });
     const parseResult = schema.safeParse(await req.json());
     if (!parseResult.success) {
       return NextResponse.json({ error: 'Validierungsfehler', issues: parseResult.error.flatten() }, { status: 400 });
     }
     let { date } = parseResult.data;
-    const { entry } = parseResult.data;
+    const entry = { ...parseResult.data.entry } as typeof parseResult.data.entry & { employeeId?: string };
 
     const currentUser = await getCurrentUser(req);
 
@@ -51,9 +52,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (date.length > 10) {
       date = format(parseISO(date), 'yyyy-MM-dd');
     }
-    const employeeResult = entry.isExternal
-      ? null
-      : await Employee.findOne({ name: entry.name }).select('name vacationDays').lean();
+    const employeeMatches = entry.isExternal
+      ? []
+      : await Employee.find(entry.employeeId ? { _id: entry.employeeId } : { name: entry.name }).select('name vacationDays').limit(2).lean();
+    const employeeResult = employeeMatches.length === 1 ? employeeMatches[0] : null;
+    if (!entry.isExternal && entry.employeeId && !employeeResult) {
+      return NextResponse.json({ error: 'Mitarbeiter-ID ist ungültig.' }, { status: 400 });
+    }
+    if (!entry.isExternal && !entry.employeeId && employeeMatches.length > 1) {
+      return NextResponse.json({ error: `Mitarbeitername „${entry.name}“ ist nicht eindeutig.` }, { status: 409 });
+    }
+    if (employeeResult) {
+      entry.employeeId = String(employeeResult._id);
+      entry.name = String(employeeResult.name);
+    }
     const employee = employeeResult as unknown as { vacationDays?: VacationDay[] } | null;
     const absence = employee
       ? findEmployeeAbsenceOnDay(employee.vacationDays as VacationDay[] | undefined, date)

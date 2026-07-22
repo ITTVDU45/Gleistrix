@@ -115,6 +115,7 @@ export interface BillingPosition {
 
 export interface TimeEntry {
   id: string
+  employeeId?: string
   name: string
   // Funktion kann ein freier String oder einer der vordefinierten `MitarbeiterFunktion`-Werte sein
   funktion?: string | MitarbeiterFunktion

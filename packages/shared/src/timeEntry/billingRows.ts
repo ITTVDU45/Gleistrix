@@ -5,6 +5,7 @@
 
 export type TimeEntryLike = {
   id?: string
+  employeeId?: string
   name?: string
   funktion?: string
   start?: string

@@ -37,6 +37,7 @@
       "@/lib/http/*": ["../../packages/shared/src/http/*"],
       "@/lib/security/*": ["../../packages/shared/src/security/*"],
       "@/lib/company/*": ["../../packages/shared/src/company/*"],
+      "@/lib/finance-core/*": ["../../packages/shared/src/finance/*"],
       "@/lib/mailer": ["../../packages/shared/src/mailer"],
       "@/lib/dbConnect": ["../../packages/shared/src/dbConnect"],
       "@/lib/logger": ["../../packages/shared/src/logger"],
@@ -50,6 +51,7 @@
       "@/utils/*": ["utils/*"],
       "@/hooks/*": ["hooks/*"],
       "@/types/main": ["../../packages/shared/src/types/main"],
+      "@/types/finance": ["../../packages/shared/src/types/finance"],
       "@/types/subunternehmen": ["../../packages/shared/src/types/subunternehmen"],
       "@/types/*": ["types/*"],
       "@/styles/*": ["styles/*"]

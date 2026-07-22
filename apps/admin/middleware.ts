@@ -89,6 +89,9 @@ export async function middleware(req: NextRequest) {
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const currentRole = (token as { role?: string } | null)?.role;
+  if (pathname.startsWith('/finanzen') && currentRole && currentRole !== 'superadmin') {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
   // Subunternehmen-Konten gehören ins separate Portal (eigene App/Domain).
   // Der Login lehnt die Rolle bereits ab; bestehende Alt-Sessions werden hier
   // auf die Portal-URL umgeleitet.
@@ -146,11 +149,10 @@ export const config = {
   matcher: [
     // App Routen explizit
     '/',
-    '/(login|dashboard|projekte|abbrechnung|mitarbeiter|fahrzeuge|projektdetail|timetracking|einstellungen|lager|plantafel|agenten|statistiken)/:path*',
+    '/(login|dashboard|projekte|abbrechnung|finanzen|mitarbeiter|fahrzeuge|projektdetail|timetracking|einstellungen|lager|plantafel|agenten|statistiken)/:path*',
     // API-Routen: ohne diesen Eintrag liefen Rate-Limiting (mutierende
     // Requests, strengeres Auth-Limit) und Security-Header nie für /api
     '/api/:path*',
   ],
 };
-
 
