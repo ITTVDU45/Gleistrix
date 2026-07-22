@@ -9,7 +9,7 @@ import TimeTrackingFilters from './TimeTrackingFilters';
 import TimeTrackingExport from './TimeTrackingExport';
 import DynamicTimeTrackingStats from './DynamicTimeTrackingStats';
 import HoursByFunctionCard from './HoursByFunctionCard';
-import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows';
+import { normalizeTimeEntryToBillingRows, isContinuationEntry } from '@/lib/timeEntry/billingRows';
 
 interface TimeTrackingWithFilterProps {
   projects: Project[];
@@ -101,9 +101,7 @@ export default function TimeTrackingWithFilter({ projects, employees }: TimeTrac
   );
 
   // Filtere alle Einträge mit Bemerkung "Fortsetzung vom Vortag" heraus
-  const allTimeEntries: TimeEntry[] = allTimeEntriesRaw.filter(entry => !(
-    typeof entry.bemerkung === 'string' && entry.bemerkung.includes('Fortsetzung vom Vortag')
-  ));
+  const allTimeEntries: TimeEntry[] = allTimeEntriesRaw.filter(entry => !isContinuationEntry(entry));
 
   // Sortiere die Einträge: Neueste (nach Datum und Uhrzeit) zuerst
   allTimeEntries.sort((a, b) => {

@@ -12,9 +12,9 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import HoursByFunctionCard from './HoursByFunctionCard'
-import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows'
+import { normalizeTimeEntryToBillingRows, isContinuationEntry } from '@/lib/timeEntry/billingRows'
 import { detectEntryShift } from '@/lib/plantafel/projectColors'
-import type { HoursByFunctionEntry } from '@/lib/timeEntry/hoursByFunction'
+import { billingRowToHoursByFunctionEntry, type HoursByFunctionEntry } from '@/lib/timeEntry/hoursByFunction'
 import type { Project } from '../types'
 
 interface ProjectDetailKPIsProps {
@@ -122,12 +122,13 @@ export default function ProjectDetailKPIs({ project }: ProjectDetailKPIsProps) {
       for (const entry of entries as any[]) {
         const rows = normalizeTimeEntryToBillingRows(date, entry)
         for (const row of rows) {
-          if (row.bemerkung?.includes('Fortsetzung vom Vortag')) continue
+          if (isContinuationEntry(row)) continue
 
           totalEintraege++
-          const mult = row.isExternal && row.count > 0 ? row.count : 1
-          totalStunden += (typeof row.stundenTotal === 'number' ? row.stundenTotal : 0) * mult
-          totalExtra += (typeof row.extraTotal === 'number' ? row.extraTotal : 0) * mult
+          // stundenTotal/extraTotal enthalten den Personen-Faktor bereits
+          // (stundenPerUnit * count) – kein zweites Multiplizieren.
+          totalStunden += typeof row.stundenTotal === 'number' ? row.stundenTotal : 0
+          totalExtra += typeof row.extraTotal === 'number' ? row.extraTotal : 0
 
           const shift = detectEntryShift(row.start, row.ende)
           if (shift === 'nacht') nachtCount++
@@ -139,14 +140,7 @@ export default function ProjectDetailKPIs({ project }: ProjectDetailKPIsProps) {
             if (row.employeeName) mitarbeiterSet.add(row.employeeName)
           }
 
-          billingRows.push({
-            funktion: row.funktion,
-            stunden: row.stundenTotal,
-            extra: row.extraTotal,
-            fahrtstunden: row.fahrtstundenTotal,
-            isExternal: row.isExternal,
-            externalCount: row.count,
-          })
+          billingRows.push(billingRowToHoursByFunctionEntry(row))
         }
       }
     }

@@ -7,12 +7,24 @@
  * DynamicTimeTrackingStats).
  */
 
+import type { BillingRow } from './billingRows'
+
 export interface HoursByFunctionEntry {
   funktion?: string | null
+  /**
+   * WICHTIG: Stunden **pro Person/Einheit**, nicht bereits multipliziert.
+   * Bei externen Einträgen multipliziert die Aggregation selbst mit
+   * `externalCount`. Wer BillingRows übergibt, muss deshalb `stundenPerUnit`
+   * liefern – `stundenTotal` enthält den Faktor bereits und würde zu einer
+   * doppelten Multiplikation (count²) führen.
+   */
   stunden?: number | string | null
+  /** Extra-Stunden pro Person/Einheit (siehe Hinweis bei `stunden`). */
   extra?: number | string | null
+  /** Fahrtstunden pro Person/Einheit (siehe Hinweis bei `stunden`). */
   fahrtstunden?: number | string | null
   isExternal?: boolean
+  /** Anzahl Personen; wirkt nur bei `isExternal: true` als Multiplikator. */
   externalCount?: number | string | null
 }
 
@@ -30,6 +42,23 @@ export interface HoursByFunctionResult {
   totalExtra: number
   totalFahrtstunden: number
   totalEintraege: number
+}
+
+/**
+ * Wandelt eine BillingRow in einen Aggregations-Eintrag um.
+ *
+ * Einzige unterstützte Umwandlung – so kann nicht versehentlich `stundenTotal`
+ * (enthält den Personen-Faktor bereits) statt `stundenPerUnit` übergeben werden.
+ */
+export function billingRowToHoursByFunctionEntry(row: BillingRow): HoursByFunctionEntry {
+  return {
+    funktion: row.funktion,
+    stunden: row.stundenPerUnit,
+    extra: row.extraPerUnit,
+    fahrtstunden: row.fahrtstundenPerUnit,
+    isExternal: row.isExternal,
+    externalCount: row.count,
+  }
 }
 
 const UNBEKANNT = 'Ohne Funktion'

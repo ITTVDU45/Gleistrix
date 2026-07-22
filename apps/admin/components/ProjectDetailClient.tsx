@@ -51,7 +51,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, R
 import Image from 'next/image';
 import { ActivityLogApi } from '@/lib/api/activityLog'
 import { useSession } from 'next-auth/react';
-import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows';
+import { normalizeTimeEntryToBillingRows, isContinuationEntry } from '@/lib/timeEntry/billingRows';
 import ProjectDetailKPIs from './ProjectDetailKPIs';
 
 type ProjectDetailClientProps = {
@@ -383,7 +383,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
   const getFilteredTimeEntries = React.useCallback(() => {
     const rawForDay: any = project?.mitarbeiterZeiten?.[selectedZeitTag];
     const list: any[] = Array.isArray(rawForDay) ? rawForDay : [];
-    return list.filter((entry: any) => !(typeof entry.bemerkung === 'string' && entry.bemerkung.includes('Fortsetzung vom Vortag')));
+    return list.filter((entry: any) => !isContinuationEntry(entry));
   }, [project?.mitarbeiterZeiten, selectedZeitTag]);
 
   const timeEntriesForDay = getFilteredTimeEntries();
@@ -1431,7 +1431,7 @@ export default function ProjectDetailClient({ projectId }: ProjectDetailClientPr
                 {(() => {
                   const rawForDay: any = project?.mitarbeiterZeiten?.[selectedZeitTag];
                   const list: any[] = Array.isArray(rawForDay) ? rawForDay : [];
-                  const filtered = list.filter((entry: any) => !(typeof entry.bemerkung === 'string' && entry.bemerkung.includes('Fortsetzung vom Vortag')));
+                  const filtered = list.filter((entry: any) => !isContinuationEntry(entry));
                   return filtered.length > 0 ? (
                   <Table>
                     <TableHeader>
