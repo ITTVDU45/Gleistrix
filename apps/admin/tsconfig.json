@@ -31,6 +31,8 @@
       "@/lib/subunternehmen/*": ["../../packages/shared/src/subunternehmen/*"],
       "@/lib/timeEntry/*": ["../../packages/shared/src/timeEntry/*"],
       "@/lib/timeEntry": ["../../packages/shared/src/timeEntry/index"],
+      "@/lib/holidays/*": ["../../packages/shared/src/holidays/*"],
+      "@/lib/holidays": ["../../packages/shared/src/holidays/index"],
       "@/lib/storage/*": ["../../packages/shared/src/storage/*"],
       "@/lib/http/*": ["../../packages/shared/src/http/*"],
       "@/lib/security/*": ["../../packages/shared/src/security/*"],

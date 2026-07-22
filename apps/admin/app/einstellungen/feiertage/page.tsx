@@ -8,30 +8,16 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Edit, Trash2, Calendar, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Edit, Trash2, Calendar, Loader2, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { HolidaysApi, type Holiday } from '@/lib/api/holidays'
+import { GERMAN_STATES } from '@/lib/holidays'
 
-// Deutsche Bundesländer
+// Auswahl für Formular und Filter: bundesweit + die 16 Bundesländer
 const BUNDESLAENDER = [
   { value: 'ALL', label: 'Bundesweit' },
-  { value: 'BW', label: 'Baden-Württemberg' },
-  { value: 'BY', label: 'Bayern' },
-  { value: 'BE', label: 'Berlin' },
-  { value: 'BB', label: 'Brandenburg' },
-  { value: 'HB', label: 'Bremen' },
-  { value: 'HH', label: 'Hamburg' },
-  { value: 'HE', label: 'Hessen' },
-  { value: 'MV', label: 'Mecklenburg-Vorpommern' },
-  { value: 'NI', label: 'Niedersachsen' },
-  { value: 'NW', label: 'Nordrhein-Westfalen' },
-  { value: 'RP', label: 'Rheinland-Pfalz' },
-  { value: 'SL', label: 'Saarland' },
-  { value: 'SN', label: 'Sachsen' },
-  { value: 'ST', label: 'Sachsen-Anhalt' },
-  { value: 'SH', label: 'Schleswig-Holstein' },
-  { value: 'TH', label: 'Thüringen' }
+  ...GERMAN_STATES.map((s) => ({ value: s.code as string, label: s.name })),
 ]
 
 export default function FeiertagePage() {
@@ -147,6 +133,9 @@ export default function FeiertagePage() {
   // Jahr-Navigation
   const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - 2 + i).toString())
 
+  const statutoryCount = holidays.filter((h) => h.source !== 'betrieblich').length
+  const customCount = holidays.length - statutoryCount
+
   return (
     <div className="container mx-auto p-6 max-w-6xl">
       <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg">
@@ -163,12 +152,18 @@ export default function FeiertagePage() {
               className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Feiertag hinzufügen
+              Betrieblichen Feiertag
             </Button>
           </div>
         </CardHeader>
 
         <CardContent className="p-6">
+          <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+            Die gesetzlichen Feiertage aller 16 Bundesländer – bundesweite und regionale –
+            werden automatisch berechnet und müssen nicht gepflegt werden. Hier lassen sich
+            zusätzlich betriebliche Feiertage (z. B. Betriebsruhe) erfassen.
+          </p>
+
           {/* Filter */}
           <div className="flex flex-wrap gap-4 mb-6">
             <div className="flex items-center gap-2">
@@ -213,7 +208,9 @@ export default function FeiertagePage() {
             </Select>
 
             <div className="ml-auto text-sm text-slate-500">
-              {holidays.length} Feiertage gefunden
+              {statutoryCount} gesetzliche
+              {customCount > 0 && ` · ${customCount} betriebliche`}
+              {' '}Feiertage
             </div>
           </div>
 
@@ -233,7 +230,7 @@ export default function FeiertagePage() {
             <div className="text-center py-12 text-slate-500">
               <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>Keine Feiertage für {selectedYear} gefunden.</p>
-              <p className="text-sm mt-2">Klicken Sie auf "Feiertag hinzufügen", um einen neuen Feiertag zu erstellen.</p>
+              <p className="text-sm mt-2">Prüfen Sie den Bundesland-Filter oder legen Sie einen betrieblichen Feiertag an.</p>
             </div>
           ) : (
             <Table>
@@ -246,46 +243,70 @@ export default function FeiertagePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {holidays.map(holiday => (
-                  <TableRow key={holiday.id}>
-                    <TableCell className="font-medium">
-                      {format(parseISO(holiday.date), 'dd.MM.yyyy', { locale: de })}
-                    </TableCell>
-                    <TableCell>{holiday.name}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        holiday.bundesland === 'ALL'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                      }`}>
-                        {BUNDESLAENDER.find(bl => bl.value === holiday.bundesland)?.label || holiday.bundesland}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openDialog(holiday)}
-                        className="h-8 w-8"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(holiday.id)}
-                        disabled={isDeleting === holiday.id}
-                        className="h-8 w-8 text-red-600 hover:text-red-700"
-                      >
-                        {isDeleting === holiday.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
+                {holidays.map(holiday => {
+                  const isStatutory = holiday.source !== 'betrieblich'
+                  const scopeLabel =
+                    holiday.scope ??
+                    (BUNDESLAENDER.find(bl => bl.value === holiday.bundesland)?.label || holiday.bundesland)
+
+                  return (
+                    <TableRow key={holiday.id}>
+                      <TableCell className="font-medium">
+                        {format(parseISO(holiday.date), 'dd.MM.yyyy', { locale: de })}
+                      </TableCell>
+                      <TableCell>
+                        {holiday.name}
+                        {holiday.note && (
+                          <span className="block text-xs text-slate-500">{holiday.note}</span>
                         )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                          holiday.nationwide
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                        }`}>
+                          {holiday.nationwide ? 'Bundesweit' : scopeLabel}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isStatutory ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs text-slate-400"
+                            title="Gesetzlicher Feiertag – wird automatisch berechnet"
+                          >
+                            <Lock className="h-3 w-3" />
+                            gesetzlich
+                          </span>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDialog(holiday)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(holiday.id)}
+                              disabled={isDeleting === holiday.id}
+                              className="h-8 w-8 text-red-600 hover:text-red-700"
+                            >
+                              {isDeleting === holiday.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
@@ -297,7 +318,7 @@ export default function FeiertagePage() {
         <DialogContent className="sm:max-w-md rounded-2xl bg-white dark:bg-slate-800">
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-red-600" />
-            {editingHoliday ? 'Feiertag bearbeiten' : 'Neuer Feiertag'}
+            {editingHoliday ? 'Betrieblichen Feiertag bearbeiten' : 'Neuer betrieblicher Feiertag'}
           </DialogTitle>
 
           <div className="space-y-4 mt-4">

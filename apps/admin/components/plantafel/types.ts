@@ -21,7 +21,7 @@ export type PlantafelEventType =
   | 'projekt_plan'
   | 'projekt_ist'
 
-export type PlantafelHolidayType = 'german' | 'islamic'
+export type PlantafelHolidayType = 'german' | 'islamic' | 'custom'
 
 export interface PlantafelDateRange {
   start: Date
@@ -34,6 +34,10 @@ export interface PlantafelFilters {
   showAbsences: boolean
   showGermanHolidays: boolean
   showIslamicHolidays: boolean
+  /** Länderkürzel der anzuzeigenden Feiertage; leer = alle 16 Bundesländer. */
+  holidayStates: string[]
+  /** Feiertage einbeziehen, die nur in Teilen eines Landes gelten. */
+  showPartialHolidays: boolean
   hiddenProjectStatuses: string[]
   eventTypes: PlantafelEventType[]
 }
@@ -68,7 +72,14 @@ export interface PlantafelEvent {
   urlaubTyp?: 'urlaub' | 'krankheit' | 'sonderurlaub' | 'unbezahlt' | 'fortbildung' | 'sonstiges'
 
   holidayType?: PlantafelHolidayType
+  /** Kurzbeschreibung des Geltungsbereichs, z. B. "bundesweit" oder "BY, BW". */
   holidayScope?: string
+  /** Länder, in denen der Feiertag landesweit gilt. */
+  holidayStates?: string[]
+  /** Länder, in denen er nur in einzelnen Gemeinden gilt. */
+  holidayPartialStates?: string[]
+  /** Gesetzlicher Feiertag in allen 16 Bundesländern. */
+  holidayNationwide?: boolean
 
   color?: string
   hasConflict?: boolean

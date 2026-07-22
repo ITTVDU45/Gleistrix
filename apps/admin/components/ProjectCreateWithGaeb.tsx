@@ -13,7 +13,8 @@ import type { Project } from '../types'
 type ProjectPrefill = Partial<Omit<Project, 'id' | 'mitarbeiterZeiten'>>
 
 interface ProjectCreateWithGaebProps {
-  onSuccess: () => void
+  /** Erhält die Id des angelegten Projekts, sofern die API sie zurückgibt. */
+  onSuccess: (createdProjectId?: string) => void
   onCancel: () => void
   initialValues?: ProjectPrefill
 }
@@ -113,7 +114,7 @@ export default function ProjectCreateWithGaeb({ onSuccess, onCancel, initialValu
         /* Verknüpfung best-effort; LV bleibt als globaler Import erhalten */
       }
     }
-    onSuccess()
+    onSuccess(createdProjectId)
   }
 
   return (

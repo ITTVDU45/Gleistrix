@@ -31,6 +31,8 @@ interface ProjectEditorDialogProps {
   initialTab?: ProjectEditorTab
   einsatz?: PlantafelEvent | null
   einsatzDefaults?: { start?: Date; end?: Date; mitarbeiterId?: string }
+  /** Öffnet das Formular des Start-Tabs sofort (Einstieg über den Anlege-Assistenten). */
+  autoOpenForm?: boolean
   projects: Project[]
   employees: Employee[]
   events: PlantafelEvent[]
@@ -50,6 +52,7 @@ export default function ProjectDayEditDialog({
   initialTab,
   einsatz,
   einsatzDefaults,
+  autoOpenForm,
   projects,
   employees,
   events,
@@ -209,6 +212,7 @@ export default function ProjectDayEditDialog({
                 onDelete={handleEinsatzDelete}
                 onAddTimeEntries={addTimeEntries}
                 onDeleteTimeEntry={deleteTimeEntry}
+                autoOpenForm={autoOpenForm && initialTab === 'einsatz'}
               />
             </TabsContent>
 
@@ -225,6 +229,7 @@ export default function ProjectDayEditDialog({
                 onAdd={addTimeEntries}
                 onEdit={saveEditTimeEntry}
                 onDelete={deleteTimeEntry}
+                autoOpenForm={autoOpenForm && initialTab === 'zeiten'}
               />
             </TabsContent>
 

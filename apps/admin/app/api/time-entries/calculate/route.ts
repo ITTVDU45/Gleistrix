@@ -3,7 +3,8 @@ import { logger } from '@/lib/logger'
  * Zeiteintrag-Berechnungs-API
  * POST: Berechnet Pausen und Zuschläge für einen Zeiteintrag
  * 
- * Verwendet die zentrale Berechnungslogik und lädt Feiertage aus der DB
+ * Verwendet die zentrale Berechnungslogik. Gesetzliche Feiertage werden
+ * berechnet, betriebliche Zusatztage kommen aus der DB.
  */
 
 import { NextResponse } from 'next/server'
@@ -11,6 +12,7 @@ import dbConnect from '@/lib/dbConnect'
 import { Holiday } from '@/lib/models/Holiday'
 import { computeTimeEntry, minutesToHours } from '@/lib/timeEntry'
 import type { BreakSegment } from '@/lib/timeEntry'
+import { getGermanHolidaysInRange, isGermanStateCode, type GermanStateCode } from '@/lib/holidays'
 
 interface CalculateRequest {
   startISO: string
@@ -54,15 +56,25 @@ export async function POST(request: Request) {
       )
     }
 
-    // Feiertage für den Zeitraum aus DB laden
     const startDateStr = startISO.slice(0, 10)
     const endDateStr = endISO.slice(0, 10)
 
-    // Filter für Feiertage: bundesweit oder spezifisches Bundesland
-    const holidayFilter: Record<string, any> = {
+    // Gesetzliche Feiertage werden berechnet statt aus der DB gelesen.
+    const states: GermanStateCode[] = isGermanStateCode(bundesland) ? [bundesland] : []
+    const statutoryHolidays = getGermanHolidaysInRange(startDateStr, endDateStr, {
+      states,
+      includePartial: false,
+    })
+      // Ohne Bundesland-Angabe zählen nur bundesweite Feiertage; regionale
+      // dürfen nicht pauschal Zuschläge auslösen.
+      .filter((h) => states.length > 0 || h.nationwide)
+      .map((h) => h.dateKey)
+
+    // Zusätzliche betriebliche Feiertage aus der DB
+    const holidayFilter: Record<string, unknown> = {
       date: { $gte: startDateStr, $lte: endDateStr }
     }
-    
+
     if (bundesland) {
       holidayFilter.$or = [
         { bundesland: bundesland },
@@ -71,7 +83,9 @@ export async function POST(request: Request) {
     }
 
     const holidayDocs = await Holiday.find(holidayFilter).lean()
-    const holidays = holidayDocs.map((h: any) => h.date)
+    const holidays = Array.from(
+      new Set([...statutoryHolidays, ...holidayDocs.map((h) => String(h.date))])
+    )
 
     // Berechnung durchführen
     const result = computeTimeEntry({

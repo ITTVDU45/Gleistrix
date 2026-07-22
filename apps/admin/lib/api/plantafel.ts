@@ -25,6 +25,9 @@ export const PlantafelApi = {
     showAbsences?: boolean
     showGermanHolidays?: boolean
     showIslamicHolidays?: boolean
+    /** Länderkürzel; leer/weggelassen = alle 16 Bundesländer. */
+    holidayStates?: string[]
+    showPartialHolidays?: boolean
     showProjects?: boolean
     hiddenProjectStatuses?: string[]
   }) => {
@@ -35,6 +38,8 @@ export const PlantafelApi = {
     if (params.showAbsences !== undefined) search.set('showAbsences', String(params.showAbsences))
     if (params.showGermanHolidays !== undefined) search.set('showGermanHolidays', String(params.showGermanHolidays))
     if (params.showIslamicHolidays !== undefined) search.set('showIslamicHolidays', String(params.showIslamicHolidays))
+    if (params.holidayStates?.length) search.set('holidayStates', params.holidayStates.join(','))
+    if (params.showPartialHolidays !== undefined) search.set('showPartialHolidays', String(params.showPartialHolidays))
     if (params.showProjects !== undefined) search.set('showProjects', String(params.showProjects))
     if (params.hiddenProjectStatuses?.length) search.set('hiddenProjectStatuses', params.hiddenProjectStatuses.join(','))
     return getJSON<PlantafelAssignmentsResponse>(`/api/plantafel/assignments?${search.toString()}`)

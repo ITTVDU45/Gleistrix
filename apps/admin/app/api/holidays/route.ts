@@ -2,61 +2,125 @@ import { logger } from '@/lib/logger'
 /**
  * Feiertags-API - CRUD Operationen für Feiertage
  * GET: Liste aller Feiertage (optional gefiltert nach Jahr, Bundesland, Datumsbereich)
- * POST: Neuen Feiertag erstellen
+ * POST: Neuen betrieblichen Feiertag erstellen
+ *
+ * Gesetzliche Feiertage (bundesweit und regional, alle 16 Bundesländer) werden
+ * berechnet und nicht in der Datenbank gepflegt. Die Datenbank enthält nur
+ * zusätzliche betriebliche Feiertage.
  */
 
 import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/dbConnect'
 import { Holiday } from '@/lib/models/Holiday'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
+import {
+  formatHolidayScope,
+  getGermanHolidaysInRange,
+  isGermanStateCode,
+  type GermanStateCode,
+} from '@/lib/holidays'
 
-// GET: Liste aller Feiertage
+/**
+ * Ohne Zeitraum-Angabe wird ein Fenster um das aktuelle Jahr berechnet – die
+ * gesetzlichen Feiertage sind eine unendliche Reihe und brauchen eine Grenze.
+ */
+const DEFAULT_YEAR_SPAN = 5
+
+interface HolidayResponseItem {
+  id: string
+  date: string
+  name: string
+  bundesland: string
+  /** `gesetzlich` = berechnet und nicht editierbar, `betrieblich` = aus der DB. */
+  source: 'gesetzlich' | 'betrieblich'
+  nationwide: boolean
+  states: string[]
+  partialStates: string[]
+  scope: string
+  note?: string
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+function resolveRange(params: URLSearchParams): { startDate: string; endDate: string } {
+  const year = params.get('year')
+  const startDate = params.get('startDate')
+  const endDate = params.get('endDate')
+
+  if (year && /^\d{4}$/.test(year)) {
+    return { startDate: `${year}-01-01`, endDate: `${year}-12-31` }
+  }
+
+  const currentYear = new Date().getFullYear()
+  return {
+    startDate: startDate || `${currentYear - DEFAULT_YEAR_SPAN}-01-01`,
+    endDate: endDate || `${currentYear + DEFAULT_YEAR_SPAN}-12-31`,
+  }
+}
+
+// GET: Liste aller Feiertage (gesetzlich berechnet + betrieblich aus der DB)
 export async function GET(request: Request) {
   try {
     await dbConnect()
 
     const { searchParams } = new URL(request.url)
-    const year = searchParams.get('year')
-    const bundesland = searchParams.get('bundesland')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
+    const { startDate, endDate } = resolveRange(searchParams)
 
-    // Filter aufbauen
-    const filter: Record<string, any> = {}
+    const bundeslandParam = searchParams.get('bundesland')
+    const states: GermanStateCode[] = isGermanStateCode(bundeslandParam) ? [bundeslandParam] : []
 
-    if (year) {
-      filter.date = { $regex: `^${year}-` }
+    const statutory: HolidayResponseItem[] = getGermanHolidaysInRange(startDate, endDate, {
+      states,
+    }).map((h) => ({
+      id: h.id,
+      date: h.dateKey,
+      bundesland: h.nationwide ? 'ALL' : [...h.states, ...h.partialStates].join(','),
+      name: h.name,
+      source: 'gesetzlich' as const,
+      nationwide: h.nationwide,
+      states: h.states,
+      partialStates: h.partialStates,
+      scope: formatHolidayScope(h),
+      note: h.note,
+    }))
+
+    // Betriebliche Zusatztage aus der DB; Bundesweit (ALL) gilt immer mit.
+    const dbFilter: Record<string, unknown> = { date: { $gte: startDate, $lte: endDate } }
+    if (states.length > 0) {
+      dbFilter.$or = [{ bundesland: states[0] }, { bundesland: 'ALL' }]
     }
 
-    if (startDate && endDate) {
-      filter.date = { $gte: startDate, $lte: endDate }
-    } else if (startDate) {
-      filter.date = { $gte: startDate }
-    } else if (endDate) {
-      filter.date = { $lte: endDate }
+    const custom = await Holiday.find(dbFilter).lean()
+    const statutoryByDate = new Map<string, HolidayResponseItem[]>()
+    for (const item of statutory) {
+      const list = statutoryByDate.get(item.date)
+      if (list) list.push(item)
+      else statutoryByDate.set(item.date, [item])
     }
 
-    if (bundesland) {
-      // Bundesweit (ALL) oder spezifisches Bundesland
-      filter.$or = [
-        { bundesland: bundesland },
-        { bundesland: 'ALL' }
-      ]
-    }
-
-    const holidays = await Holiday.find(filter).sort({ date: 1 }).lean()
-
-    return NextResponse.json({
-      success: true,
-      holidays: holidays.map((h: any) => ({
+    const customItems: HolidayResponseItem[] = custom
+      // Altbestand, der einen gesetzlichen Feiertag doppelt abbildet, wird
+      // unterdrückt – der berechnete Eintrag ist maßgeblich.
+      .filter((h) => !isDuplicateOfStatutory(String(h.date), h.bundesland, statutoryByDate))
+      .map((h) => ({
         id: h._id.toString(),
-        date: h.date,
+        date: String(h.date),
         name: h.name,
         bundesland: h.bundesland,
+        source: 'betrieblich' as const,
+        nationwide: h.bundesland === 'ALL',
+        states: h.bundesland === 'ALL' ? [] : [h.bundesland],
+        partialStates: [],
+        scope: h.bundesland === 'ALL' ? 'betrieblich, bundesweit' : `betrieblich, ${h.bundesland}`,
         createdAt: h.createdAt,
-        updatedAt: h.updatedAt
+        updatedAt: h.updatedAt,
       }))
-    })
+
+    const holidays = [...statutory, ...customItems].sort((a, b) =>
+      a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name)
+    )
+
+    return NextResponse.json({ success: true, holidays })
   } catch (error) {
     logger.error('Fehler beim Laden der Feiertage:', error)
     return NextResponse.json(
@@ -64,6 +128,19 @@ export async function GET(request: Request) {
       { status: 500 }
     )
   }
+}
+
+function isDuplicateOfStatutory(
+  date: string,
+  bundesland: string,
+  statutoryByDate: ReadonlyMap<string, HolidayResponseItem[]>
+): boolean {
+  const sameDay = statutoryByDate.get(date)
+  if (!sameDay || sameDay.length === 0) return false
+  if (bundesland === 'ALL') return sameDay.some((h) => h.nationwide)
+  return sameDay.some(
+    (h) => h.nationwide || h.states.includes(bundesland) || h.partialStates.includes(bundesland)
+  )
 }
 
 // POST: Neuen Feiertag erstellen

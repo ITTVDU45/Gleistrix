@@ -22,6 +22,7 @@ import DocumentDropUploadDialog from './DocumentDropUploadDialog'
 import ConflictPanel from './ConflictPanel'
 import ProjektSidebar, { type SidebarDragItem } from './ProjektSidebar'
 import ProjectFilterControl from './ProjectFilterControl'
+import HolidayStateFilterControl from './HolidayStateFilterControl'
 import PlantafelLegend from './PlantafelLegend'
 import EventTooltip from './EventTooltip'
 import { SHIFT_DAY_COLOR, SHIFT_NIGHT_COLOR, detectEntryShift } from '@/lib/plantafel/projectColors'
@@ -59,6 +60,7 @@ function employeeColor(id?: string | null): string {
   return EMPLOYEE_COLORS[hash % EMPLOYEE_COLORS.length]
 }
 import ProjectCreateWithGaeb from '@/components/ProjectCreateWithGaeb'
+import CreateEntryWizard, { type WizardTarget } from './create/CreateEntryWizard'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus, Upload, Video, MapPin } from 'lucide-react'
@@ -133,6 +135,7 @@ export default function PlantafelBoard() {
     initialTab: ProjectEditorTab
     einsatz: PlantafelEvent | null
     einsatzDefaults?: { start?: Date; end?: Date; mitarbeiterId?: string }
+    autoOpenForm?: boolean
     dateKey: string
   }
   const [editor, setEditor] = useState<EditorState>({
@@ -142,6 +145,9 @@ export default function PlantafelBoard() {
     einsatz: null,
     dateKey: format(new Date(), 'yyyy-MM-dd'),
   })
+
+  // Mehrstufiger Assistent hinter "Neuer Einsatz"
+  const [isWizardOpen, setIsWizardOpen] = useState(false)
 
   const [isConflictPanelOpen, setIsConflictPanelOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -289,6 +295,22 @@ export default function PlantafelBoard() {
     setDayRefreshKey((k) => k + 1)
     fetchProjects()
   }, [fetchProjects])
+
+  // Assistent abgeschlossen → Editor im passenden Tab für das gewählte Projekt
+  const handleWizardComplete = useCallback(
+    ({ projectId, target }: { projectId: string; target: WizardTarget }) => {
+      setIsWizardOpen(false)
+      setEditor({
+        open: true,
+        projectId,
+        initialTab: target,
+        einsatz: null,
+        autoOpenForm: true,
+        dateKey: format(currentDate, 'yyyy-MM-dd'),
+      })
+    },
+    [currentDate]
+  )
 
   const handleDropFromOutside = useCallback(
     ({ start, end }: { start: string | Date; end: string | Date; allDay?: boolean }) => {
@@ -627,6 +649,8 @@ export default function PlantafelBoard() {
             </Button>
           </div>
 
+          <HolidayStateFilterControl filters={filters} setFilters={setFilters} />
+
           <ProjectFilterControl filters={filters} setFilters={setFilters} />
 
           {conflicts.length > 0 && (
@@ -642,18 +666,7 @@ export default function PlantafelBoard() {
             </Button>
           )}
 
-          <Button
-            size="sm"
-            onClick={() =>
-              setEditor({
-                open: true,
-                projectId: null,
-                initialTab: 'einsatz',
-                einsatz: null,
-                dateKey: format(currentDate, 'yyyy-MM-dd'),
-              })
-            }
-          >
+          <Button size="sm" onClick={() => setIsWizardOpen(true)}>
             <Plus className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">Neuer Einsatz</span>
           </Button>
@@ -772,6 +785,16 @@ export default function PlantafelBoard() {
         )}
       </div>
 
+      {/* Assistent: Einsatz oder Projekt anlegen (mehrstufiges Popup) */}
+      <CreateEntryWizard
+        open={isWizardOpen}
+        projects={projects}
+        dateKey={format(currentDate, 'yyyy-MM-dd')}
+        onClose={() => setIsWizardOpen(false)}
+        onProjectCreated={handleProjectCreated}
+        onComplete={handleWizardComplete}
+      />
+
       {/* Zentraler Projekt-/Einsatz-Editor (vereinheitlichtes Popup) */}
       {editor.open && (
         <ProjectDayEditDialog
@@ -782,6 +805,7 @@ export default function PlantafelBoard() {
           initialTab={editor.initialTab}
           einsatz={editor.einsatz}
           einsatzDefaults={editor.einsatzDefaults}
+          autoOpenForm={editor.autoOpenForm}
           projects={projects}
           employees={employees}
           events={events}

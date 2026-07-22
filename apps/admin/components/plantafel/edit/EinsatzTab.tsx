@@ -32,6 +32,8 @@ interface EinsatzTabProps {
   ) => Promise<void>
   /** Löscht den verknüpften Projekt-Zeiteintrag beim Bearbeiten/Löschen eines Einsatzes */
   onDeleteTimeEntry: (date: string, entryId: string) => Promise<void>
+  /** Öffnet das Einsatz-Formular sofort (Einstieg über den Anlege-Assistenten). */
+  autoOpenForm?: boolean
 }
 
 type AddPayload =
@@ -74,9 +76,10 @@ export default function EinsatzTab({
   onDelete,
   onAddTimeEntries,
   onDeleteTimeEntry,
+  autoOpenForm,
 }: EinsatzTabProps) {
   const [editTarget, setEditTarget] = useState<PlantafelEvent | null>(einsatz || null)
-  const [showForm, setShowForm] = useState(Boolean(einsatz || defaults?.start))
+  const [showForm, setShowForm] = useState(Boolean(einsatz || defaults?.start || autoOpenForm))
   const [isSaving, setIsSaving] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)

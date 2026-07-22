@@ -4,7 +4,14 @@ import { requireAuth } from '@/lib/security/requireAuth'
 import PlantafelAssignment from '@/lib/models/PlantafelAssignment'
 import PlantafelMeeting from '@/lib/models/PlantafelMeeting'
 import { Holiday } from '@/lib/models/Holiday'
-import { getIslamicHolidaysInRange, holidaysToPlantafelEvents, type PlantafelHoliday } from '@/lib/services/plantafel/holidayService'
+import {
+  getCustomHolidaysForPlantafel,
+  getGermanHolidaysForPlantafel,
+  getIslamicHolidaysInRange,
+  holidaysToPlantafelEvents,
+  type PlantafelHoliday,
+} from '@/lib/services/plantafel/holidayService'
+import { normalizeStateCodes } from '@/lib/holidays'
 import { getPlannedColor, detectEntryShift } from '@/lib/plantafel/projectColors'
 import { formatProjectBarTitle } from '@/lib/plantafel/projectLabel'
 import {
@@ -172,6 +179,9 @@ export async function GET(req: NextRequest) {
   const showAbsences = searchParams.get('showAbsences') !== 'false'
   const showGermanHolidays = searchParams.get('showGermanHolidays') !== 'false'
   const showIslamicHolidays = searchParams.get('showIslamicHolidays') === 'true'
+  const showPartialHolidays = searchParams.get('showPartialHolidays') !== 'false'
+  // Leere Auswahl = alle Bundesländer; unbekannte Kürzel werden verworfen.
+  const holidayStates = normalizeStateCodes((searchParams.get('holidayStates') || '').split(','))
 
   const employeeIdFilter = employeeIds ? new Set(employeeIds.split(',')) : null
 
@@ -211,20 +221,14 @@ export async function GET(req: NextRequest) {
   const holidayRange = { start: new Date(from), end: new Date(to) }
   const holidays: PlantafelHoliday[] = []
   if (showGermanHolidays) {
-    const germanHolidays = await Holiday.find({ date: { $gte: from, $lte: to } }).lean()
-    holidays.push(...germanHolidays.map((h) => {
-      const [y, m, d] = String(h.date).split('-').map(Number)
-      return {
-        id: `de-${h._id}`,
-        name: h.name,
-        title: h.bundesland !== 'ALL' ? `${h.name} (regional)` : h.name,
-        date: new Date(y, m - 1, d),
-        dateKey: String(h.date),
-        type: 'german' as const,
-        scope: h.bundesland !== 'ALL' ? 'regional' : 'bundesweit',
-        states: h.bundesland !== 'ALL' ? [h.bundesland] : undefined,
-      }
-    }))
+    // Gesetzliche Feiertage werden berechnet (bundesweit + regional, alle 16
+    // Länder); die DB liefert nur noch betriebliche Zusatztage.
+    const germanHolidays = getGermanHolidaysForPlantafel(from, to, holidayStates, showPartialHolidays)
+    const customRecords = await Holiday.find({ date: { $gte: from, $lte: to } }).lean()
+    holidays.push(
+      ...germanHolidays,
+      ...getCustomHolidaysForPlantafel(customRecords, germanHolidays, holidayStates)
+    )
   }
   if (showIslamicHolidays) {
     holidays.push(...getIslamicHolidaysInRange(holidayRange))

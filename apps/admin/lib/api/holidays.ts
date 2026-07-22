@@ -9,7 +9,23 @@ export interface Holiday {
   id: string
   date: string
   name: string
+  /** 'ALL' = bundesweit, sonst ein oder mehrere Länderkürzel (kommagetrennt). */
   bundesland: string
+  /**
+   * `gesetzlich` = berechneter Feiertag (nicht editierbar),
+   * `betrieblich` = manuell gepflegter Zusatztag aus der Datenbank.
+   */
+  source?: 'gesetzlich' | 'betrieblich'
+  /** Gesetzlicher Feiertag in allen 16 Bundesländern. */
+  nationwide?: boolean
+  /** Länder, in denen der Feiertag landesweit gilt. */
+  states?: string[]
+  /** Länder, in denen er nur in einzelnen Gemeinden gilt. */
+  partialStates?: string[]
+  /** Kurzbeschreibung des Geltungsbereichs für die UI. */
+  scope?: string
+  /** Erläuterung zur regionalen Einschränkung. */
+  note?: string
   createdAt?: string
   updatedAt?: string
 }

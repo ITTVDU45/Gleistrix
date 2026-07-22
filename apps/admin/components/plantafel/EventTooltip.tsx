@@ -5,7 +5,17 @@ import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Video, MapPin } from 'lucide-react'
+import { getGermanStateName } from '@/lib/holidays'
 import type { PlantafelEvent } from './types'
+
+/**
+ * Ein einzelnes Bundesland wird ausgeschrieben, mehrere als Kürzel gelistet –
+ * sonst sprengt die Liste den Tooltip.
+ */
+function formatStateList(codes: readonly string[]): string {
+  if (codes.length === 1) return getGermanStateName(codes[0])
+  return codes.join(', ')
+}
 
 const EVENT_COLORS: Record<string, string> = {
   einsatz: '#3b82f6',
@@ -130,13 +140,29 @@ export default function EventTooltip({ event, children }: EventTooltipProps) {
               </div>
             )}
 
-            {event.notes && (
+            {event.notes && !isHoliday && (
               <div className="text-slate-400 italic">{event.notes}</div>
             )}
 
             {isHoliday && (
-              <div className="text-amber-400 text-[10px] mt-1 border-t border-slate-700 pt-1">
-                ⚠ Feiertage können um einen Tag abweichen
+              <div className="text-[10px] mt-1 border-t border-slate-700 pt-1 space-y-0.5">
+                {event.holidayNationwide ? (
+                  <div className="text-slate-300">Gesetzlicher Feiertag in allen Bundesländern</div>
+                ) : (
+                  <>
+                    {!!event.holidayStates?.length && (
+                      <div className="text-slate-300">
+                        Gesetzlicher Feiertag in: {formatStateList(event.holidayStates)}
+                      </div>
+                    )}
+                    {!!event.holidayPartialStates?.length && (
+                      <div className="text-amber-300">
+                        Teilweise in: {formatStateList(event.holidayPartialStates)}
+                      </div>
+                    )}
+                  </>
+                )}
+                {event.notes && <div className="text-slate-400 italic">{event.notes}</div>}
               </div>
             )}
 

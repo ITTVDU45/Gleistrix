@@ -23,6 +23,8 @@ interface ZeitenTabProps {
   onAdd: (entriesOrDates: Array<{ day: string; entry: unknown }> | string[] | string, entry?: unknown) => Promise<void>
   onEdit: (data: MultiDayEditData) => Promise<void>
   onDelete: (date: string, entryId: string) => Promise<void>
+  /** Öffnet das Zeit-Formular sofort (Einstieg über den Anlege-Assistenten). */
+  autoOpenForm?: boolean
 }
 
 function formatTime(value?: string): string {
@@ -52,8 +54,9 @@ export default function ZeitenTab({
   onAdd,
   onEdit,
   onDelete,
+  autoOpenForm,
 }: ZeitenTabProps) {
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(Boolean(autoOpenForm))
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null)
 
   const days = useMemo(() => getProjectDays(project), [project])

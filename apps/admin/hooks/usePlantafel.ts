@@ -37,6 +37,9 @@ const DEFAULT_FILTERS: PlantafelFilters = {
   showAbsences: true,
   showGermanHolidays: true,
   showIslamicHolidays: false,
+  // Leer = alle 16 Bundesländer: deutschlandweiter Überblick als Standard.
+  holidayStates: [],
+  showPartialHolidays: true,
   hiddenProjectStatuses: [],
   eventTypes: [],
 }
@@ -69,6 +72,8 @@ export function usePlantafel() {
         showAbsences: filters.showAbsences,
         showGermanHolidays: filters.showGermanHolidays,
         showIslamicHolidays: filters.showIslamicHolidays,
+        holidayStates: filters.holidayStates,
+        showPartialHolidays: filters.showPartialHolidays,
         hiddenProjectStatuses: filters.hiddenProjectStatuses,
       })
 
