@@ -13,6 +13,7 @@ import type {
   CreatePlantafelAssignmentRequest,
   UpdatePlantafelAssignmentRequest,
 } from '@/components/plantafel/types'
+import { readViewPreference, writeViewPreference } from '@/lib/plantafel/viewPreference'
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfDay, endOfDay, format } from 'date-fns'
 
 function getDateRangeForView(date: Date, calendarView: PlantafelCalendarView): PlantafelDateRange {
@@ -56,6 +57,24 @@ export function usePlantafel() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Die gemerkte Ansicht wird erst nach dem Mount übernommen: als Lazy-Init
+  // würde der Server weiterhin die Standardansicht rendern und die Hydration
+  // auseinanderlaufen. Bis dahin bleibt der erste Datenabruf zurückgestellt,
+  // damit nicht für die verworfene Standardansicht geladen wird.
+  const [isPreferenceLoaded, setIsPreferenceLoaded] = useState(false)
+
+  useEffect(() => {
+    const stored = readViewPreference()
+    if (stored.view) setView(stored.view)
+    if (stored.calendarView) setCalendarView(stored.calendarView)
+    setIsPreferenceLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isPreferenceLoaded) return
+    writeViewPreference({ view, calendarView })
+  }, [isPreferenceLoaded, view, calendarView])
+
   const dateRange = getDateRangeForView(currentDate, calendarView)
 
   const fetchData = useCallback(async () => {
@@ -96,8 +115,9 @@ export function usePlantafel() {
   }, [currentDate, calendarView, view, filters])
 
   useEffect(() => {
+    if (!isPreferenceLoaded) return
     fetchData()
-  }, [fetchData])
+  }, [isPreferenceLoaded, fetchData])
 
   const createAssignment = useCallback(async (data: CreatePlantafelAssignmentRequest) => {
     const result = await PlantafelApi.createAssignment(data)
