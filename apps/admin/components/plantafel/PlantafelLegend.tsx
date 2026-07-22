@@ -24,7 +24,7 @@ const STATUS_ITEMS: LegendItem[] = [
 ]
 
 const SHIFT_ITEMS: LegendItem[] = [
-  { label: 'Frühschicht (4–22 Uhr)', color: SHIFT_DAY_COLOR },
+  { label: 'Frühschicht (5–12 Uhr)', color: SHIFT_DAY_COLOR },
   { label: 'Nachtschicht', color: SHIFT_NIGHT_COLOR },
 ]
 

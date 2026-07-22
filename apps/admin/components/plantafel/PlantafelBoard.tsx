@@ -404,7 +404,7 @@ export default function PlantafelBoard() {
                     <span
                       className="ml-auto shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
                       style={{ backgroundColor: nacht ? SHIFT_NIGHT_COLOR : SHIFT_DAY_COLOR }}
-                      title={nacht ? 'Nachtschicht' : 'Frühschicht (04–22 Uhr)'}
+                      title={nacht ? 'Nachtschicht' : 'Frühschicht (05–12 Uhr)'}
                     >
                       {nacht ? 'Nacht' : 'Früh'}
                     </span>
@@ -439,7 +439,7 @@ export default function PlantafelBoard() {
               <span
                 className="shrink-0 rounded px-1 text-[9px] font-semibold leading-tight text-white"
                 style={{ backgroundColor: SHIFT_DAY_COLOR }}
-                title={`${counts.tag}× Frühschicht (04–22 Uhr)`}
+                title={`${counts.tag}× Frühschicht (05–12 Uhr)`}
               >
                 {counts.tag}× Früh
               </span>

@@ -20,8 +20,8 @@ export const NOT_STARTED_COLOR = '#ca8a04' // Senf/Gelb — Laufzeit noch nicht 
 export const SHIFT_DAY_COLOR = '#10b981' // Tag-/Frühschicht (anderes Grün)
 export const SHIFT_NIGHT_COLOR = '#ef4444' // Nachtschicht
 
-const DAY_START_MIN = 4 * 60 // 04:00
-const DAY_END_MIN = 22 * 60 // 22:00
+const DAY_START_MIN = 5 * 60 // 05:00
+const DAY_END_MIN = 12 * 60 // 12:00
 
 export function getStatusColor(status?: string): string {
   return PROJECT_STATUS_COLORS[status || ''] || PROJECT_STATUS_COLORS['kein Status']
@@ -56,7 +56,7 @@ function dateOf(iso?: string): string | null {
 
 /**
  * Ein Zeiteintrag ist Nachtschicht, wenn er über Mitternacht geht oder außerhalb
- * des Fensters 04:00–22:00 liegt. Sonst Tag-/Frühschicht.
+ * des Fensters 05:00–12:00 liegt. Sonst Tag-/Frühschicht.
  */
 export function detectEntryShift(start?: string, ende?: string): ProjectShift {
   const startMin = timeToMinutes(start)
