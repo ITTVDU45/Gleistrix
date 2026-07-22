@@ -23,6 +23,7 @@ import {
   returnReminderIntervalLabel,
   returnReminderMessage,
 } from './returnReminderSchedule'
+import { appBaseUrl } from './appBaseUrl'
 
 const DEFAULT_TIME_ZONE = 'Europe/Berlin'
 const RETRY_DELAY_MS = 12 * 60 * 60 * 1000
@@ -83,10 +84,6 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
-}
-
-function appBaseUrl(): string {
-  return String(process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || '').replace(/\/+$/, '')
 }
 
 async function resolveIssuer(assignment: AssignmentCandidate): Promise<{
