@@ -21,6 +21,7 @@ import {
 export function buildTimeEntry(params: BuildEntryParams): TimeEntryWithSunday {
   const {
     name,
+    employeeId,
     funktion,
     day,
     startTime,
@@ -67,6 +68,7 @@ export function buildTimeEntry(params: BuildEntryParams): TimeEntryWithSunday {
 
   const entry: TimeEntryWithSunday = {
     id: initialEntryId || `${Date.now().toString()}-${name}-${day}`,
+    employeeId,
     name,
     funktion,
     start: startISO,

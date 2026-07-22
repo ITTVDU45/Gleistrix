@@ -938,12 +938,13 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
       // Erstelle Tasks fÃ¼r jeden Mitarbeiter - PARALLEL statt SEQUENTIELL
       // Jeder Task macht NUR EINEN API-Call fÃ¼r ALLE Tage
       const tasks = selectedEmployees.map((employeeName) => async () => {
+        const selectedEmployee = employees.find((employee) => employee.name === employeeName)
         // Erstellt fÃ¼r JEDEN Tag einen separaten Entry mit korrekten Werten
         // (Feiertag, Sonntagsstunden, Nachtzuschlag werden pro Tag berechnet)
         const entries = buildTimeEntriesForDays(
           employeeName,
           daysToUse,
-          baseParams,
+          { ...baseParams, employeeId: selectedEmployee?.id },
           selectedHolidayDays
         );
         

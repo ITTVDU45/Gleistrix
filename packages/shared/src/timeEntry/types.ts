@@ -64,6 +64,7 @@ export interface ComputedTimeEntry {
  */
 export interface TimeEntryWithSunday {
   id: string
+  employeeId?: string
   name: string
   funktion: MitarbeiterFunktion | string
   start: string // ISO-String (YYYY-MM-DDTHH:mm)
@@ -101,6 +102,7 @@ export interface TimeEntryWithSunday {
  */
 export interface BuildEntryParams {
   name: string
+  employeeId?: string
   funktion: string
   day: string // YYYY-MM-DD
   startTime: string // HH:mm

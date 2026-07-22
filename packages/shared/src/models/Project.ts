@@ -11,6 +11,7 @@ const technikEntrySchema = new mongoose.Schema({
 
 const timeEntrySchema = new mongoose.Schema({
   id: String,
+  employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   name: String,
   funktion: {
     type: String,
@@ -211,4 +212,4 @@ if (existingProjectModel && !existingProjectModel.schema.path('externalCompanyId
 // Prüfe, ob das Model bereits existiert, bevor es erstellt wird
 export const Project: mongoose.Model<ProjectDoc> =
   (mongoose.models.Project as mongoose.Model<ProjectDoc>) ||
-  mongoose.model<ProjectDoc>('Project', projectSchema as mongoose.Schema<ProjectDoc>) 
+  mongoose.model<ProjectDoc>('Project', projectSchema as mongoose.Schema<ProjectDoc>)

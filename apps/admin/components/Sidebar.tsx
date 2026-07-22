@@ -23,7 +23,8 @@ import {
   PanelLeft,
   CalendarRange,
   Bot,
-  BarChart3
+  BarChart3,
+  Landmark
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -33,6 +34,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Projekte', href: '/projekte', icon: Building2 },
   { name: 'Abrechnung', href: '/abbrechnung', icon: PanelLeft },
+  { name: 'Finanzen', href: '/finanzen', icon: Landmark, superadminOnly: true },
   { name: 'Mitarbeiter', href: '/mitarbeiter', icon: Users },
   { name: 'Fahrzeuge', href: '/fahrzeuge', icon: Truck },
   { name: 'Lager', href: '/lager', icon: Package },
@@ -140,6 +142,7 @@ export default function Sidebar() {
 
   const userModules = currentUser.modules ?? []
   const visibleNavigation = navigation.filter((item) => {
+    if ('superadminOnly' in item && item.superadminOnly && currentUser.role !== 'superadmin') return false
     if (currentUser.role === 'lager') return item.href === '/lager' || item.href === '/lager/app'
     if (currentUser.role === 'superadmin') {
       if (item.href === '/lager/app') return false
