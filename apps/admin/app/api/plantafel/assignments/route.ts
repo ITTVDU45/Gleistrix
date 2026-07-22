@@ -7,7 +7,7 @@ import { Holiday } from '@/lib/models/Holiday'
 import {
   getCustomHolidaysForPlantafel,
   getGermanHolidaysForPlantafel,
-  getIslamicHolidaysInRange,
+  getIslamicHolidaysForPlantafel,
   holidaysToPlantafelEvents,
   type PlantafelHoliday,
 } from '@/lib/services/plantafel/holidayService'
@@ -218,7 +218,6 @@ export async function GET(req: NextRequest) {
       })
     : []
 
-  const holidayRange = { start: new Date(from), end: new Date(to) }
   const holidays: PlantafelHoliday[] = []
   if (showGermanHolidays) {
     // Gesetzliche Feiertage werden berechnet (bundesweit + regional, alle 16
@@ -231,7 +230,7 @@ export async function GET(req: NextRequest) {
     )
   }
   if (showIslamicHolidays) {
-    holidays.push(...getIslamicHolidaysInRange(holidayRange))
+    holidays.push(...getIslamicHolidaysForPlantafel(from, to))
   }
   const holidayEvents = holidaysToPlantafelEvents(holidays)
 
