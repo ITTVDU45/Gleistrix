@@ -1,8 +1,9 @@
-import { eachDayOfInterval, format } from 'date-fns'
-import type { PlantafelEvent, PlantafelDateRange } from '@/components/plantafel/types'
+import { format } from 'date-fns'
+import type { PlantafelEvent } from '@/components/plantafel/types'
 import {
   formatHolidayScope,
   getGermanHolidaysInRange,
+  getIslamicHolidaysInRange,
   type GermanHoliday,
   type GermanStateCode,
 } from '@/lib/holidays'
@@ -157,47 +158,26 @@ function isCoveredByStatutoryHoliday(
 // Islamische Feiertage
 // ---------------------------------------------------------------------------
 
-let islamicFormatter: Intl.DateTimeFormat | null = null
-try {
-  islamicFormatter = new Intl.DateTimeFormat('en-US-u-ca-islamic-civil', {
-    timeZone: 'UTC',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  })
-} catch { /* unsupported */ }
-
-const ISLAMIC_HOLIDAYS = [
-  { id: 'ramadanbeginn', name: 'Ramadanbeginn', month: 9, day: 1 },
-  { id: 'ramadanfest', name: 'Ramadanfest', month: 10, day: 1 },
-  { id: 'opferfest', name: 'Opferfest', month: 12, day: 10 },
-]
-
-export function getIslamicHolidaysInRange(range: PlantafelDateRange): PlantafelHoliday[] {
-  if (!islamicFormatter) return []
-  const byDate = new Map(ISLAMIC_HOLIDAYS.map((h) => [`${h.month}-${h.day}`, h]))
-  const holidays: PlantafelHoliday[] = []
-
-  for (const date of eachDayOfInterval({ start: range.start, end: range.end })) {
-    const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12))
-    const parts = islamicFormatter.formatToParts(utc)
-    const m = Number(parts.find((p) => p.type === 'month')?.value || 0)
-    const d = Number(parts.find((p) => p.type === 'day')?.value || 0)
-    const y = Number(parts.find((p) => p.type === 'year')?.value || 0)
-    const def = byDate.get(`${m}-${d}`)
-    if (!def) continue
-    const dateKey = toDateKey(date)
-    holidays.push({
-      id: `islamic-${y}-${def.id}-${dateKey}`,
-      name: def.name,
-      title: def.name,
-      date,
-      dateKey,
-      type: 'islamic',
-      scope: 'islamischer Kalender',
-    })
-  }
-  return holidays
+/**
+ * Islamische Feiertage für den Zeitraum — nach dem DITIB-/Diyanet-Kalender.
+ *
+ * Die Tage stammen aus der gepflegten Liste in `@/lib/holidays`; außerhalb des
+ * dort abgedeckten Zeitraums liefert die Funktion nichts. Siehe
+ * `islamicHolidayDates` für Quelle und Pflegehinweise.
+ */
+export function getIslamicHolidaysForPlantafel(
+  fromDate: string,
+  toDate: string
+): PlantafelHoliday[] {
+  return getIslamicHolidaysInRange(fromDate, toDate).map((h) => ({
+    id: `islamic-${h.id}`,
+    name: h.name,
+    title: h.name,
+    date: h.date,
+    dateKey: h.dateKey,
+    type: 'islamic' as const,
+    scope: 'DITIB-Kalender',
+  }))
 }
 
 // ---------------------------------------------------------------------------

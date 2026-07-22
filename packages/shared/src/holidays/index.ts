@@ -45,6 +45,21 @@ export {
 } from './germanHolidayDefinitions'
 
 export {
+  ISLAMIC_HOLIDAY_COVERAGE,
+  ISLAMIC_HOLIDAY_DATES,
+  ISLAMIC_HOLIDAY_LENGTHS,
+  ISLAMIC_HOLIDAY_NAMES,
+  type IslamicHolidayEntry,
+  type IslamicHolidayId,
+} from './islamicHolidayDates'
+
+export {
+  getIslamicHolidaysInRange,
+  isCoveredByIslamicHolidayData,
+  type IslamicHoliday,
+} from './islamicHolidays'
+
+export {
   getGermanHolidaysForYear,
   getGermanHolidaysInRange,
   getGermanHolidayDateKeys,

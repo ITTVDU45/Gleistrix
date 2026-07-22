@@ -61,6 +61,7 @@ function employeeColor(id?: string | null): string {
 }
 import ProjectCreateWithGaeb from '@/components/ProjectCreateWithGaeb'
 import CreateEntryWizard, { type WizardTarget } from './create/CreateEntryWizard'
+import { ISLAMIC_HOLIDAY_COVERAGE } from '@/lib/holidays'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle, PanelRightOpen, Plus, Palmtree, Landmark, Moon, FolderPlus, Upload, Video, MapPin } from 'lucide-react'
@@ -642,7 +643,7 @@ export default function PlantafelBoard() {
               size="sm"
               className="rounded-md"
               onClick={() => setFilters((f) => ({ ...f, showIslamicHolidays: !f.showIslamicHolidays }))}
-              title="Islamische Feiertage ein-/ausblenden"
+              title={`Islamische Feiertage nach DITIB-Kalender ein-/ausblenden (Daten bis ${ISLAMIC_HOLIDAY_COVERAGE.toDateKey.slice(0, 4)})`}
             >
               <Moon className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Feiertage Islam.</span>
