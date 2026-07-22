@@ -44,6 +44,19 @@ export function selectEffectiveEmployeeRate<T extends EmployeeRateInput>(rates: 
     .sort((a, b) => new Date(b.validFrom).getTime() - new Date(a.validFrom).getTime())[0]
 }
 
+export function normalizeFunktion(value: unknown): string {
+  return String(value ?? '').trim().toLocaleLowerCase('de')
+}
+
+/**
+ * Wählt den wirksamen Lohnsatz strikt für die gegebene Funktion und das Datum.
+ * Es gibt keinen funktionsübergreifenden Fallback: passt keine Funktion, ist der Satz undefined.
+ */
+export function selectEmployeeRateForFunktion<T extends EmployeeRateInput>(rates: T[], funktion: unknown, at: string | Date): T | undefined {
+  const key = normalizeFunktion(funktion)
+  return selectEffectiveEmployeeRate(rates.filter(rate => normalizeFunktion(rate.funktion) === key), at)
+}
+
 export function calculateEmployeeCost(input: EmployeeCostInput, rate: EmployeeRateInput): number {
   const hours = (value: number) => Math.max(0, Number(value) || 0)
   const base = hours(input.workHours) * rate.baseHourlyCents

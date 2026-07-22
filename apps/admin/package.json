@@ -15,7 +15,8 @@
     "test:integration": "vitest run --config vitest.config.integration.ts",
     "test:minio": "node scripts/test-minio.mjs",
     "backup:db": "node scripts/backup-mongodb.mjs",
-    "migrate:subcontractor": "node scripts/migrate-subcontractor-portal.mjs"
+    "migrate:subcontractor": "node scripts/migrate-subcontractor-portal.mjs",
+    "migrate:function-rates": "node scripts/migrate-employee-function-rates.mjs"
   },
   "dependencies": {
     "@gleistrix/shared": "workspace:*",

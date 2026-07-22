@@ -171,6 +171,7 @@ export interface EmployeeCostInput {
 }
 
 export interface EmployeeRateInput {
+  funktion?: string
   validFrom: string | Date
   baseHourlyCents: number
   travelHourlyCents: number
