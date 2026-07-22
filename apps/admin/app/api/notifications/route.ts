@@ -5,6 +5,7 @@ import NotificationSettings from '@/lib/models/NotificationSettings';
 import { DEFAULT_NOTIFICATION_DEFS } from '@/lib/notificationDefs';
 import { RETURN_REMINDER_NOTIFICATION_KEY } from '@/lib/notificationDefs';
 import { normalizeReturnReminderConfig } from '@/lib/lager/returnReminderSchedule';
+import { formatNotificationRecipients } from '@/lib/notificationRecipients';
 import { getToken } from 'next-auth/jwt';
 
 // Baseline-Definitionen für Notification Keys
@@ -66,12 +67,23 @@ export async function PUT(req: NextRequest) {
       ])
     );
     const sanitizedConfigByKey = Object.fromEntries(
-      Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([key, definition]) => [
-        key,
-        key === RETURN_REMINDER_NOTIFICATION_KEY
-          ? normalizeReturnReminderConfig(configByKey?.[key] ?? definition.defaultConfig)
-          : (configByKey?.[key] ?? definition.defaultConfig),
-      ])
+      Object.entries(DEFAULT_NOTIFICATION_DEFS).map(([key, definition]) => {
+        const rawConfig = configByKey?.[key] ?? definition.defaultConfig;
+        if (key === RETURN_REMINDER_NOTIFICATION_KEY) {
+          return [key, normalizeReturnReminderConfig(rawConfig)];
+        }
+        const defaultConfig = definition.defaultConfig as { to?: unknown };
+        if (defaultConfig.to !== undefined) {
+          const config = rawConfig && typeof rawConfig === 'object'
+            ? rawConfig as Record<string, unknown>
+            : {};
+          return [key, {
+            ...config,
+            to: formatNotificationRecipients(config?.to, defaultConfig.to),
+          }];
+        }
+        return [key, rawConfig];
+      })
     );
 
     const doc = await NotificationSettings.findOneAndUpdate(
@@ -96,4 +108,3 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Fehler beim Speichern der Benachrichtigungseinstellungen' }, { status: 500 });
   }
 }
-

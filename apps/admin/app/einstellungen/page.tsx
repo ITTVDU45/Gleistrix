@@ -651,12 +651,13 @@ export default function EinstellungenPage() {
                         {(def?.defaultConfig?.to !== undefined || (configByKey?.[key] && configByKey[key].to !== undefined)) && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 pl-0">
                             <div className="w-full md:col-span-2">
-                              <Label className="text-xs mb-1 block">Empfänger-E-Mail</Label>
+                              <Label className="text-xs mb-1 block">Empfänger-E-Mail(s)</Label>
                               <div className="relative">
                                 <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                                 <Input
-                                  type="email"
-                                  placeholder="empfaenger@beispiel.de"
+                                  type="text"
+                                  inputMode="email"
+                                  placeholder="empfaenger@beispiel.de; weitere@beispiel.de"
                                   value={configByKey?.[key]?.to ?? def?.defaultConfig?.to ?? ''}
                                   onChange={(e) => {
                                     const value = e.target.value;
@@ -665,12 +666,14 @@ export default function EinstellungenPage() {
                                   onBlur={async (e) => {
                                     const value = e.target.value.trim();
                                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                                    if (!emailRegex.test(value)) {
+                                    const recipients = value.split(/[,;\n]+/).map(email => email.trim()).filter(Boolean);
+                                    if (recipients.length === 0 || recipients.some(email => !emailRegex.test(email))) {
                                       logger.warn('Ungültige E-Mail-Adresse für Benachrichtigung');
                                       return;
                                     }
                                     try {
-                                      const nextConfig = { ...configByKey, [key]: { ...(configByKey?.[key] || {}), to: value } };
+                                      const normalizedValue = Array.from(new Set(recipients.map(email => email.toLowerCase()))).join(', ');
+                                      const nextConfig = { ...configByKey, [key]: { ...(configByKey?.[key] || {}), to: normalizedValue } };
                                       setConfigByKey(nextConfig);
                                       await NotificationsApi.updateSettings({ enabledByKey, configByKey: nextConfig })
                                     } catch (err) {
@@ -680,6 +683,7 @@ export default function EinstellungenPage() {
                                   className="h-14 pl-14 pr-4 rounded-2xl w-full text-base border-slate-200 dark:border-slate-600 focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-700 dark:text-white"
                                 />
                               </div>
+                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Mehrere Adressen mit Komma oder Semikolon trennen.</p>
                             </div>
                           </div>
                         )}

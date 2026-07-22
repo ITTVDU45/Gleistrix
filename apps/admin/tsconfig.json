@@ -44,6 +44,7 @@
       "@/lib/errors": ["../../packages/shared/src/errors"],
       "@/lib/featureFlags": ["../../packages/shared/src/featureFlags"],
       "@/lib/notificationDefs": ["../../packages/shared/src/notificationDefs"],
+      "@/lib/notificationRecipients": ["../../packages/shared/src/notificationRecipients"],
       "@/lib/rateLimit": ["../../packages/shared/src/rateLimit"],
       "@/lib/utils": ["../../packages/shared/src/utils"],
       "@/lib/utils/*": ["lib/utils/*"],

@@ -1,4 +1,23 @@
 export const RETURN_REMINDER_NOTIFICATION_KEY = 'Anstehende Lager-Rückgabe – Erinnerung an Ausgeber';
+export const PROJECT_COMPLETED_NOTIFICATION_KEY = 'Projekt auf „abgeschlossen“ gesetzt – E-Mail an Buchhaltung';
+export const PROJECT_FINISHED_NOTIFICATION_KEY = 'Projekt auf „fertiggestellt“ gesetzt – E-Mail an Buchhaltung';
+export const PROJECT_PARTIALLY_BILLED_NOTIFICATION_KEY = 'Projekt teilweise abgerechnet – E-Mail an Buchhaltung';
+export const PROJECT_BILLED_NOTIFICATION_KEY = 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung';
+export const BILLING_CREATED_NOTIFICATION_KEY = 'Abrechnung erstellt – E-Mail an Buchhaltung';
+
+export const PROJECT_STATUS_NOTIFICATION_KEYS = {
+  abgeschlossen: PROJECT_COMPLETED_NOTIFICATION_KEY,
+  fertiggestellt: PROJECT_FINISHED_NOTIFICATION_KEY,
+  teilweise_abgerechnet: PROJECT_PARTIALLY_BILLED_NOTIFICATION_KEY,
+  geleistet: PROJECT_BILLED_NOTIFICATION_KEY,
+} as const;
+
+export type NotifiableProjectStatus = keyof typeof PROJECT_STATUS_NOTIFICATION_KEYS;
+
+export function notificationKeyForProjectStatus(status: unknown): string | null {
+  if (typeof status !== 'string') return null;
+  return PROJECT_STATUS_NOTIFICATION_KEYS[status as NotifiableProjectStatus] ?? null;
+}
 
 export type ReturnReminderUnit = 'days' | 'weeks' | 'months';
 
@@ -35,25 +54,43 @@ export const DEFAULT_NOTIFICATION_DEFS = {
     defaultEnabled: true,
     defaultConfig: DEFAULT_RETURN_REMINDER_CONFIG,
   },
-  'Projekt auf „fertiggestellt“ gesetzt – E-Mail an Buchhaltung': {
-    key: 'Projekt auf „fertiggestellt“ gesetzt – E-Mail an Buchhaltung',
+  [PROJECT_COMPLETED_NOTIFICATION_KEY]: {
+    key: PROJECT_COMPLETED_NOTIFICATION_KEY,
+    label: 'E-Mail an Buchhaltung bei Status "abgeschlossen"',
+    description:
+      'Wenn ein Projekt auf "abgeschlossen" gesetzt wird, sende automatisch eine E-Mail an die hinterlegten Empfänger.',
+    defaultEnabled: false,
+    defaultConfig: { to: 'Buchhaltung@mulheimerwachdienst.de' },
+  },
+  [PROJECT_FINISHED_NOTIFICATION_KEY]: {
+    key: PROJECT_FINISHED_NOTIFICATION_KEY,
     label: 'E-Mail an Buchhaltung bei Status "fertiggestellt"',
     description:
       'Wenn ein Projekt auf "fertiggestellt" gesetzt wird, sende automatisch eine E-Mail mit den PDF-Unterlagen an die Buchhaltung.',
     defaultEnabled: true,
     defaultConfig: { to: 'Buchhaltung@mulheimerwachdienst.de' },
   },
-  // Abwärtskompatibler Alt-Schlüssel, falls Konfigurationen bereits existieren
-  'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung': {
-    key: 'Projekt auf „geleistet“ gesetzt – E-Mail an Buchhaltung',
-    label: 'E-Mail an Buchhaltung bei Status "geleistet"',
+  [PROJECT_PARTIALLY_BILLED_NOTIFICATION_KEY]: {
+    key: PROJECT_PARTIALLY_BILLED_NOTIFICATION_KEY,
+    label: 'E-Mail an Buchhaltung bei Teilabrechnung',
     description:
-      'Alt: Wenn ein Projekt auf "geleistet" gesetzt wird, sende automatisch eine E-Mail mit den PDF-Unterlagen an die Buchhaltung.',
+      'Wenn sich ein Projekt nach einer Abrechnung im Status "teilweise abgerechnet" befindet, sende automatisch eine E-Mail an die hinterlegten Empfänger.',
     defaultEnabled: false,
     defaultConfig: { to: 'Buchhaltung@mulheimerwachdienst.de' },
   },
-  'Abrechnung erstellt – E-Mail an Buchhaltung': {
-    key: 'Abrechnung erstellt – E-Mail an Buchhaltung',
+  // Der Schlüssel existiert bereits in älteren Installationen. Er wird jetzt
+  // für den tatsächlichen Systemstatus "geleistet" (vollständig abgerechnet)
+  // weiterverwendet, sodass bestehende Einstellungen erhalten bleiben.
+  [PROJECT_BILLED_NOTIFICATION_KEY]: {
+    key: PROJECT_BILLED_NOTIFICATION_KEY,
+    label: 'E-Mail an Buchhaltung bei vollständiger Abrechnung',
+    description:
+      'Wenn ein Projekt vollständig abgerechnet wurde und den Status "geleistet" erhält, sende automatisch eine E-Mail an die hinterlegten Empfänger.',
+    defaultEnabled: false,
+    defaultConfig: { to: 'Buchhaltung@mulheimerwachdienst.de' },
+  },
+  [BILLING_CREATED_NOTIFICATION_KEY]: {
+    key: BILLING_CREATED_NOTIFICATION_KEY,
     label: 'E-Mail an Buchhaltung bei erstellter Abrechnung',
     description:
       'Wenn eine Abrechnung erstellt wird, sende automatisch eine E-Mail mit der Abrechnung an die Buchhaltung.',
