@@ -2,11 +2,12 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { LocksApi } from '@/lib/api/locks'
 import type { Project } from '../types';
-import DynamicProjectStats from './DynamicProjectStats';
 import HoursByFunctionCard from './HoursByFunctionCard';
 import ProjectListFilter from './ProjectListFilter';
 import ProjectTableClient from './ProjectTableClient';
 import { normalizeTimeEntryToBillingRows } from '@/lib/timeEntry/billingRows';
+import { aggregateProjectStats } from '@/lib/timeEntry/projectStats';
+import type { SummaryStat } from '@/components/ui/summary-stats';
 import type { HoursByFunctionEntry } from '@/lib/timeEntry/hoursByFunction';
 
 interface ProjectListWithFilterProps {
@@ -43,6 +44,17 @@ export default function ProjectListWithFilter({ projects }: ProjectListWithFilte
     ).filter((e: any) => !(typeof e.bemerkung === 'string' && e.bemerkung.includes('Fortsetzung vom Vortag')))
   }, [filteredProjects])
 
+  const summaryStats: SummaryStat[] = useMemo(() => {
+    const stats = aggregateProjectStats(filteredProjects)
+
+    return [
+      { label: 'Gesamt', value: stats.gesamt, tone: 'blue' },
+      { label: 'Aktiv', value: stats.aktiv, tone: 'emerald' },
+      { label: 'Abgeschlossen', value: stats.abgeschlossen, tone: 'fuchsia' },
+      { label: 'Gesamtstunden', value: `${stats.totalStunden.toFixed(1)}h`, tone: 'amber' },
+    ]
+  }, [filteredProjects])
+
   return (
     <div className="space-y-8 lg:space-y-10">
       <LockedProjectDialog lockedProjectId={lockedProjectId} onClose={() => setLockedProjectId(null)} />
@@ -54,8 +66,7 @@ export default function ProjectListWithFilter({ projects }: ProjectListWithFilte
             Kennzahlen, Filter und Tabelle sind klar voneinander getrennt und ruhiger gruppiert.
           </p>
         </div>
-        <DynamicProjectStats projects={filteredProjects} />
-        <HoursByFunctionCard timeEntries={hoursByFunctionEntries} />
+        <HoursByFunctionCard timeEntries={hoursByFunctionEntries} summaryStats={summaryStats} />
       </section>
 
       <section className="space-y-4">

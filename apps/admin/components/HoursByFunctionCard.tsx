@@ -3,6 +3,7 @@
 import React from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Layers, Sparkles, ChevronDown } from 'lucide-react'
+import { SummaryStats, type SummaryStat } from '@/components/ui/summary-stats'
 import {
   aggregateHoursByFunction,
   formatFunctionHours,
@@ -14,6 +15,8 @@ interface HoursByFunctionCardProps {
   title?: string
   className?: string
   defaultOpen?: boolean
+  /** Kennzahlen, die dauerhaft im Kopf der Karte angezeigt werden. */
+  summaryStats?: SummaryStat[]
 }
 
 export default function HoursByFunctionCard({
@@ -21,6 +24,7 @@ export default function HoursByFunctionCard({
   title = 'Stunden pro Funktion & Extra',
   className = '',
   defaultOpen = false,
+  summaryStats = [],
 }: HoursByFunctionCardProps) {
   const [open, setOpen] = React.useState(defaultOpen)
   const { rows, totalStunden, totalExtra } = React.useMemo(
@@ -67,6 +71,11 @@ export default function HoursByFunctionCard({
             />
           </div>
         </button>
+
+        <SummaryStats
+          stats={summaryStats}
+          className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-700/60"
+        />
 
         {open && (
           <>

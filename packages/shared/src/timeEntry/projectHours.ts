@@ -1,6 +1,6 @@
 import { normalizeProjectTimeEntriesToBillingRows } from './billingRows'
 
-type ProjectWithTimes = {
+export type ProjectWithTimes = {
   mitarbeiterZeiten?: Record<string, any[] | undefined>
 }
 
