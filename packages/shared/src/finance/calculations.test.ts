@@ -10,6 +10,7 @@ import {
   parseGermanMoneyToCents,
   plannedProjectRevenueCents,
   recurringPeriodKey,
+  resolveProjectRevenueCents,
   selectEffectiveEmployeeRate,
   selectEmployeeRateForFunktion,
 } from './calculations'
@@ -74,6 +75,20 @@ describe('Finanzberechnungen', () => {
   test('nutzt Positionssummen vor dem Fallback der Leistungsanfrage', () => {
     expect(plannedProjectRevenueCents({ leistungen: [{ positionen: [{ gesamtsumme: '100,00 €' }, { gesamtsumme: '50,00 €' }] }], leistungsanfrage: { summe: '999,00 €' } })).toBe(15_000)
     expect(plannedProjectRevenueCents({ leistungen: [], leistungsanfrage: { summe: '999,00 €' } })).toBe(99_900)
+  })
+
+  test('bevorzugt die LV-Nettosumme vor den Projektleistungen', () => {
+    const project = {
+      leistungen: [{ positionen: [{ gesamtsumme: '100,00 €' }] }],
+      leistungsanfrage: { summe: '999,00 €' },
+    }
+    // Ausschreibung (Euro) gewinnt
+    expect(resolveProjectRevenueCents(project, 2_500)).toBe(250_000)
+    // ohne/ungültige LV-Summe greift die bisherige Reihenfolge
+    expect(resolveProjectRevenueCents(project, null)).toBe(10_000)
+    expect(resolveProjectRevenueCents(project, 0)).toBe(10_000)
+    expect(resolveProjectRevenueCents(project, Number.NaN)).toBe(10_000)
+    expect(resolveProjectRevenueCents({ leistungsanfrage: { summe: '999,00 €' } }, undefined)).toBe(99_900)
   })
 
   test('berechnet Budgetauslastung und wiederkehrende Perioden deterministisch', () => {
