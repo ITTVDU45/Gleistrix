@@ -8,6 +8,7 @@ import ReceivedInvoice from '@/lib/models/ReceivedInvoice'
 import { Employee } from '@/lib/models/Employee'
 import { Project } from '@/lib/models/Project'
 import { Subcompany } from '@/lib/models/Subcompany'
+import Ausschreibung from '@/lib/models/Ausschreibung'
 import { normalizeProjectTimeEntriesToBillingRows, isContinuationEntry } from '@/lib/timeEntry/billingRows'
 import { buildAssignmentKey } from '@/lib/subunternehmen/assignments'
 import { shouldUseSubcontractorEstimate } from '@/lib/finance-core/subcontractorCosts'
@@ -17,7 +18,7 @@ import {
   calculateEmployeeCost,
   entryAffectsBasis,
   eurosToCents,
-  plannedProjectRevenueCents,
+  resolveProjectRevenueCents,
   selectEmployeeRateForFunktion,
 } from '@/lib/finance-core/calculations'
 import type {
@@ -54,6 +55,12 @@ interface ProjectRevenueSource {
   mitarbeiterZeiten?: Record<string, unknown>
   datumEnde?: string
   datumBeginn?: string
+}
+
+/** Projektbezogene Ausschreibung, reduziert auf die für den Umsatz nötigen Felder. */
+interface TenderLean {
+  projectId?: string
+  netSum?: number | null
 }
 
 /**
@@ -139,6 +146,17 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
     FinanceRecurringRule.find({}).sort({ nextDueDate: 1 }).lean(),
   ])
 
+  // Hochgeladene Leistungsverzeichnisse: je Projekt zählt die neueste Ausschreibung.
+  const tenders = await Ausschreibung.find(
+    filters.projectId ? { projectId: filters.projectId } : {}
+  ).select('projectId netSum createdAt').sort({ createdAt: -1 }).lean<TenderLean[]>()
+  const tenderNetSumByProject = new Map<string, number>()
+  tenders.forEach(tender => {
+    const key = String(tender.projectId || '')
+    if (!key || tenderNetSumByProject.has(key)) return
+    if (typeof tender.netSum === 'number' && Number.isFinite(tender.netSum)) tenderNetSumByProject.set(key, tender.netSum)
+  })
+
   const budgetRanges = budgets.map(budgetBounds)
   if (budgetRanges.length) {
     const budgetFrom = new Date(Math.min(...budgetRanges.map(range => range.from.getTime())))
@@ -190,7 +208,7 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
     // Projektumsatz aus den hinterlegten Leistungen als abgeleiteten Ist-Umsatz buchen
     // (analog zu den Personalkosten: readonly, geschätzt, nicht persistiert).
     const revenueDay = projectRevenueDay(project)
-    const projectRevenueCents = plannedProjectRevenueCents(project)
+    const projectRevenueCents = resolveProjectRevenueCents(project, tenderNetSumByProject.get(projectId))
     if (revenueDay && projectRevenueCents > 0) {
       entries.push({
         id: `derived:revenue:${projectId}`,
@@ -318,9 +336,16 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
     }
   }
 
+  // Bezahlte Rechnungen ohne eigene Kontozuordnung wirken auf das Standardkonto,
+  // damit Liquidität, Auszahlung und Cashflow nicht leer bleiben.
+  const defaultAccount = accounts.find((account: any) => account.isDefault && account.isActive)
+    || accounts.find((account: any) => account.isActive)
+  const defaultAccountId = defaultAccount ? asId(defaultAccount._id) : undefined
+
   for (const invoice of invoices as any[]) {
     const subcompany = subcompanyMap.get(asId(invoice.subcontractorCompanyId))
     const paid = invoice.status === 'PAID'
+    const invoiceAccountId = asId(invoice.accountId) || defaultAccountId
     let invoiceRelevant = false
     ;(invoice.lineItems || []).forEach((line: any, index: number) => {
       const recognitionDate = line.serviceDate ? new Date(`${line.serviceDate}T12:00:00.000Z`) : new Date(invoice.invoiceDate)
@@ -349,6 +374,8 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
         paidAt: paidDate?.toISOString(),
         paymentStatus: paid ? 'paid' : 'open',
         ledgerEffect: paid ? 'both' : 'performance',
+        accountId: paid ? invoiceAccountId : undefined,
+        accountName: paid && invoiceAccountId ? accountMap.get(invoiceAccountId)?.name : undefined,
         netCents,
         vatCents,
         grossCents,
@@ -366,7 +393,7 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
       })
     })
     if (invoiceRelevant && paid && !invoice.paidAt) warnings.push(`Rechnung ${invoice.invoiceNumber} ist als bezahlt markiert, hat aber kein Zahlungsdatum.`)
-    if (invoiceRelevant && paid) warnings.push(`Bezahlte Rechnung ${invoice.invoiceNumber} ist keinem Finanzkonto zugeordnet; sie beeinflusst keinen Kontosaldo.`)
+    if (invoiceRelevant && paid && !invoiceAccountId) warnings.push(`Bezahlte Rechnung ${invoice.invoiceNumber} kann keinem Finanzkonto zugeordnet werden; bitte ein Finanzkonto anlegen.`)
   }
 
   const filteredEntries = entries
@@ -396,9 +423,18 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
     paymentStatus: 'paid',
     ledgerEffect: { $in: ['cash', 'both'] },
   }).select('accountId direction grossCents paidAt recognitionDate').lean()
+  // Abgeleitete Zahlungen (z.B. bezahlte Sub-Rechnungen) sind nicht persistiert,
+  // wirken aber genauso auf den Kontosaldo wie erfasste Buchungen.
+  const derivedCashEntries = entries.filter(entry => entry.derived && entry.accountId && entryAffectsBasis(entry, 'cash'))
+
   const accountDtos: FinanceAccountDto[] = accounts.map((account: any) => {
-    const movements = accountCashEntries.filter((entry: any) => asId(entry.accountId) === asId(account._id) && new Date(entry.paidAt || entry.recognitionDate) >= new Date(account.balanceDate))
+    const accountId = asId(account._id)
+    const balanceDate = new Date(account.balanceDate)
+    const movements = accountCashEntries.filter((entry: any) => asId(entry.accountId) === accountId && new Date(entry.paidAt || entry.recognitionDate) >= balanceDate)
     const movementCents = movements.reduce((total: number, entry: any) => total + (entry.direction === 'income' ? entry.grossCents : -entry.grossCents), 0)
+      + derivedCashEntries
+        .filter(entry => entry.accountId === accountId && new Date(entry.paidAt || entry.recognitionDate) >= balanceDate)
+        .reduce((total, entry) => total + (entry.direction === 'income' ? entry.grossCents : -entry.grossCents), 0)
     return {
       id: asId(account._id), name: account.name, type: account.type, iban: account.iban || undefined,
       bankName: account.bankName || undefined, openingBalanceCents: account.openingBalanceCents,
@@ -416,7 +452,7 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
     const allCosts = sum(projectEntries, 'expense', 'netCents')
     const result = revenue - allCosts
     return {
-      projectId, projectName: project.name, plannedRevenueCents: plannedProjectRevenueCents(project), actualRevenueCents: revenue,
+      projectId, projectName: project.name, plannedRevenueCents: resolveProjectRevenueCents(project, tenderNetSumByProject.get(projectId)), actualRevenueCents: revenue,
       employeeCostCents: employee, subcontractorCostCents: subcontractor, otherCostCents: allCosts - employee - subcontractor,
       resultCents: result, marginPercent: revenue > 0 ? Math.round(result / revenue * 1000) / 10 : null,
     }
