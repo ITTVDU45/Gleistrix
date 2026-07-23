@@ -63,6 +63,26 @@ interface TenderLean {
   netSum?: number | null
 }
 
+/** Gesammelte Lohnsatz-Lücke je Funktion: betroffene Mitarbeiter und Tage. */
+interface MissingEmployeeRateGroup {
+  funktion: string
+  employees: Map<string, string>
+  days: Set<string>
+}
+
+/** Gesammelte Funktionssatz-Lücke je Subunternehmen und Funktion. */
+interface MissingFunctionRateGroup {
+  company: string
+  funktion: string
+  days: Set<string>
+}
+
+const dayRange = (days: ReadonlySet<string>) => {
+  const sorted = [...days].sort()
+  if (!sorted.length) return ''
+  return sorted.length === 1 ? sorted[0] : `${sorted[0]} bis ${sorted[sorted.length - 1]}`
+}
+
 /**
  * Stichtag des Projektumsatzes: der letzte erfasste Einsatztag, sonst Projektende bzw. -beginn.
  * Es werden ausschließlich ISO-Tage (YYYY-MM-DD) akzeptiert, damit abweichende Datumsformate
@@ -196,6 +216,10 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
   const lookup = { categories: categoryMap, accounts: accountMap, projects: projectMap, employees: employeeMap, subcompanies: subcompanyMap }
   const entries: FinanceEntryDto[] = dbEntries.map((entry: any) => serializeFinanceEntry(entry, lookup) as FinanceEntryDto)
   const warnings: string[] = []
+  // Fehlende Sätze werden gesammelt und am Ende gebündelt gemeldet, damit aus
+  // vielen Einzelzeilen ein Hinweis je Funktion wird.
+  const missingEmployeeRates = new Map<string, MissingEmployeeRateGroup>()
+  const missingFunctionRates = new Map<string, MissingFunctionRateGroup>()
 
   const approvedAssignmentKeys = new Set<string>()
   invoices.forEach((invoice: any) => invoice.lineItems?.forEach((line: any) => {
@@ -250,7 +274,13 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
         }
         const hourlyRate = rateForFunktion(company, row.funktion)
         if (hourlyRate === undefined) {
-          warnings.push(`Kein Funktionssatz für ${company.name} / ${row.funktion} (${row.day}).`)
+          const funktion = String(row.funktion || 'unbekannt')
+          const companyName = String(company.name || 'Unbekannt')
+          const key = `${asId(company._id) || companyName}::${funktion}`
+          const group = missingFunctionRates.get(key)
+            || { company: companyName, funktion, days: new Set<string>() }
+          group.days.add(row.day)
+          missingFunctionRates.set(key, group)
           continue
         }
         const baseCents = eurosToCents(hourlyRate)
@@ -300,7 +330,12 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
       const employee = matches[0]
       const rate = selectEmployeeRateForFunktion(ratesByEmployee.get(asId(employee._id)) || [], row.funktion, row.day)
       if (!rate) {
-        warnings.push(`Kein gültiger Lohnsatz für ${employee.name} am ${row.day} (Funktion ${row.funktion || 'unbekannt'}).`)
+        const funktion = String(row.funktion || 'unbekannt')
+        const group = missingEmployeeRates.get(funktion)
+          || { funktion, employees: new Map<string, string>(), days: new Set<string>() }
+        group.employees.set(asId(employee._id), String(employee.name || 'Unbekannt'))
+        group.days.add(row.day)
+        missingEmployeeRates.set(funktion, group)
         continue
       }
       const netCents = calculateEmployeeCost({
@@ -486,6 +521,24 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
     map.set(key, current)
     return map
   }, new Map<string, { categoryId?: string; name: string; valueCents: number; color: string }>()).values()].sort((a, b) => b.valueCents - a.valueCents)
+
+  // Gesammelte Konfigurationslücken gebündelt melden: ein Hinweis je Funktion
+  // statt einer Zeile je Mitarbeiter und Tag.
+  missingEmployeeRates.forEach(group => {
+    const names = [...group.employees.values()].sort((a, b) => a.localeCompare(b, 'de'))
+    const dayCount = group.days.size
+    warnings.push(
+      `${names.length} Mitarbeiter ohne Stundenlohn für Funktion ${group.funktion}`
+      + ` (${dayCount} ${dayCount === 1 ? 'Tag' : 'Tage'}, ${dayRange(group.days)}): ${names.join(', ')}.`
+    )
+  })
+  missingFunctionRates.forEach(group => {
+    const dayCount = group.days.size
+    warnings.push(
+      `Kein Funktionssatz für ${group.company} / ${group.funktion}`
+      + ` (${dayCount} ${dayCount === 1 ? 'Tag' : 'Tage'}, ${dayRange(group.days)}).`
+    )
+  })
 
   // Ohne angefragten Zeitraum meldet die Übersicht den tatsächlichen Datenbestand
   // (frühester Beleg bis heute) zurück, damit die Oberfläche direkt die Historie zeigt.
