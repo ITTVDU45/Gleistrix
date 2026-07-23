@@ -76,6 +76,23 @@ export function plannedProjectRevenueCents(project: {
   return positionTotal > 0 ? positionTotal : parseGermanMoneyToCents(project.leistungsanfrage?.summe)
 }
 
+export interface ProjectRevenueSources {
+  leistungen?: Array<{ positionen?: Array<{ gesamtsumme?: unknown }> }>
+  leistungsanfrage?: { summe?: unknown }
+}
+
+/**
+ * Projektumsatz in Cent. Das hochgeladene Leistungsverzeichnis (Ausschreibung) hat Vorrang,
+ * danach die Positionssummen der Projektleistungen, zuletzt die Summe der Leistungsanfrage.
+ * `tenderNetSum` wird in Euro erwartet (GAEB-Nettosumme).
+ */
+export function resolveProjectRevenueCents(project: ProjectRevenueSources, tenderNetSum?: number | null): number {
+  if (typeof tenderNetSum === 'number' && Number.isFinite(tenderNetSum) && tenderNetSum > 0) {
+    return eurosToCents(tenderNetSum)
+  }
+  return plannedProjectRevenueCents(project)
+}
+
 export function entryAffectsBasis(entry: Pick<FinanceEntryDto, 'ledgerEffect' | 'paymentStatus'>, basis: FinanceBudgetBasis) {
   if (entry.paymentStatus === 'cancelled') return false
   if (basis === 'performance') return entry.ledgerEffect === 'performance' || entry.ledgerEffect === 'both'
