@@ -12,8 +12,11 @@ export async function GET(request: NextRequest) {
   const now = new Date()
   const fromParam = request.nextUrl.searchParams.get('from')
   const toParam = request.nextUrl.searchParams.get('to')
-  const from = fromParam ? new Date(`${fromParam}T00:00:00.000Z`) : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-  const to = toParam ? new Date(`${toParam}T23:59:59.999Z`) : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+  // Ohne Zeitraum wird der gesamte Datenbestand geladen; getFinanceOverview meldet
+  // anschließend den tatsächlich belegten Zeitraum zurück.
+  const autoRange = !fromParam && !toParam
+  const from = fromParam ? new Date(`${fromParam}T00:00:00.000Z`) : new Date(Date.UTC(2000, 0, 1))
+  const to = toParam ? new Date(`${toParam}T23:59:59.999Z`) : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999))
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
     return NextResponse.json({ success: false, error: 'Ungültiger Zeitraum.' }, { status: 400 })
   }
@@ -21,6 +24,7 @@ export async function GET(request: NextRequest) {
     const data = await getFinanceOverview({
       from,
       to,
+      autoRange,
       projectId: request.nextUrl.searchParams.get('projectId') || undefined,
       accountId: request.nextUrl.searchParams.get('accountId') || undefined,
     })
