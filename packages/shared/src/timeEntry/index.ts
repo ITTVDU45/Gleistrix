@@ -51,6 +51,7 @@ export type {
 // Calculation utilities
 export {
   calculateHoursForDay,
+  calculateWorkHoursFromTimes,
   calculateNightBonus,
   calculateSundayHours,
   calculateHolidayHours,

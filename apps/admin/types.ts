@@ -84,6 +84,7 @@ export interface TimeEntry {
   start: string
   ende: string
   stunden: number
+  stundenManuell?: boolean // true = Arbeitsstunden manuell gesetzt (nicht aus Start/Ende berechnet)
   fahrtstunden: number
   pause: string
   extra: number
