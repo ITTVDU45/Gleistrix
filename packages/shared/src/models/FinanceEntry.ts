@@ -45,7 +45,7 @@ const FinanceEntrySchema = new Schema<IFinanceEntry>({
   ledgerEffect: { type: String, enum: ['performance', 'cash', 'both'], default: 'both', index: true },
   source: {
     type: String,
-    enum: ['manual', 'ai_receipt', 'recurring', 'bank_csv', 'employee_time', 'subcontractor_estimate', 'subcontractor_invoice', 'adjustment'],
+    enum: ['manual', 'ai_receipt', 'recurring', 'bank_csv', 'employee_time', 'project_revenue', 'subcontractor_estimate', 'subcontractor_invoice', 'adjustment'],
     default: 'manual',
     index: true,
   },

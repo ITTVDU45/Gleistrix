@@ -8,6 +8,7 @@ export type FinanceSource =
   | 'recurring'
   | 'bank_csv'
   | 'employee_time'
+  | 'project_revenue'
   | 'subcontractor_estimate'
   | 'subcontractor_invoice'
   | 'adjustment'

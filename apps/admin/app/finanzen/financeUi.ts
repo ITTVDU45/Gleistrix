@@ -9,7 +9,7 @@ export const dateInput = (value?: string | Date) => {
 
 export const sourceLabels: Record<FinanceEntryDto['source'], string> = {
   manual: 'Manuell', ai_receipt: 'KI-Beleg', recurring: 'Wiederkehrend', bank_csv: 'Bankimport',
-  employee_time: 'Arbeitszeit', subcontractor_estimate: 'Sub-Schätzung', subcontractor_invoice: 'Sub-Rechnung', adjustment: 'Korrektur',
+  employee_time: 'Arbeitszeit', project_revenue: 'Projektumsatz', subcontractor_estimate: 'Sub-Schätzung', subcontractor_invoice: 'Sub-Rechnung', adjustment: 'Korrektur',
 }
 
 export const downloadBlob = (content: BlobPart, fileName: string, type: string) => {

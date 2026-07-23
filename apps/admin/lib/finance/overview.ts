@@ -36,6 +36,8 @@ interface OverviewFilters {
   to: Date
   projectId?: string
   accountId?: string
+  /** true, wenn kein Zeitraum angefragt wurde: der gemeldete Zeitraum folgt dann den echten Daten. */
+  autoRange?: boolean
 }
 
 const asId = (value: unknown) => value ? String(value) : ''
@@ -46,6 +48,28 @@ const asNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 const dayIso = (day: string) => new Date(`${day}T12:00:00.000Z`).toISOString()
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+interface ProjectRevenueSource {
+  mitarbeiterZeiten?: Record<string, unknown>
+  datumEnde?: string
+  datumBeginn?: string
+}
+
+/**
+ * Stichtag des Projektumsatzes: der letzte erfasste Einsatztag, sonst Projektende bzw. -beginn.
+ * Es werden ausschließlich ISO-Tage (YYYY-MM-DD) akzeptiert, damit abweichende Datumsformate
+ * keinen falschen Stichtag erzeugen.
+ */
+function projectRevenueDay(project: ProjectRevenueSource): string | undefined {
+  const days = Object.keys(project.mitarbeiterZeiten || {}).filter(day => ISO_DAY.test(day)).sort()
+  if (days.length) return days[days.length - 1]
+  for (const candidate of [project.datumEnde, project.datumBeginn]) {
+    const value = String(candidate || '').slice(0, 10)
+    if (ISO_DAY.test(value)) return value
+  }
+  return undefined
+}
 
 function budgetBounds(budget: any) {
   if (budget.period === 'month') {
@@ -162,6 +186,36 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
 
   for (const project of projects as any[]) {
     const projectId = asId(project._id)
+
+    // Projektumsatz aus den hinterlegten Leistungen als abgeleiteten Ist-Umsatz buchen
+    // (analog zu den Personalkosten: readonly, geschätzt, nicht persistiert).
+    const revenueDay = projectRevenueDay(project)
+    const projectRevenueCents = plannedProjectRevenueCents(project)
+    if (revenueDay && projectRevenueCents > 0) {
+      entries.push({
+        id: `derived:revenue:${projectId}`,
+        direction: 'income',
+        title: `${project.name} · Projektumsatz`,
+        description: project.auftragsnummer ? `Auftrag ${project.auftragsnummer}` : undefined,
+        source: 'project_revenue',
+        sourceKey: `project_revenue:${projectId}`,
+        recognitionDate: dayIso(revenueDay),
+        paymentStatus: 'not_applicable',
+        ledgerEffect: 'performance',
+        netCents: projectRevenueCents,
+        vatCents: 0,
+        grossCents: projectRevenueCents,
+        vatRate: 0,
+        projectId,
+        projectName: project.name,
+        categoryId: asId(categoryBySlug.get('umsatz')?._id),
+        categoryName: categoryBySlug.get('umsatz')?.name,
+        derived: true,
+        readOnly: true,
+        estimated: true,
+      })
+    }
+
     const rows = normalizeProjectTimeEntriesToBillingRows(project.mitarbeiterZeiten || {})
     for (const row of rows) {
       const rowDate = new Date(`${row.day}T12:00:00.000Z`)
@@ -397,8 +451,14 @@ export async function getFinanceOverview(filters: OverviewFilters): Promise<Fina
     return map
   }, new Map<string, { categoryId?: string; name: string; valueCents: number; color: string }>()).values()].sort((a, b) => b.valueCents - a.valueCents)
 
+  // Ohne angefragten Zeitraum meldet die Übersicht den tatsächlichen Datenbestand
+  // (frühester Beleg bis heute) zurück, damit die Oberfläche direkt die Historie zeigt.
+  const effectiveFrom = filters.autoRange && filteredEntries.length
+    ? new Date(Math.min(...filteredEntries.map(entry => new Date(entry.recognitionDate).getTime())))
+    : filters.from
+
   return {
-    period: { from: filters.from.toISOString(), to: filters.to.toISOString() },
+    period: { from: effectiveFrom.toISOString(), to: filters.to.toISOString() },
     filters: { projectId: filters.projectId, accountId: filters.accountId },
     kpis: {
       liquidityCents: accountDtos.filter(account => account.isActive).reduce((total, account) => total + account.currentBalanceCents, 0),
