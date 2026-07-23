@@ -7,7 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import type { Project, TimeEntry, MitarbeiterFunktion, Employee, ExternalWorkerFunction } from '../types'
 import type { BreakSegment } from '@/lib/timeEntry'
-import { calculateRequiredBreakMinutes, calculateBreakSegments } from '@/lib/timeEntry'
+import {
+  calculateRequiredBreakMinutes,
+  calculateBreakSegments,
+  calculateWorkHoursFromTimes,
+  parseNumber
+} from '@/lib/timeEntry'
+import { WorkHoursField, formatHours } from './WorkHoursField'
 import { format, parseISO, addDays } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -209,6 +215,18 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
   const [showHolidayDropdown, setShowHolidayDropdown] = React.useState(false)
   const [selectedHolidayDays, setSelectedHolidayDays] = React.useState<string[]>([])
 
+  // Arbeitsstunden: automatisch aus Start/Ende/Pause, optional manuell überschrieben
+  const [manualHours, setManualHours] = React.useState<string | null>(
+    entry.stundenManuell ? formatHours(entry.stunden) : null
+  )
+
+  // Manuell überschreibbar: gilt nur für die normalen Arbeitsstunden,
+  // Nacht-/Sonntags-/Feiertagsstunden bleiben aus Start/Ende berechnet.
+  const autoHours = React.useMemo(
+    () => calculateWorkHoursFromTimes(formData.start, formData.ende, formData.pause),
+    [formData.start, formData.ende, formData.pause]
+  )
+
   // Feiertage aus DB laden
   const [dbHolidays, setDbHolidays] = React.useState<string[]>([])
   React.useEffect(() => {
@@ -401,6 +419,9 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
 
   // Hilfsfunktion: Sind alle Pflichtfelder ausgefüllt?
   function isFormValid() {
+    // Manueller Stundenwert muss gesetzt und groesser 0 sein
+    if (manualHours !== null && !(parseNumber(manualHours) > 0)) return false;
+
     if (activeTab === 'external') {
       const hasAllExternalFunctions =
         externalWorkerFunctions.length === externalCount &&
@@ -465,7 +486,11 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       endDay = format(nextDay, 'yyyy-MM-dd');
     }
     const endISO = `${endDay}T${formData.ende}`;
-    const totalHours = calculateHoursForDay(startISO, endISO) - (parseFloat(formData.pause.replace(',', '.')) || 0);
+    // Manuelle Arbeitsstunden überschreiben nur die Gesamtstunden,
+    // Nacht-/Sonntags-/Feiertagsstunden bleiben berechnet.
+    const isManualHours = manualHours !== null;
+    const berechneteStunden = calculateHoursForDay(startISO, endISO) - (parseFloat(formData.pause.replace(',', '.')) || 0);
+    const totalHours = isManualHours ? Math.max(0, parseNumber(manualHours)) : berechneteStunden;
     
     // Berechne Feiertagsstunden basierend auf selectedHolidayDays für diesen Tag
     let feiertagsStunden: number = 0;
@@ -477,7 +502,9 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       
       if (day === endDay) {
         if (isStartDayHoliday) {
-          feiertagsStunden = Math.round(totalHours);
+          // Immer aus den berechneten Stunden: Zuschläge bleiben unabhängig
+          // von einer manuellen Korrektur der Arbeitsstunden.
+          feiertagsStunden = Math.round(berechneteStunden);
         }
       } else {
         if (isStartDayHoliday) {
@@ -516,6 +543,7 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
       start: startISO,
       ende: endISO,
       stunden: totalHours,
+      stundenManuell: isManualHours,
       pause: formData.pause,
       extra: parseFloat(formData.extra.replace(',', '.')) || 0,
       fahrtstunden: parseFloat(formData.fahrtstunden.replace(',', '.')) || 0,
@@ -780,6 +808,13 @@ export function EditTimeEntryForm({ project, selectedDate, entry, onEdit, onClos
             />
           </div>
         </div>
+
+        <WorkHoursField
+          autoHours={autoHours}
+          manualHours={manualHours}
+          onChange={setManualHours}
+          idPrefix="edit-arbeitsstunden"
+        />
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">

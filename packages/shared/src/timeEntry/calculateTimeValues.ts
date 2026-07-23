@@ -16,6 +16,34 @@ export function calculateHoursForDay(startISO: string, endISO: string): number {
 }
 
 /**
+ * Berechnet die reinen Arbeitsstunden aus Uhrzeiten (HH:mm) abzüglich Pause.
+ * Endzeit <= Startzeit wird als Schicht über Mitternacht gewertet.
+ * @param startTime - Startzeit als HH:mm
+ * @param endTime - Endzeit als HH:mm
+ * @param pause - Pausenzeit als String (z.B. "0,5" oder "0.5")
+ * @returns Arbeitsstunden als Dezimalzahl (nie negativ)
+ */
+export function calculateWorkHoursFromTimes(startTime: string, endTime: string, pause: string): number {
+  if (!startTime || !endTime) return 0
+
+  const toMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number)
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return NaN
+    return hours * 60 + minutes
+  }
+
+  const startMinutes = toMinutes(startTime)
+  const endMinutes = toMinutes(endTime)
+  if (Number.isNaN(startMinutes) || Number.isNaN(endMinutes)) return 0
+
+  const durationMinutes = endMinutes > startMinutes
+    ? endMinutes - startMinutes
+    : endMinutes - startMinutes + 24 * 60
+
+  return Math.max(0, durationMinutes / 60 - parseNumber(pause))
+}
+
+/**
  * Berechnet die Nachtzulage (23:00-06:00) mit proportionalem Pausenabzug
  * @param startISO - Startzeit als ISO-String
  * @param endISO - Endzeit als ISO-String

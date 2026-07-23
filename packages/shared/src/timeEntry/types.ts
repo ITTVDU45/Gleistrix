@@ -70,6 +70,7 @@ export interface TimeEntryWithSunday {
   start: string // ISO-String (YYYY-MM-DDTHH:mm)
   ende: string // ISO-String
   stunden: number
+  stundenManuell?: boolean // true = Arbeitsstunden manuell gesetzt (nicht aus Start/Ende berechnet)
   pause: string
   extra: number
   fahrtstunden: number
@@ -115,6 +116,8 @@ export interface BuildEntryParams {
   isHoliday: boolean
   isSunday: boolean
   initialEntryId?: string
+  /** Manuell gesetzte Arbeitsstunden – überschreibt die Berechnung aus Start/Ende/Pause */
+  manualHours?: number
 }
 
 /**

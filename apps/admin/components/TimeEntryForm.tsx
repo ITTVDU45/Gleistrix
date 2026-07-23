@@ -34,8 +34,11 @@ import {
   processBatch,
   formatBatchErrorReport,
   calculateRequiredBreakMinutes,
-  calculateBreakSegments
+  calculateBreakSegments,
+  calculateWorkHoursFromTimes,
+  parseNumber
 } from '@/lib/timeEntry'
+import { WorkHoursField, formatHours } from './WorkHoursField'
 
 interface TimeEntryFormProps {
   project: Project
@@ -139,6 +142,12 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
         sonntag: !!initialEntry.sonntag,
         bemerkung: initialEntry.bemerkung || ''
       });
+
+      setManualHours(
+        initialEntry.stundenManuell && typeof initialEntry.stunden === 'number'
+          ? formatHours(initialEntry.stunden)
+          : null
+      );
 
       const initialExternalCount =
         typeof initialEntry?.externalCount === 'number' && initialEntry.externalCount > 0
@@ -535,6 +544,31 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
   // Hilfsfunktionen fÃ¼r Zeitberechnungen sind jetzt in @/lib/timeEntry ausgelagert
   // calculateHoursForDay, calculateNightBonus, calculateSundayHours werden aus dem Modul importiert
 
+  // Arbeitsstunden: automatisch aus Start/Ende/Pause, optional manuell überschrieben
+  const [manualHours, setManualHours] = useState<string | null>(
+    initialEntry?.stundenManuell && typeof initialEntry.stunden === 'number'
+      ? formatHours(initialEntry.stunden)
+      : null
+  )
+
+  // Beim Kopieren stammen die Zeiten aus dem gewählten Eintrag (ISO-Strings)
+  const effectiveTimes = useMemo(() => {
+    if (copyMode && selectedCopyEntry) {
+      return {
+        start: String(selectedCopyEntry.start).slice(11, 16),
+        end: String(selectedCopyEntry.ende).slice(11, 16)
+      }
+    }
+    return { start: startTime, end: endTime }
+  }, [copyMode, selectedCopyEntry, startTime, endTime])
+
+  // Manuell überschreibbar: gilt nur für die normalen Arbeitsstunden,
+  // Nacht-/Sonntags-/Feiertagsstunden bleiben aus Start/Ende berechnet.
+  const autoHours = useMemo(
+    () => calculateWorkHoursFromTimes(effectiveTimes.start, effectiveTimes.end, formData.pause),
+    [effectiveTimes, formData.pause]
+  )
+
   // PlausibilitÃ¤ts-Fehler-Message
   const [plausiError, setPlausiError] = useState<string | null>(null);
 
@@ -718,6 +752,9 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
 
   // Hilfsfunktion: Sind alle Pflichtfelder ausgefÃ¼llt?
   function isFormValid() {
+    // Manueller Stundenwert muss gesetzt und groesser 0 sein
+    if (manualHours !== null && !(parseNumber(manualHours) > 0)) return false;
+
     // Pruefe auf negative Stunden (Endzeit vor Startzeit am gleichen Tag) - nur bei nicht-taguebergreifenden Eintraegen
     const hasNegativeHours = !isMultiDay && startTime && endTime && endTime <= startTime;
 
@@ -847,9 +884,10 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
       bemerkung: formData.bemerkung,
       isMultiDay,
       isSunday: formData.sonntag,
-      initialEntryId: initialEntry?.id
+      initialEntryId: initialEntry?.id,
+      manualHours: manualHours !== null ? parseNumber(manualHours) : undefined
     };
-  }, [startTime, endTime, copyMode, selectedCopyEntry, formData, isMultiDay, initialEntry?.id, activeTab, externalWorkerFunctions]);
+  }, [startTime, endTime, copyMode, selectedCopyEntry, formData, isMultiDay, initialEntry?.id, activeTab, externalWorkerFunctions, manualHours]);
 
   /**
    * Bestimmt die zu verwendenden Tage basierend auf copyMode und selectedDays
@@ -1328,6 +1366,13 @@ export function TimeEntryForm({ project, selectedDate, onAdd, onClose, employees
               </div>
             )}
           </div>
+
+          <WorkHoursField
+            autoHours={autoHours}
+            manualHours={manualHours}
+            onChange={setManualHours}
+            idPrefix="add-arbeitsstunden"
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

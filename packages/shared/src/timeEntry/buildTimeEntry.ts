@@ -33,7 +33,8 @@ export function buildTimeEntry(params: BuildEntryParams): TimeEntryWithSunday {
     isMultiDay,
     isHoliday,
     isSunday,
-    initialEntryId
+    initialEntryId,
+    manualHours
   } = params
 
   let startISO: string
@@ -53,7 +54,11 @@ export function buildTimeEntry(params: BuildEntryParams): TimeEntryWithSunday {
 
   const sonntagsstunden = calculateSundayHours(startISO, endISO)
   const pauseNum = parseNumber(pause)
-  const gesamtStunden = calculateHoursForDay(startISO, endISO) - pauseNum
+  // Manuelle Arbeitsstunden überschreiben nur die Gesamtstunden.
+  // Nacht-, Sonntags- und Feiertagsstunden bleiben aus Start/Ende berechnet.
+  const isManualHours = typeof manualHours === 'number' && Number.isFinite(manualHours)
+  const berechneteStunden = calculateHoursForDay(startISO, endISO) - pauseNum
+  const gesamtStunden = isManualHours ? Math.max(0, manualHours as number) : berechneteStunden
 
   // Feiertagsstunden berechnen
   let feiertagsStunden = 0
@@ -62,7 +67,9 @@ export function buildTimeEntry(params: BuildEntryParams): TimeEntryWithSunday {
       // Bei tagübergreifend: separate Berechnung für Start- und Endtag
       feiertagsStunden = calculateHolidayHours(startISO, endISO, isHoliday, false)
     } else {
-      feiertagsStunden = Math.round(gesamtStunden)
+      // Immer aus den berechneten Stunden: Zuschläge bleiben unabhängig
+      // von einer manuellen Korrektur der Arbeitsstunden.
+      feiertagsStunden = Math.round(berechneteStunden)
     }
   }
 
@@ -74,6 +81,7 @@ export function buildTimeEntry(params: BuildEntryParams): TimeEntryWithSunday {
     start: startISO,
     ende: endISO,
     stunden: gesamtStunden,
+    stundenManuell: isManualHours,
     pause,
     extra: parseNumber(extra),
     fahrtstunden: parseNumber(fahrtstunden),
